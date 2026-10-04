@@ -1,0 +1,58 @@
+[
+  {
+    "id": "ID-PREV-FRM01-ARMOIR-0003",
+    "code": "PREV-FRM01-ARMOIR-003",
+    "id_machine": "FRM-01",
+    "nom_machine": "Fraiseuse FRM-01",
+    "id_zone": "FM",
+    "composant": "Armoire électrique",
+    "action_code": "N",
+    "frequence": "Mensuel",
+    "planning": {
+      "S1": "N",
+      "S5": "N",
+      "S9": "N",
+      "S13": "N",
+      "S17": "N",
+      "S21": "N",
+      "S25": "N",
+      "S29": "N",
+      "S33": "N",
+      "S37": "N",
+      "S41": "N",
+      "S45": "N",
+      "S49": "N"
+    },
+    "etat": "À faire",
+    "responsable": "Rachid",
+    "duree_estimee": "20 min"
+  },
+  {
+    "id": "ID-PREV-FRM01-COURRO-0004",
+    "code": "PREV-FRM01-COURRO-004",
+    "id_machine": "FRM-01",
+    "nom_machine": "Fraiseuse FRM-01",
+    "id_zone": "FM",
+    "composant": "Courroies",
+    "action_code": "C",
+    "frequence": "Mensuel",
+    "planning": {
+      "S1": "C",
+      "S5": "C",
+      "S9": "C",
+      "S13": "C",
+      "S17": "C",
+      "S21": "C",
+      "S25": "C",
+      "S29": "C",
+      "S33": "C",
+      "S37": "C",
+      "S41": "C",
+      "S45": "C",
+      "S49": "C"
+    },
+    "etat": "À faire",
+    "responsable": "Rachid",
+    "duree_estimee": "15 min"
+  }
+]

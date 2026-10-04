@@ -1,0 +1,40 @@
+[
+  {
+    "id": 1,
+    "code_bon": "Bon-001",
+    "num_commande": "INCONNU",
+    "date": "2026-07-16",
+    "ref": "Raccord04",
+    "quantite": 1,
+    "type": "Sortie Interne",
+    "action_id": "MACHINE",
+    "technicien": "Rachid",
+    "id_zone": "ZONE-01",
+    "id_machine_registered": "",
+    "operation": "",
+    "commentaire": "DET-08",
+    "demandeur": "Rachid",
+    "fournisseur": "",
+    "emplacement_reception": "",
+    "usage_type": ""
+  },
+  {
+    "id": 2,
+    "code_bon": "Bon-002",
+    "num_commande": "INCONNU",
+    "date": "2026-07-16",
+    "ref": "Raccord03",
+    "quantite": 1,
+    "type": "Sortie Interne",
+    "action_id": "MACHINE",
+    "technicien": "Rachid",
+    "id_zone": "ZONE-01",
+    "id_machine_registered": "",
+    "operation": "",
+    "commentaire": "DET-05",
+    "demandeur": "Rachid",
+    "fournisseur": "",
+    "emplacement_reception": "",
+    "usage_type": ""
+  }
+]
