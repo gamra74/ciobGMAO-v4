@@ -70,18 +70,18 @@ export default function CatalogueDonneesView({
     });
   }, [technicians, intervenants, interventions]);
 
-  // Counts for tabs & badges
+  // Counts for tabs & badges (Truthful zero-tolerant calculations)
   const totalPannesCount = useMemo(() => {
     let count = 0;
     Object.values(panneCategories || {}).forEach((pannes) => {
       if (Array.isArray(pannes)) count += pannes.length;
     });
-    return count || 282;
+    return count;
   }, [panneCategories]);
 
-  const totalTravauxCount = (travauxAFaire || []).length || 114;
-  const totalActionsKeysCount = Object.keys(actionsByPanne || {}).length || 71;
-  const totalIntervenantsCount = resolvedIntervenants.length || 5;
+  const totalTravauxCount = (travauxAFaire || []).length;
+  const totalActionsKeysCount = Object.keys(actionsByPanne || {}).length;
+  const totalIntervenantsCount = resolvedIntervenants.length;
 
   const handleForceSync = () => {
     setIsSyncing(true);
@@ -89,7 +89,7 @@ export default function CatalogueDonneesView({
       if (typeof onForceSyncSeed === 'function') {
         const res = onForceSyncSeed();
         showToast?.(
-          `Données réelles synchronisées avec succès : ${res?.interventionsCount ?? res?.interventions?.length ?? (interventions || []).length} Interventions, ${res?.travauxCount || (travauxAFaire || []).length} Travaux, ${res?.pannesCount || Object.keys(panneCategories || {}).length} Pannes !`,
+          `Données réelles synchronisées avec succès : ${res?.interventionsCount ?? res?.interventions?.length ?? (interventions || []).length} Interventions, ${res?.travauxCount ?? (travauxAFaire || []).length} Travaux, ${res?.pannesCount ?? totalPannesCount} Pannes !`,
           'success'
         );
       } else {
