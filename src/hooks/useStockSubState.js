@@ -1,40 +1,40 @@
-import { useState } from 'react';
-import { storageService } from '../utils/storageService';
+import { useState, useEffect } from 'react';
+import { STORAGE_KEYS } from '../infrastructure/persistence/storageKeys';
+import { loadCollection } from '../infrastructure/persistence/migrateStorage';
+import { DataGateway } from '../application/DataGateway';
 import initialStockSeed from '../data/stock/seedStockItems.json';
 import initialStockTypes from '../data/stock/seedStockTypes.json';
 
 /**
- * Hook managing Stock articles, raw items, types, and diagnostic designations
- * Implements Dedicated Clean Seed Architecture (Standard Corrective Pattern)
+ * Hook managing Stock articles, raw items, types, and diagnostic designations.
+ * Enforces SSOT: canonical keys only, no length thresholds, no automatic seed writes on startup.
  */
 export function useStockSubState(groupedState = {}) {
   const [types, setTypes] = useState(() => {
-    if (groupedState.types && Array.isArray(groupedState.types) && groupedState.types.length > 0) {
+    if (Array.isArray(groupedState.types)) {
       return groupedState.types;
     }
-    const saved = storageService.getItem('gmao_types_v5');
-    if (saved && Array.isArray(saved) && saved.length > 0) return saved;
-    return initialStockTypes;
+    return loadCollection(STORAGE_KEYS.STOCK_TYPES, {
+      allowDemoFallback: true,
+      demoSeed: initialStockTypes,
+    });
   });
 
   const [rawStock, setRawStock] = useState(() => {
-    if (groupedState.rawStock && Array.isArray(groupedState.rawStock) && groupedState.rawStock.length > 0) {
+    if (Array.isArray(groupedState.rawStock)) {
       return groupedState.rawStock;
     }
-    const saved = storageService.getItem('gmao_raw_stock_v7');
-    if (saved && Array.isArray(saved) && saved.length >= 800) {
-      return saved;
-    }
-    return initialStockSeed;
+    return loadCollection(STORAGE_KEYS.RAW_STOCK, {
+      allowDemoFallback: true,
+      demoSeed: initialStockSeed,
+    });
   });
 
   const [designations, setDesignations] = useState(() => {
-    if (groupedState.designations && Array.isArray(groupedState.designations) && groupedState.designations.length > 0) {
+    if (Array.isArray(groupedState.designations)) {
       return groupedState.designations;
     }
-    const saved = storageService.getItem('gmao_designations_v3');
-    if (saved && Array.isArray(saved) && saved.length > 0) return saved;
-    return initialStockSeed.map((s) => ({
+    const demoDesignations = initialStockSeed.map((s) => ({
       id: s.id,
       ref: s.ref,
       designation: s.designation,
@@ -44,7 +44,23 @@ export function useStockSubState(groupedState = {}) {
       seuil: s.seuil,
       emplacement: s.emplacement,
     }));
+    return loadCollection(STORAGE_KEYS.DESIGNATIONS, {
+      allowDemoFallback: true,
+      demoSeed: demoDesignations,
+    });
   });
+
+  useEffect(() => {
+    DataGateway.saveStockTypes(types);
+  }, [types]);
+
+  useEffect(() => {
+    DataGateway.saveStock(rawStock);
+  }, [rawStock]);
+
+  useEffect(() => {
+    DataGateway.saveDesignations(designations);
+  }, [designations]);
 
   return {
     types,
@@ -55,4 +71,3 @@ export function useStockSubState(groupedState = {}) {
     setDesignations,
   };
 }
-

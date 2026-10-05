@@ -8,6 +8,8 @@
 import * as XLSX from 'xlsx';
 import { Logger } from '../../core/logger/LoggerService.js';
 import { storageService } from '../../utils/storageService.js';
+import { STORAGE_KEYS } from '../../infrastructure/persistence/storageKeys.js';
+import { loadCollection } from '../../infrastructure/persistence/migrateStorage.js';
 import {
   INITIAL_ACTIONS,
   INITIAL_GUIDES,
@@ -22,24 +24,20 @@ export {
 export const INITIAL_TASKS = Array.isArray(initialTasks) && initialTasks.length > 0 ? initialTasks : [];
 export const INITIAL_PLANS = [];
 
-const STORAGE_KEY_TASKS = 'gmao_preventive_tasks_v8';
-const STORAGE_KEY_ACTIONS = 'gmao_preventive_actions_v2';
-const STORAGE_KEY_GUIDES = 'gmao_preventive_guides_v2';
-const STORAGE_KEY_PLANS = 'gmao_preventive_plans_v2';
+const STORAGE_KEY_TASKS = STORAGE_KEYS.PREVENTIVE_TASKS;
+const STORAGE_KEY_ACTIONS = STORAGE_KEYS.PREVENTIVE_ACTIONS;
+const STORAGE_KEY_GUIDES = STORAGE_KEYS.PREVENTIVE_GUIDES;
+const STORAGE_KEY_PLANS = STORAGE_KEYS.PREVENTIVE_PLANS;
 
 export class PreventiveService {
   // ==========================================
   // GESTION DES ACTIONS (TAB 1)
   // ==========================================
   static getActions() {
-    try {
-      const data = storageService.getItem(STORAGE_KEY_ACTIONS);
-      if (data && Array.isArray(data) && data.length > 0) return data;
-    } catch {
-      // fallback
-    }
-    this.saveActions(INITIAL_ACTIONS);
-    return INITIAL_ACTIONS;
+    return loadCollection(STORAGE_KEY_ACTIONS, {
+      allowDemoFallback: true,
+      demoSeed: INITIAL_ACTIONS,
+    });
   }
 
   static saveActions(actions) {
@@ -93,14 +91,10 @@ export class PreventiveService {
   // GESTION DU GUIDE COMPOSANT-ACTION (TAB 2)
   // ==========================================
   static getGuides() {
-    try {
-      const data = storageService.getItem(STORAGE_KEY_GUIDES);
-      if (data && Array.isArray(data) && data.length > 0) return data;
-    } catch {
-      // fallback
-    }
-    this.saveGuides(INITIAL_GUIDES);
-    return INITIAL_GUIDES;
+    return loadCollection(STORAGE_KEY_GUIDES, {
+      allowDemoFallback: true,
+      demoSeed: INITIAL_GUIDES,
+    });
   }
 
   static saveGuides(guides) {
@@ -154,14 +148,10 @@ export class PreventiveService {
   // GESTION DES PLANS PREVENTIFS (TAB 3)
   // ==========================================
   static getPlans() {
-    try {
-      const data = storageService.getItem(STORAGE_KEY_PLANS);
-      if (data && Array.isArray(data) && data.length > 0) return data;
-    } catch {
-      // fallback
-    }
-    this.savePlans(INITIAL_PLANS);
-    return INITIAL_PLANS;
+    return loadCollection(STORAGE_KEY_PLANS, {
+      allowDemoFallback: true,
+      demoSeed: INITIAL_PLANS,
+    });
   }
 
   static savePlans(plans) {
@@ -289,24 +279,10 @@ export class PreventiveService {
   // GESTION DES TACHES & EXECUTION (TAB 4)
   // ==========================================
   static getTasks() {
-    try {
-      const keys = [
-        STORAGE_KEY_TASKS,
-        'gmao_preventive_tasks_v9',
-        'gmao_preventive_tasks_v7',
-        'gmao_preventive_tasks_v6',
-        'gmao_preventive_tasks_v2',
-        'gmao_preventive_tasks',
-      ];
-      for (const k of keys) {
-        const data = storageService.getItem(k);
-        if (data && Array.isArray(data) && data.length >= 10) return data;
-      }
-    } catch {
-      // fallback
-    }
-    this.saveTasks(INITIAL_TASKS);
-    return INITIAL_TASKS;
+    return loadCollection(STORAGE_KEY_TASKS, {
+      allowDemoFallback: true,
+      demoSeed: INITIAL_TASKS,
+    });
   }
 
   // Rétrocompatibilité
@@ -317,7 +293,6 @@ export class PreventiveService {
   static saveTasks(tasks) {
     try {
       storageService.setItem(STORAGE_KEY_TASKS, tasks);
-      storageService.setItem('gmao_preventive_tasks_v9', tasks);
     } catch {
       // storage error handling
     }
@@ -797,7 +772,7 @@ export class PreventiveService {
 
   static markTaskAsDone(id, validationData = {}) {
     const rawCurrent = this.getTasks();
-    const current = Array.isArray(rawCurrent) && rawCurrent.length > 0 ? rawCurrent : INITIAL_TASKS;
+    const current = Array.isArray(rawCurrent) ? rawCurrent : [];
     const task = current.find(t => t.id === id);
     const execDateStr = validationData.date_realisation || new Date().toISOString().split('T')[0];
     const execDate = new Date(execDateStr);
@@ -907,7 +882,7 @@ export class PreventiveService {
   static recordStockSortie(task, piecesConsommees = [], validationData = {}) {
     if (!Array.isArray(piecesConsommees) || piecesConsommees.length === 0) return;
     try {
-      const STORAGE_KEY_MVT = 'gmao_mouvements';
+      const STORAGE_KEY_MVT = STORAGE_KEYS.MOUVEMENTS;
       const movements = storageService.getItem(STORAGE_KEY_MVT, []);
 
       const newMouvements = piecesConsommees.map((pdr, idx) => ({
@@ -947,36 +922,11 @@ export class PreventiveService {
   static recordMachineIntervention(task, executionRecord) {
     if (!task || !task.id_machine) return;
     try {
-      const STORAGE_KEY_INTERVENTIONS = 'gmao_interventions_history';
-      const interventions = storageService.getItem(STORAGE_KEY_INTERVENTIONS, []);
-
-      const newIntervention = {
-        id: executionRecord.id_execution || `INTERV-PRV-${Date.now()}`,
-        id_machine: task.id_machine,
-        nom_machine: task.nom_machine || `Machine ${task.id_machine}`,
-        id_zone: task.id_zone,
-        type: 'PREVENTIVE',
-        action_code: task.action_code,
-        composant: task.composant,
-        frequence: task.frequence,
-        date: executionRecord.date,
-        technicien: executionRecord.technicien,
-        duree_min: executionRecord.duree_reelle_min,
-        cout_total: executionRecord.cout_total,
-        pieces: executionRecord.pieces_consommees || [],
-        observations: executionRecord.observations,
-        statut: 'CLOTURE',
-        created_at: executionRecord.created_at || new Date().toISOString(),
-      };
-
-      const updated = [newIntervention, ...interventions];
-      storageService.setItem(STORAGE_KEY_INTERVENTIONS, updated);
-
       if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('gmao_machines_updated', { detail: { id_machine: task.id_machine } }));
+        window.dispatchEvent(new CustomEvent('gmao_machines_updated', { detail: { id_machine: task.id_machine, executionRecord } }));
       }
     } catch (err) {
-      Logger.warn('Could not record machine intervention history:', err);
+      Logger.warn('Could not dispatch machine intervention update:', err);
     }
   }
 
@@ -992,10 +942,10 @@ export class PreventiveService {
         plans: this.getPlans(),
         guides: this.getGuides(),
         actions: this.getActions(),
-        machines: storageService.getItem('gmao_machines_registered_v6', []),
-        stock: storageService.getItem('gmao_raw_stock_v6', []),
-        movements: storageService.getItem('gmao_mouvements', []),
-        interventions: storageService.getItem('gmao_interventions_history', []),
+        machines: storageService.getItem(STORAGE_KEYS.MACHINES, []),
+        stock: storageService.getItem(STORAGE_KEYS.RAW_STOCK, []),
+        movements: storageService.getItem(STORAGE_KEYS.MOUVEMENTS, []),
+        interventions: storageService.getItem(STORAGE_KEYS.CORRECTIVE_INTERVENTIONS, []),
       };
       return JSON.stringify(vault, null, 2);
     } catch (err) {
@@ -1016,10 +966,10 @@ export class PreventiveService {
       if (Array.isArray(data.plans)) this.savePlans(data.plans);
       if (Array.isArray(data.guides)) this.saveGuides(data.guides);
       if (Array.isArray(data.actions)) this.saveActions(data.actions);
-      if (Array.isArray(data.machines)) storageService.setItem('gmao_machines_registered_v6', data.machines);
-      if (Array.isArray(data.stock)) storageService.setItem('gmao_raw_stock_v6', data.stock);
-      if (Array.isArray(data.movements)) storageService.setItem('gmao_mouvements', data.movements);
-      if (Array.isArray(data.interventions)) storageService.setItem('gmao_interventions_history', data.interventions);
+      if (Array.isArray(data.machines)) storageService.setItem(STORAGE_KEYS.MACHINES, data.machines);
+      if (Array.isArray(data.stock)) storageService.setItem(STORAGE_KEYS.RAW_STOCK, data.stock);
+      if (Array.isArray(data.movements)) storageService.setItem(STORAGE_KEYS.MOUVEMENTS, data.movements);
+      if (Array.isArray(data.interventions)) storageService.setItem(STORAGE_KEYS.CORRECTIVE_INTERVENTIONS, data.interventions);
 
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('preventive_tasks_updated'));

@@ -1,50 +1,50 @@
 import { Logger } from '../logger/LoggerService.js';
 import { indexedDBService } from '../../utils/indexedDBService.js';
 import { storageService } from '../../utils/storageService.js';
+import { STORAGE_KEYS } from '../../infrastructure/persistence/storageKeys.js';
 
 export const BACKUP_STORAGE_KEY = 'gmao_snapshots_history';
 export const MAX_SNAPSHOTS = 12;
 
 export const MASTER_REFERENTIAL_KEYS = [
-  'gmao_machines',
-  'gmao_machines_registered_v6',
-  'gmao_zones',
-  'gmao_families',
-  'gmao_templates',
-  'gmao_blueprints_v1',
-  'gmao_types',
-  'gmao_diagnostics',
-  'gmao_technicians',
-  'gmao_users',
-  'gmao_operations',
-  'gmao_comp_groups_v1',
-  'gmao_comp_families_v1',
-  'gmao_comp_templates_v1',
-  'gmao_part_types',
-  'gmao_part_types_v1',
-  'gmao_part_designations',
-  'gmao_part_designations_v1',
-  'gmao_preventive_actions_v2',
-  'gmao_preventive_guides_v2',
-  'gmao_preventive_plans_v2',
-  'gmao_spare_parts',
-  'gmao_raw_stock_v6',
-  'gmao_warehouse_items',
-  'gmao_warehouse_items_v1',
+  STORAGE_KEYS.MACHINES,
+  STORAGE_KEYS.ZONES,
+  STORAGE_KEYS.FAMILIES,
+  STORAGE_KEYS.TEMPLATES,
+  STORAGE_KEYS.BLUEPRINTS,
+  STORAGE_KEYS.MACHINE_BOM,
+  STORAGE_KEYS.STOCK_TYPES,
+  STORAGE_KEYS.DESIGNATIONS,
+  STORAGE_KEYS.PERSONNEL,
+  STORAGE_KEYS.TECHNICIANS,
+  STORAGE_KEYS.OPERATIONS,
+  STORAGE_KEYS.COMP_GROUPS,
+  STORAGE_KEYS.COMP_FAMILIES,
+  STORAGE_KEYS.COMP_TEMPLATES,
+  STORAGE_KEYS.PART_TYPES,
+  STORAGE_KEYS.PART_DESIGNATIONS,
+  STORAGE_KEYS.PREVENTIVE_ACTIONS,
+  STORAGE_KEYS.PREVENTIVE_GUIDES,
+  STORAGE_KEYS.PREVENTIVE_PLANS,
+  STORAGE_KEYS.RAW_STOCK,
+  STORAGE_KEYS.WAREHOUSE_ITEMS,
+  STORAGE_KEYS.ENTREPOT_COMPONENTS,
 ];
 
 export const OPERATIONS_HISTORY_KEYS = [
-  'gmao_interventions_history',
-  'gmao_mouvements',
-  'gmao_movements',
-  'gmao_preventive_tasks_v8',
-  'gmao_preventive_tasks_v7',
-  'gmao_sortie_externe_bobinage_v1',
+  STORAGE_KEYS.CORRECTIVE_INTERVENTIONS,
+  STORAGE_KEYS.CORRECTIVE_ACTIONS_BY_PANNE,
+  STORAGE_KEYS.CORRECTIVE_PANNE_CATEGORIES,
+  STORAGE_KEYS.CORRECTIVE_TRAVAUX,
+  STORAGE_KEYS.CORRECTIVE_INTERVENANTS,
+  STORAGE_KEYS.MOUVEMENTS,
+  STORAGE_KEYS.PREVENTIVE_TASKS,
+  STORAGE_KEYS.SORTIE_EXTERNE,
   'gmao_access_logs',
 ];
 
 const CRITICAL_KEYS = Array.from(new Set([
-  'gmao_full_state_v1',
+  STORAGE_KEYS.FULL_STATE_SNAPSHOT,
   ...MASTER_REFERENTIAL_KEYS,
   ...OPERATIONS_HISTORY_KEYS,
 ]));

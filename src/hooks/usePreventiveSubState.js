@@ -1,95 +1,98 @@
 import { useState, useCallback, useEffect } from 'react';
-import { storageService } from '../utils/storageService';
+import { STORAGE_KEYS } from '../infrastructure/persistence/storageKeys';
+import { loadCollection } from '../infrastructure/persistence/migrateStorage';
+import { DataGateway } from '../application/DataGateway';
 import initialTasks from '../data/preventive/seedPreventiveTasks.json';
 import initialActions from '../data/preventive/seedPreventiveActions.json';
 import initialGuides from '../data/preventive/seedPreventiveGuides.json';
 import PreventiveService from '../application/services/PreventiveService';
 import { dataIntegrityService } from '../services/dataIntegrityService';
 
-const STORAGE_KEY_TASKS = 'gmao_preventive_tasks_v9';
-const STORAGE_KEY_ACTIONS = 'gmao_preventive_actions_v3';
-const STORAGE_KEY_GUIDES = 'gmao_preventive_guides_v3';
-const STORAGE_KEY_PLANS = 'gmao_preventive_plans_v3';
-const STORAGE_KEY_PREVENTIVE_INIT = 'gmao_preventive_initialized_v1';
-
 /**
  * Hook for managing Preventive Maintenance state (Primary Matrix + Secondary Plans/Guides/Actions).
- * Implements Dedicated Clean Seed Architecture (Standard Corrective Pattern)
+ * Enforces SSOT:
+ * - Reads ONLY canonical keys (STORAGE_KEYS.PREVENTIVE_TASKS, etc.)
+ * - Zero automatic seed writes on startup
+ * - Respects user arrays of any length (including [] or length === 3)
  */
 export function usePreventiveSubState(groupedState = {}) {
   // 1. Actions State (C, N, G, V, R, S, L...)
   const [actions, setActions] = useState(() => {
-    if (groupedState.actions && Array.isArray(groupedState.actions) && groupedState.actions.length > 0) {
+    if (Array.isArray(groupedState.actions)) {
       return groupedState.actions;
     }
-    const saved = storageService.getItem(STORAGE_KEY_ACTIONS);
-    if (Array.isArray(saved) && saved.length > 0) return saved;
-    return initialActions;
+    return loadCollection(STORAGE_KEYS.PREVENTIVE_ACTIONS, {
+      allowDemoFallback: true,
+      demoSeed: initialActions,
+    });
   });
 
   // 2. Guides State (Technical instruction sheets)
   const [guides, setGuides] = useState(() => {
-    if (groupedState.guides && Array.isArray(groupedState.guides) && groupedState.guides.length > 0) {
+    if (Array.isArray(groupedState.guides)) {
       return groupedState.guides;
     }
-    const saved = storageService.getItem(STORAGE_KEY_GUIDES);
-    if (Array.isArray(saved) && saved.length > 0) return saved;
-    return initialGuides;
+    return loadCollection(STORAGE_KEYS.PREVENTIVE_GUIDES, {
+      allowDemoFallback: true,
+      demoSeed: initialGuides,
+    });
   });
 
   // 3. Plans State (Engineered maintenance plans)
   const [plans, setPlans] = useState(() => {
-    if (groupedState.plans && Array.isArray(groupedState.plans)) return groupedState.plans;
-    const saved = storageService.getItem(STORAGE_KEY_PLANS);
-    if (Array.isArray(saved)) return saved;
-    return [];
+    if (Array.isArray(groupedState.plans)) return groupedState.plans;
+    return loadCollection(STORAGE_KEYS.PREVENTIVE_PLANS, {
+      allowDemoFallback: true,
+      demoSeed: [],
+    });
   });
 
-  // 4. Preventive Execution Tasks State (Primary S1-S52 matrix: 1,175 baseline tasks)
+  // 4. Preventive Execution Tasks State
   const [tasks, setTasks] = useState(() => {
     const groupedTasks = groupedState.preventiveTasks || groupedState.tasks;
-    if (Array.isArray(groupedTasks) && groupedTasks.length >= 10) {
+    if (Array.isArray(groupedTasks)) {
       return groupedTasks;
     }
-    const keys = [
-      STORAGE_KEY_TASKS,
-      'gmao_preventive_tasks_v8',
-      'gmao_preventive_tasks_v7',
-      'gmao_preventive_tasks_v6',
-      'gmao_preventive_tasks_v2',
-      'gmao_preventive_tasks',
-    ];
-    for (const k of keys) {
-      const saved = storageService.getItem(k);
-      if (Array.isArray(saved) && saved.length >= 10) {
-        return saved;
-      }
-    }
-    storageService.setItem(STORAGE_KEY_TASKS, initialTasks);
-    storageService.setItem('gmao_preventive_tasks_v8', initialTasks);
-    storageService.setItem(STORAGE_KEY_PREVENTIVE_INIT, 'true');
-    return initialTasks;
+    return loadCollection(STORAGE_KEYS.PREVENTIVE_TASKS, {
+      allowDemoFallback: true,
+      demoSeed: initialTasks,
+    });
   });
 
   // Auto-persist tasks whenever setTasks is called (including Purge / Relink in Settings)
   useEffect(() => {
     try {
-      storageService.setItem(STORAGE_KEY_TASKS, tasks);
-      storageService.setItem(STORAGE_KEY_PREVENTIVE_INIT, 'true');
+      DataGateway.savePreventiveTasks(tasks);
     } catch {}
   }, [tasks]);
+
+  useEffect(() => {
+    try {
+      DataGateway.savePreventiveActions(actions);
+    } catch {}
+  }, [actions]);
+
+  useEffect(() => {
+    try {
+      DataGateway.savePreventiveGuides(guides);
+    } catch {}
+  }, [guides]);
+
+  useEffect(() => {
+    try {
+      DataGateway.savePreventivePlans(plans);
+    } catch {}
+  }, [plans]);
 
   // Synchronize with external events (Excel import, vault restore, service updates)
   useEffect(() => {
     const handleTasksUpdated = (e) => {
-      if (e.detail && Array.isArray(e.detail) && e.detail.length >= 10) {
+      if (e.detail && Array.isArray(e.detail)) {
         setTasks(e.detail);
       } else {
         const current = PreventiveService.getTasks();
-        if (Array.isArray(current) && current.length >= 10) {
+        if (Array.isArray(current)) {
           setTasks(current);
-        } else {
-          setTasks(initialTasks);
         }
       }
     };
@@ -105,7 +108,7 @@ export function usePreventiveSubState(groupedState = {}) {
   const handleUpdateTask = useCallback((id, updates) => {
     setTasks((prev) => {
       const next = prev.map((t) => (t.id === id ? { ...t, ...updates, updated_at: new Date().toISOString() } : t));
-      PreventiveService.saveTasks(next);
+      DataGateway.savePreventiveTasks(next);
       return next;
     });
   }, []);
@@ -113,7 +116,7 @@ export function usePreventiveSubState(groupedState = {}) {
   const handleDeleteTask = useCallback((id) => {
     setTasks((prev) => {
       const next = prev.filter((t) => t.id !== id);
-      PreventiveService.saveTasks(next);
+      DataGateway.savePreventiveTasks(next);
       return next;
     });
   }, []);
@@ -121,7 +124,7 @@ export function usePreventiveSubState(groupedState = {}) {
   const handleUpdateTaskCounter = useCallback((id, newCounterValue) => {
     setTasks((prev) => {
       const next = prev.map((t) => (t.id === id ? { ...t, dernier_releve: Number(newCounterValue || 0), updated_at: new Date().toISOString() } : t));
-      PreventiveService.saveTasks(next);
+      DataGateway.savePreventiveTasks(next);
       return next;
     });
   }, []);
@@ -178,7 +181,7 @@ export function usePreventiveSubState(groupedState = {}) {
     return updated;
   }, []);
 
-  // Clear / Reset to baseline explicitly (User-initiated only, no automatic overwrite!)
+  // Clear / Reset to baseline explicitly (User-initiated only)
   const handleResetPreventiveToBaseline = useCallback(async (ctx = {}) => {
     const { machines = [], skipConfirm = false } = ctx;
     const impact = dataIntegrityService.previewClearImpact({
@@ -189,7 +192,7 @@ export function usePreventiveSubState(groupedState = {}) {
     });
 
     const msg =
-      `Réinitialiser le préventif au baseline seed ?\n` +
+      `Réinitialiser le préventif au baseline seed (${initialTasks.length} tâches) ?\n` +
       `• Tâches actuelles: ${impact.preventiveCount}\n` +
       `• Machines enregistrées: ${impact.machineCount}\n` +
       (impact.warnings?.length ? `\n${impact.warnings.join('\n')}` : '') +
@@ -203,18 +206,15 @@ export function usePreventiveSubState(groupedState = {}) {
     setActions(initialActions);
     setGuides(initialGuides);
     setPlans([]);
-    PreventiveService.saveTasks(initialTasks);
-    PreventiveService.saveActions(initialActions);
-    PreventiveService.saveGuides(initialGuides);
-    PreventiveService.savePlans([]);
-    storageService.setItem(STORAGE_KEY_TASKS, initialTasks);
-    storageService.setItem(STORAGE_KEY_PREVENTIVE_INIT, 'true');
+    DataGateway.savePreventiveTasks(initialTasks, { machines });
+    DataGateway.savePreventiveActions(initialActions);
+    DataGateway.savePreventiveGuides(initialGuides);
+    DataGateway.savePreventivePlans([]);
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('preventive_tasks_updated', { detail: initialTasks }));
     }
 
-    // After baseline: report orphans vs CURRENT machines
     const orphans = dataIntegrityService
       .annotatePreventiveOrphans(initialTasks, machines)
       .filter((t) => t._isOrphan);
@@ -248,10 +248,13 @@ export function usePreventiveSubState(groupedState = {}) {
 
     setTasks([]);
     setPlans([]);
-    PreventiveService.saveTasks([]);
-    PreventiveService.savePlans([]);
-    storageService.setItem(STORAGE_KEY_TASKS, []);
-    storageService.setItem(STORAGE_KEY_PREVENTIVE_INIT, 'true');
+    DataGateway.savePreventiveTasks([]);
+    DataGateway.savePreventivePlans([]);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('preventive_tasks_updated', { detail: [] }));
+    }
+
     return { cancelled: false, clearedCount: impact.preventiveCount };
   }, [tasks]);
 
@@ -279,4 +282,3 @@ export function usePreventiveSubState(groupedState = {}) {
     handleClearPreventiveForRealFactory,
   };
 }
-

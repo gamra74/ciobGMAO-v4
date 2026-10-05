@@ -5,11 +5,12 @@ import { MachineApplicationService } from '../application/services/MachineApplic
 import { TaskApplicationService } from '../application/services/TaskApplicationService.js';
 
 /**
- * Hook to manage two-way initial synchronization between React state and Enterprise IndexedDB repositories
+ * Hook to manage one-way persistence synchronization from React state to Enterprise IndexedDB repositories.
+ * Note: Never overwrites an empty React state (which may have been intentionally cleared for Real Factory)
+ * with stale IndexedDB records.
  */
-export function useEnterpriseDbSync(state, setters) {
+export function useEnterpriseDbSync(state) {
   const { rawStock, machines, mouvements } = state;
-  const { setRawStock, setMachines, setMouvements } = setters;
   const syncInProgressRef = useRef(false);
 
   useEffect(() => {
@@ -32,18 +33,16 @@ export function useEnterpriseDbSync(state, setters) {
 
         if (!isMounted) return;
 
-        // Parts Sync
+        // Parts Sync (State -> IDB only)
         if (idbParts.length === 0 && rawStock.length > 0) {
           const partsToCreate = rawStock.map(p => ({
             ...p,
             id: p.id || p.ref || `part_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`
           }));
           await Promise.all(partsToCreate.map((p) => sparePartService.createSparePart(p)));
-        } else if (idbParts.length > 0 && rawStock.length === 0) {
-          setRawStock(idbParts);
         }
 
-        // Machines Sync
+        // Machines Sync (State -> IDB only)
         if (idbMachines.length === 0 && machines.length > 0) {
           const machinesToCreate = machines.map(m => ({
             ...m,
@@ -51,19 +50,15 @@ export function useEnterpriseDbSync(state, setters) {
             id_machine_registered: m.id_machine_registered || m.id
           }));
           await Promise.all(machinesToCreate.map((m) => machineService.createMachine(m)));
-        } else if (idbMachines.length > 0 && machines.length === 0) {
-          setMachines(idbMachines);
         }
 
-        // Tasks Sync
+        // Tasks Sync (State -> IDB only)
         if (idbTasks.length === 0 && mouvements.length > 0) {
           const tasksToCreate = mouvements.map(t => ({
             ...t,
             id: t.id || t.code_bon || `task_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`
           }));
           await Promise.all(tasksToCreate.map((t) => taskService.createTask(t)));
-        } else if (idbTasks.length > 0 && mouvements.length === 0) {
-          setMouvements(idbTasks);
         }
       } catch (_err) {
         Logger.error('Enterprise DB Sync Error:', _err, 'useEnterpriseDbSync');
@@ -72,7 +67,6 @@ export function useEnterpriseDbSync(state, setters) {
       }
     }
 
-    // Only sync if we have something to sync or if storage is empty
     const shouldSync = (rawStock.length > 0 || machines.length > 0 || mouvements.length > 0);
     if (shouldSync) {
       syncEnterpriseDb();
@@ -81,5 +75,5 @@ export function useEnterpriseDbSync(state, setters) {
     return () => {
       isMounted = false;
     };
-  }, [machines.length, mouvements.length, rawStock.length]); // Only react to length changes to avoid loops
+  }, [machines.length, mouvements.length, rawStock.length]);
 }

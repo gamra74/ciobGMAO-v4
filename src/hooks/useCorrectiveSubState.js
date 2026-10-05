@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { storageService } from '../utils/storageService';
+import { STORAGE_KEYS } from '../infrastructure/persistence/storageKeys';
+import { loadCollection } from '../infrastructure/persistence/migrateStorage';
+import { DataGateway } from '../application/DataGateway';
 import { loadBaselineCorrectiveData } from '../utils/baselineCorrective';
 import initialInterventions from '../data/corrective/seedCorrectiveInterventions.json';
 import initialActionsByPanne from '../data/corrective/seedActionsByPanne.json';
@@ -11,153 +14,77 @@ import { CorrectiveCalculationService } from '../domain/corrective/services/Corr
 import { movementRepository } from '../application/MovementRepository';
 import { dataIntegrityService } from '../services/dataIntegrityService';
 
-const STORAGE_KEY = 'gmao_corrective_interventions';
-const ACTIVE_LIVE_KEY = 'gmao_corrective_active_live';
-const STORAGE_KEY_ACTIONS_BY_PANNE = 'gmao_corrective_actions_by_panne_v4';
-const STORAGE_KEY_PANNE_CATEGORIES = 'gmao_corrective_panne_categories_v4';
-const STORAGE_KEY_TRAVAUX = 'gmao_corrective_travaux_v4';
-const STORAGE_KEY_INTERVENANTS = 'gmao_corrective_intervenants_v4';
-const STORAGE_KEY_CORRECTIVE_INIT = 'gmao_corrective_initialized_v800';
-
-// Helper to resolve initial interventions
-function resolveInitialInterventions(saved, baseline) {
-  if (!Array.isArray(saved) || saved.length === 0) {
-    return baseline;
-  }
-  // If saved already has the full 800+ dataset with genuine factory records
-  if (saved.length >= baseline.length && saved.some((item) => item?.id?.startsWith('CORR-0'))) {
-    return saved;
-  }
-
-  // If saved is the obsolete mock dataset of ~23 items (typically IDs like CORR-2026-xxx)
-  const isOldMockDataset =
-    saved.length < baseline.length &&
-    saved.every((item) => !item?.id || item.id.startsWith('CORR-2026-') || !item.id.startsWith('CORR-0'));
-  if (isOldMockDataset) {
-    return baseline;
-  }
-
-  // Otherwise, merge baseline with any non-mock custom user items
-  const baselineMap = new Map();
-  baseline.forEach((item) => {
-    if (item?.id) baselineMap.set(item.id, item);
-  });
-
-  saved.forEach((item) => {
-    if (item?.id && !item.id.startsWith('CORR-2026-')) {
-      if (baselineMap.has(item.id)) {
-        baselineMap.set(item.id, { ...baselineMap.get(item.id), ...item });
-      } else {
-        baselineMap.set(item.id, item);
-      }
-    }
-  });
-
-  return Array.from(baselineMap.values());
-}
+const ACTIVE_LIVE_KEY = STORAGE_KEYS.CORRECTIVE_ACTIVE_LIVE;
 
 export function useCorrectiveSubState(groupedState = {}) {
-  // 1. Interventions State (persisted in storage, guaranteed 800 records baseline)
+  // 1. Interventions State (Canonical key only, zero auto-seed overwrite, truthful count)
   const [interventions, setInterventions] = useState(() => {
-    try {
-      const stored = storageService.getItem(STORAGE_KEY);
-      const isInit = storageService.getItem(STORAGE_KEY_CORRECTIVE_INIT);
-      if (Array.isArray(stored) && (isInit || stored.length > 0)) {
-        return stored;
-      }
-
-      const existingData =
-        stored ||
-        (Array.isArray(groupedState.correctiveInterventions) && groupedState.correctiveInterventions.length > 0
-          ? groupedState.correctiveInterventions
-          : null) ||
-        storageService.getItem('gmao_corrective_interventions_v3') ||
-        storageService.getItem('gmao_corrective_interventions_v800') ||
-        [];
-
-      const resolved = resolveInitialInterventions(existingData, initialInterventions);
-      storageService.setItem(STORAGE_KEY, resolved);
-      storageService.setItem(STORAGE_KEY_CORRECTIVE_INIT, 'true');
-      return resolved;
-    } catch {
-      return initialInterventions;
+    if (Array.isArray(groupedState.correctiveInterventions)) {
+      return groupedState.correctiveInterventions;
     }
+    return loadCollection(STORAGE_KEYS.CORRECTIVE_INTERVENTIONS, {
+      allowDemoFallback: true,
+      demoSeed: initialInterventions,
+    });
   });
 
   // Auto-persist interventions whenever setInterventions is called (including Purge / Relink)
   useEffect(() => {
     try {
-      storageService.setItem(STORAGE_KEY, interventions);
-      storageService.setItem(STORAGE_KEY_CORRECTIVE_INIT, 'true');
+      DataGateway.saveCorrectiveInterventions(interventions);
     } catch {}
   }, [interventions]);
 
   // 2. Actions par Panne Dictionary
   const [actionsByPanne, setActionsByPanne] = useState(() => {
-    try {
-      const saved =
-        groupedState.correctiveActionsByPanne ||
-        storageService.getItem(STORAGE_KEY_ACTIONS_BY_PANNE) ||
-        storageService.getItem('gmao_corrective_actions_by_panne_v2');
-      if (saved && typeof saved === 'object' && Object.keys(saved).length > 0) {
-        return saved;
-      }
-      storageService.setItem(STORAGE_KEY_ACTIONS_BY_PANNE, initialActionsByPanne);
-      return initialActionsByPanne;
-    } catch {
-      return initialActionsByPanne;
+    if (
+      groupedState.correctiveActionsByPanne &&
+      typeof groupedState.correctiveActionsByPanne === 'object'
+    ) {
+      return groupedState.correctiveActionsByPanne;
     }
+    return loadCollection(STORAGE_KEYS.CORRECTIVE_ACTIONS_BY_PANNE, {
+      allowDemoFallback: true,
+      demoSeed: initialActionsByPanne,
+      emptyDefault: {},
+    });
   });
 
   // 3. Panne Categories Dictionary
   const [panneCategories, setPanneCategories] = useState(() => {
-    try {
-      const saved =
-        groupedState.correctivePanneCategories ||
-        storageService.getItem(STORAGE_KEY_PANNE_CATEGORIES) ||
-        storageService.getItem('gmao_corrective_panne_categories_v1');
-      if (saved && typeof saved === 'object' && Object.keys(saved).length > 0) {
-        return saved;
-      }
-      storageService.setItem(STORAGE_KEY_PANNE_CATEGORIES, initialPanneCategories);
-      return initialPanneCategories;
-    } catch {
-      return initialPanneCategories;
+    if (
+      groupedState.correctivePanneCategories &&
+      typeof groupedState.correctivePanneCategories === 'object'
+    ) {
+      return groupedState.correctivePanneCategories;
     }
+    return loadCollection(STORAGE_KEYS.CORRECTIVE_PANNE_CATEGORIES, {
+      allowDemoFallback: true,
+      demoSeed: initialPanneCategories,
+      emptyDefault: {},
+    });
   });
 
   // 4. Travail à Faire Standard Descriptions
   const [travauxAFaire, setTravauxAFaire] = useState(() => {
-    try {
-      const saved =
-        groupedState.correctiveTravauxAFaire ||
-        storageService.getItem(STORAGE_KEY_TRAVAUX) ||
-        storageService.getItem('gmao_corrective_travaux_v1');
-      if (Array.isArray(saved) && saved.length > 0) {
-        return saved;
-      }
-      storageService.setItem(STORAGE_KEY_TRAVAUX, initialTravauxAFaire);
-      return initialTravauxAFaire;
-    } catch {
-      return initialTravauxAFaire;
+    if (Array.isArray(groupedState.correctiveTravauxAFaire)) {
+      return groupedState.correctiveTravauxAFaire;
     }
+    return loadCollection(STORAGE_KEYS.CORRECTIVE_TRAVAUX, {
+      allowDemoFallback: true,
+      demoSeed: initialTravauxAFaire,
+    });
   });
 
   // 5. Intervenants Correctifs
   const [intervenants, setIntervenants] = useState(() => {
-    try {
-      const saved =
-        groupedState.correctiveIntervenants ||
-        storageService.getItem(STORAGE_KEY_INTERVENANTS) ||
-        storageService.getItem('gmao_corrective_intervenants_v1');
-      if (Array.isArray(saved) && saved.length > 0) {
-        return saved;
-      }
-      storageService.setItem(STORAGE_KEY_INTERVENANTS, initialIntervenants);
-      return initialIntervenants;
-    } catch {
-      return initialIntervenants;
+    if (Array.isArray(groupedState.correctiveIntervenants)) {
+      return groupedState.correctiveIntervenants;
     }
+    return loadCollection(STORAGE_KEYS.CORRECTIVE_INTERVENANTS, {
+      allowDemoFallback: true,
+      demoSeed: initialIntervenants,
+    });
   });
 
   const [activeLiveId, setActiveLiveId] = useState(() => {
@@ -168,57 +95,10 @@ export function useCorrectiveSubState(groupedState = {}) {
     }
   });
 
-  // Initial Bootstrap: Only seed once on initial install without overwriting subsequent user edits
-  useEffect(() => {
-    const isAlreadyInitialized = storageService.getItem(STORAGE_KEY_CORRECTIVE_INIT);
-    const existingInStorage = storageService.getItem(STORAGE_KEY);
-
-    if (
-      !isAlreadyInitialized ||
-      !existingInStorage ||
-      !Array.isArray(existingInStorage) ||
-      existingInStorage.length < initialInterventions.length ||
-      !existingInStorage.some((i) => i?.id?.startsWith('CORR-0'))
-    ) {
-      setInterventions((prev) => {
-        const resolved = resolveInitialInterventions(existingInStorage || prev, initialInterventions);
-        storageService.setItem(STORAGE_KEY, resolved);
-        storageService.setItem(STORAGE_KEY_CORRECTIVE_INIT, 'true');
-        return resolved;
-      });
-    }
-
-    // Only load baseline dictionaries if completely missing from storage
-    const hasPanneCats = storageService.getItem(STORAGE_KEY_PANNE_CATEGORIES);
-    const hasActions = storageService.getItem(STORAGE_KEY_ACTIONS_BY_PANNE);
-    const hasTravaux = storageService.getItem(STORAGE_KEY_TRAVAUX);
-
-    if (!hasPanneCats || !hasActions || !hasTravaux) {
-      loadBaselineCorrectiveData().then((baseline) => {
-        if (!baseline) return;
-
-        if (!hasActions && baseline.actionsByPanne && Object.keys(baseline.actionsByPanne).length > 0) {
-          setActionsByPanne(baseline.actionsByPanne);
-          storageService.setItem(STORAGE_KEY_ACTIONS_BY_PANNE, baseline.actionsByPanne);
-        }
-
-        if (!hasPanneCats && baseline.panneCategories && Object.keys(baseline.panneCategories).length > 0) {
-          setPanneCategories(baseline.panneCategories);
-          storageService.setItem(STORAGE_KEY_PANNE_CATEGORIES, baseline.panneCategories);
-        }
-
-        if (!hasTravaux && baseline.travauxAFaire && baseline.travauxAFaire.length > 0) {
-          setTravauxAFaire(baseline.travauxAFaire);
-          storageService.setItem(STORAGE_KEY_TRAVAUX, baseline.travauxAFaire);
-        }
-      });
-    }
-  }, []);
-
   // Auto-persist dictionary state changes
   useEffect(() => {
     try {
-      storageService.setItem(STORAGE_KEY_ACTIONS_BY_PANNE, actionsByPanne);
+      DataGateway.saveCorrectiveActionsByPanne(actionsByPanne);
     } catch (e) {
       console.error('Failed to save corrective actionsByPanne:', e);
     }
@@ -226,7 +106,7 @@ export function useCorrectiveSubState(groupedState = {}) {
 
   useEffect(() => {
     try {
-      storageService.setItem(STORAGE_KEY_PANNE_CATEGORIES, panneCategories);
+      DataGateway.saveCorrectivePanneCategories(panneCategories);
     } catch (e) {
       console.error('Failed to save corrective panneCategories:', e);
     }
@@ -234,7 +114,7 @@ export function useCorrectiveSubState(groupedState = {}) {
 
   useEffect(() => {
     try {
-      storageService.setItem(STORAGE_KEY_TRAVAUX, travauxAFaire);
+      DataGateway.saveCorrectiveTravaux(travauxAFaire);
     } catch (e) {
       console.error('Failed to save corrective travauxAFaire:', e);
     }
@@ -242,11 +122,21 @@ export function useCorrectiveSubState(groupedState = {}) {
 
   useEffect(() => {
     try {
-      storageService.setItem(STORAGE_KEY_INTERVENANTS, intervenants);
+      DataGateway.saveCorrectiveIntervenants(intervenants);
     } catch (e) {
       console.error('Failed to save corrective intervenants:', e);
     }
   }, [intervenants]);
+
+  useEffect(() => {
+    try {
+      if (activeLiveId) {
+        storageService.setItem(ACTIVE_LIVE_KEY, activeLiveId);
+      } else {
+        storageService.removeItem(ACTIVE_LIVE_KEY);
+      }
+    } catch {}
+  }, [activeLiveId]);
 
   // Robust Search for Actions by Panne (normalized matching)
   const getActionsForPanne = useCallback((anomalie) => {
@@ -254,18 +144,14 @@ export function useCorrectiveSubState(groupedState = {}) {
     const anom = String(anomalie).trim();
     if (!anom) return [];
 
-    // Exact key
     if (actionsByPanne[anom]) return actionsByPanne[anom];
 
-    // Underscore variation
     const withUnder = anom.replace(/\s+/g, '_');
     if (actionsByPanne[withUnder]) return actionsByPanne[withUnder];
 
-    // Space variation
     const withSpace = anom.replace(/_/g, ' ');
     if (actionsByPanne[withSpace]) return actionsByPanne[withSpace];
 
-    // Normalized lowercase compare
     const lower = anom.toLowerCase().replace(/_/g, ' ').trim();
     for (const [key, acts] of Object.entries(actionsByPanne)) {
       if (key.toLowerCase().replace(/_/g, ' ').trim() === lower) {
@@ -273,7 +159,6 @@ export function useCorrectiveSubState(groupedState = {}) {
       }
     }
 
-    // Substring contains compare
     for (const [key, acts] of Object.entries(actionsByPanne)) {
       const normKey = key.toLowerCase().replace(/_/g, ' ').trim();
       if (normKey.includes(lower) || lower.includes(normKey)) {
@@ -284,7 +169,6 @@ export function useCorrectiveSubState(groupedState = {}) {
     return [];
   }, [actionsByPanne]);
 
-  // Dynamically add a new standard action to any panne
   const addActionForPanne = useCallback((panneKey, actionText) => {
     if (!panneKey || !actionText) return;
     const cleanAction = String(actionText).trim();
@@ -297,14 +181,11 @@ export function useCorrectiveSubState(groupedState = {}) {
         ...prev,
         [panneKey]: [...existing, cleanAction],
       };
-      try {
-        storageService.setItem(STORAGE_KEY_ACTIONS_BY_PANNE, updated);
-      } catch {}
+      DataGateway.saveCorrectiveActionsByPanne(updated);
       return updated;
     });
   }, []);
 
-  // Update a specific action recommendation for a panne
   const updateActionForPanne = useCallback((panneKey, actionIndex, newText) => {
     if (!panneKey || actionIndex < 0 || !newText) return;
     const cleanText = String(newText).trim();
@@ -319,14 +200,11 @@ export function useCorrectiveSubState(groupedState = {}) {
         ...prev,
         [panneKey]: updatedList,
       };
-      try {
-        storageService.setItem(STORAGE_KEY_ACTIONS_BY_PANNE, updated);
-      } catch {}
+      DataGateway.saveCorrectiveActionsByPanne(updated);
       return updated;
     });
   }, []);
 
-  // Delete a specific action recommendation for a panne
   const deleteActionForPanne = useCallback((panneKey, actionIndex) => {
     if (!panneKey || actionIndex < 0) return;
 
@@ -340,14 +218,11 @@ export function useCorrectiveSubState(groupedState = {}) {
       } else {
         delete updated[panneKey];
       }
-      try {
-        storageService.setItem(STORAGE_KEY_ACTIONS_BY_PANNE, updated);
-      } catch {}
+      DataGateway.saveCorrectiveActionsByPanne(updated);
       return updated;
     });
   }, []);
 
-  // Add a new panne to a category
   const addPanne = useCallback((category, panneCode) => {
     if (!category || !panneCode) return;
     const cleanCat = String(category).trim().toUpperCase();
@@ -361,14 +236,11 @@ export function useCorrectiveSubState(groupedState = {}) {
         ...prev,
         [cleanCat]: [...existingList, cleanCode],
       };
-      try {
-        storageService.setItem(STORAGE_KEY_PANNE_CATEGORIES, updated);
-      } catch {}
+      DataGateway.saveCorrectivePanneCategories(updated);
       return updated;
     });
   }, []);
 
-  // Update an existing panne code
   const updatePanne = useCallback((category, oldCode, newCode) => {
     if (!category || !oldCode || !newCode) return;
     const cleanCat = String(category).trim();
@@ -383,27 +255,21 @@ export function useCorrectiveSubState(groupedState = {}) {
         ...prev,
         [cleanCat]: updatedList,
       };
-      try {
-        storageService.setItem(STORAGE_KEY_PANNE_CATEGORIES, updated);
-      } catch {}
+      DataGateway.saveCorrectivePanneCategories(updated);
       return updated;
     });
 
-    // Also migrate actions dictionary if oldCode had actions
     setActionsByPanne((prev) => {
       if (prev[cleanOld] && !prev[cleanNew]) {
         const updated = { ...prev, [cleanNew]: prev[cleanOld] };
         delete updated[cleanOld];
-        try {
-          storageService.setItem(STORAGE_KEY_ACTIONS_BY_PANNE, updated);
-        } catch {}
+        DataGateway.saveCorrectiveActionsByPanne(updated);
         return updated;
       }
       return prev;
     });
   }, []);
 
-  // Delete a panne from a category
   const deletePanne = useCallback((category, panneCode) => {
     if (!category || !panneCode) return;
     const cleanCat = String(category).trim();
@@ -416,9 +282,7 @@ export function useCorrectiveSubState(groupedState = {}) {
         ...prev,
         [cleanCat]: updatedList,
       };
-      try {
-        storageService.setItem(STORAGE_KEY_PANNE_CATEGORIES, updated);
-      } catch {}
+      DataGateway.saveCorrectivePanneCategories(updated);
       return updated;
     });
 
@@ -426,16 +290,13 @@ export function useCorrectiveSubState(groupedState = {}) {
       if (prev[cleanCode]) {
         const updated = { ...prev };
         delete updated[cleanCode];
-        try {
-          storageService.setItem(STORAGE_KEY_ACTIONS_BY_PANNE, updated);
-        } catch {}
+        DataGateway.saveCorrectiveActionsByPanne(updated);
         return updated;
       }
       return prev;
     });
   }, []);
 
-  // Add a standard task (Travail à faire)
   const addTravail = useCallback((travailText) => {
     if (!travailText) return;
     const cleanText = String(travailText).trim();
@@ -444,14 +305,11 @@ export function useCorrectiveSubState(groupedState = {}) {
     setTravauxAFaire((prev) => {
       if (prev.includes(cleanText)) return prev;
       const updated = [...prev, cleanText];
-      try {
-        storageService.setItem(STORAGE_KEY_TRAVAUX, updated);
-      } catch {}
+      DataGateway.saveCorrectiveTravaux(updated);
       return updated;
     });
   }, []);
 
-  // Update a standard task
   const updateTravail = useCallback((oldText, newText) => {
     if (!oldText || !newText) return;
     const cleanOld = String(oldText).trim();
@@ -460,23 +318,18 @@ export function useCorrectiveSubState(groupedState = {}) {
 
     setTravauxAFaire((prev) => {
       const updated = prev.map((item) => (item === cleanOld ? cleanNew : item));
-      try {
-        storageService.setItem(STORAGE_KEY_TRAVAUX, updated);
-      } catch {}
+      DataGateway.saveCorrectiveTravaux(updated);
       return updated;
     });
   }, []);
 
-  // Delete a standard task
   const deleteTravail = useCallback((travailText) => {
     if (!travailText) return;
     const cleanText = String(travailText).trim();
 
     setTravauxAFaire((prev) => {
       const updated = prev.filter((item) => item !== cleanText);
-      try {
-        storageService.setItem(STORAGE_KEY_TRAVAUX, updated);
-      } catch {}
+      DataGateway.saveCorrectiveTravaux(updated);
       return updated;
     });
   }, []);
@@ -491,16 +344,10 @@ export function useCorrectiveSubState(groupedState = {}) {
     setTravauxAFaire(baseline.travauxAFaire || []);
     setIntervenants(baseline.intervenants || []);
 
-    storageService.setItem(STORAGE_KEY_ACTIONS_BY_PANNE, baseline.actionsByPanne || {});
-    storageService.setItem(STORAGE_KEY_PANNE_CATEGORIES, baseline.panneCategories || {});
-    storageService.setItem(STORAGE_KEY_TRAVAUX, baseline.travauxAFaire || []);
-    storageService.setItem(STORAGE_KEY_INTERVENANTS, baseline.intervenants || []);
-
-    // Sync legacy keys
-    storageService.setItem('gmao_corrective_actions_by_panne_v2', baseline.actionsByPanne || {});
-    storageService.setItem('gmao_corrective_panne_categories_v1', baseline.panneCategories || {});
-    storageService.setItem('gmao_corrective_travaux_v1', baseline.travauxAFaire || []);
-    storageService.setItem('gmao_corrective_intervenants_v1', baseline.intervenants || []);
+    DataGateway.saveCorrectiveActionsByPanne(baseline.actionsByPanne || {});
+    DataGateway.saveCorrectivePanneCategories(baseline.panneCategories || {});
+    DataGateway.saveCorrectiveTravaux(baseline.travauxAFaire || []);
+    DataGateway.saveCorrectiveIntervenants(baseline.intervenants || []);
   }, []);
 
   // Force authoritative sync of all real factory data
@@ -508,12 +355,13 @@ export function useCorrectiveSubState(groupedState = {}) {
     const baseline = await loadBaselineCorrectiveData();
     if (!baseline) return { interventionsCount: 0 };
 
-    setInterventions(baseline.interventions || []);
-    storageService.setItem(STORAGE_KEY, baseline.interventions || []);
+    const items = baseline.interventions || [];
+    setInterventions(items);
+    DataGateway.saveCorrectiveInterventions(items);
     await resetCorrectiveActionsToSeed();
 
     return {
-      interventionsCount: (baseline.interventions || []).length,
+      interventionsCount: items.length,
       pannesCount: Object.values(baseline.panneCategories || {}).reduce((acc, curr) => acc + (curr?.length || 0), 0),
       categoriesCount: Object.keys(baseline.panneCategories || {}).length,
       travauxCount: (baseline.travauxAFaire || []).length,
@@ -521,25 +369,6 @@ export function useCorrectiveSubState(groupedState = {}) {
       intervenantsCount: (baseline.intervenants || []).length,
     };
   }, [resetCorrectiveActionsToSeed]);
-
-  // Save to persistent storage
-  useEffect(() => {
-    try {
-      storageService.setItem(STORAGE_KEY, interventions);
-    } catch (e) {
-      console.error('Failed to save corrective interventions:', e);
-    }
-  }, [interventions]);
-
-  useEffect(() => {
-    try {
-      if (activeLiveId) {
-        storageService.setItem(ACTIVE_LIVE_KEY, activeLiveId);
-      } else {
-        storageService.removeItem(ACTIVE_LIVE_KEY);
-      }
-    } catch {}
-  }, [activeLiveId]);
 
   // Derived KPI metrics
   const kpis = useMemo(() => {
@@ -679,7 +508,6 @@ export function useCorrectiveSubState(groupedState = {}) {
               observation: `Sortie PDR automatique clôture BT ${btIdentifier} (${updated.anomalie || 'Correctif'})`,
             };
 
-            // Single Write Path via MovementRepository
             try {
               movementRepository.add(mvt);
             } catch (err) {
@@ -733,9 +561,15 @@ export function useCorrectiveSubState(groupedState = {}) {
     setInterventions((prev) => [...validated, ...prev]);
   }, []);
 
-  // 8. Reset to baseline seed
+  // 8. Reset to baseline seed (truthful count, no hardcoded "800")
   const resetToSeedData = useCallback(async (ctx = {}) => {
     const { machines = [], skipConfirm = false } = ctx;
+
+    const baseline = await loadBaselineCorrectiveData();
+    const finalItems =
+      baseline?.interventions && baseline.interventions.length > 0
+        ? baseline.interventions
+        : initialInterventions;
 
     const impact = dataIntegrityService.previewClearImpact({
       action: 'RESET_CORRECTIVE',
@@ -745,7 +579,7 @@ export function useCorrectiveSubState(groupedState = {}) {
     });
 
     const msg =
-      `Réinitialiser le correctif au seed (≈800 interventions) ?\n` +
+      `Réinitialiser le correctif aux données de démonstration (${finalItems.length} intervention(s)) ?\n` +
       `• Interventions actuelles: ${impact.correctiveCount}\n` +
       `• Machines: ${impact.machineCount}\n` +
       `\nLes machines et le préventif ne seront PAS modifiés.`;
@@ -754,15 +588,9 @@ export function useCorrectiveSubState(groupedState = {}) {
       return { cancelled: true };
     }
 
-    const baseline = await loadBaselineCorrectiveData();
-    const finalItems =
-      baseline?.interventions && baseline.interventions.length > 0
-        ? baseline.interventions
-        : initialInterventions;
-
     setInterventions(finalItems);
     setActiveLiveId(null);
-    storageService.setItem(STORAGE_KEY, finalItems);
+    DataGateway.saveCorrectiveInterventions(finalItems, { machines });
     await resetCorrectiveActionsToSeed();
 
     const orphans = dataIntegrityService

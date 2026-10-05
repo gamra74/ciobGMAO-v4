@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { storageService } from '../utils/storageService';
+import { STORAGE_KEYS } from '../infrastructure/persistence/storageKeys';
 import { indexedDBService } from '../utils/indexedDBService';
 import { Logger } from '../core/logger/LoggerService';
 import { AutoBackupService } from '../core/backup/AutoBackupService';
@@ -9,6 +10,7 @@ const REALTIME_CHANNEL_NAME = 'gmao_realtime_sync_channel';
 /**
  * High-Performance Hook to manage debounced auto-saving of GMAO application state to LocalStorage and IndexedDB,
  * with storage quota checks, persistent storage protection, and instant BroadcastChannel multi-tab broadcasting.
+ * Writes exclusively to canonical STORAGE_KEYS.
  */
 export function useAutoSave(state, debounceMs = 1000, onStateChange = null) {
   const {
@@ -24,6 +26,7 @@ export function useAutoSave(state, debounceMs = 1000, onStateChange = null) {
     partDesignations,
     machines,
     warehouseItems,
+    entrepotComponents,
     zones,
     users,
     technicians,
@@ -83,6 +86,7 @@ export function useAutoSave(state, debounceMs = 1000, onStateChange = null) {
       partDesignations,
       machines,
       warehouseItems,
+      entrepotComponents,
       zones,
       users,
       technicians,
@@ -101,7 +105,6 @@ export function useAutoSave(state, debounceMs = 1000, onStateChange = null) {
       correctiveIntervenants,
     };
 
-    // Avoid saving if state has not changed - Use a more efficient check for huge datasets
     const currentStateStr = JSON.stringify(fullState);
     const currentStateLength = currentStateStr.length;
     if (lastSavedState.current === currentStateLength) {
@@ -110,44 +113,58 @@ export function useAutoSave(state, debounceMs = 1000, onStateChange = null) {
     lastSavedState.current = currentStateLength;
 
     try {
-      // Check storage quota safety before writing
       AutoBackupService.checkStorageQuota();
 
-      // Save unified state to LocalStorage
-      storageService.setItem('gmao_full_state_v1', fullState);
-      if (users) storageService.setItem('gmao_personnel_users_v2', users);
-      storageService.setItem('gmao_blueprints_v1', blueprints);
-      storageService.setItem('gmao_comp_groups_v1', compGroups);
-      storageService.setItem('gmao_comp_families_v1', compFamilies);
-      storageService.setItem('gmao_comp_templates_v1', compTemplates);
-      storageService.setItem('gmao_part_types_v1', partTypes);
-      storageService.setItem('gmao_part_designations_v1', partDesignations);
-      if (preventiveTasks) storageService.setItem('gmao_preventive_tasks_v8', preventiveTasks);
-      if (preventiveActions) storageService.setItem('gmao_preventive_actions_v2', preventiveActions);
-      if (preventiveGuides) storageService.setItem('gmao_preventive_guides_v2', preventiveGuides);
-      if (preventivePlans) storageService.setItem('gmao_preventive_plans_v2', preventivePlans);
-      if (sortiesExterne) storageService.setItem('gmao_sortie_externe_bobinage_v1', sortiesExterne);
-      if (correctiveInterventions) storageService.setItem('gmao_corrective_interventions', correctiveInterventions);
-      if (correctiveActionsByPanne) storageService.setItem('gmao_corrective_actions_by_panne_v2', correctiveActionsByPanne);
-      if (correctivePanneCategories) storageService.setItem('gmao_corrective_panne_categories_v1', correctivePanneCategories);
-      if (correctiveTravauxAFaire) storageService.setItem('gmao_corrective_travaux_v1', correctiveTravauxAFaire);
-      if (correctiveIntervenants) storageService.setItem('gmao_corrective_intervenants_v1', correctiveIntervenants);
+      // Save unified snapshot for export/restore & multi-tab sync
+      storageService.setItem(STORAGE_KEYS.FULL_STATE_SNAPSHOT, fullState);
 
-      // High performance single-transaction batch save to IndexedDB
+      // Write strictly to canonical STORAGE_KEYS
+      if (users !== undefined) storageService.setItem(STORAGE_KEYS.PERSONNEL, users);
+      if (technicians !== undefined) storageService.setItem(STORAGE_KEYS.TECHNICIANS, technicians);
+      if (operations !== undefined) storageService.setItem(STORAGE_KEYS.OPERATIONS, operations);
+      if (machines !== undefined) storageService.setItem(STORAGE_KEYS.MACHINES, machines);
+      if (families !== undefined) storageService.setItem(STORAGE_KEYS.FAMILIES, families);
+      if (templates !== undefined) storageService.setItem(STORAGE_KEYS.TEMPLATES, templates);
+      if (blueprints !== undefined) storageService.setItem(STORAGE_KEYS.BLUEPRINTS, blueprints);
+      if (zones !== undefined) storageService.setItem(STORAGE_KEYS.ZONES, zones);
+      if (rawStock !== undefined) storageService.setItem(STORAGE_KEYS.RAW_STOCK, rawStock);
+      if (types !== undefined) storageService.setItem(STORAGE_KEYS.STOCK_TYPES, types);
+      if (designations !== undefined) storageService.setItem(STORAGE_KEYS.DESIGNATIONS, designations);
+      if (mouvements !== undefined) storageService.setItem(STORAGE_KEYS.MOUVEMENTS, mouvements);
+      if (warehouseItems !== undefined) storageService.setItem(STORAGE_KEYS.WAREHOUSE_ITEMS, warehouseItems);
+      if (entrepotComponents !== undefined) storageService.setItem(STORAGE_KEYS.ENTREPOT_COMPONENTS, entrepotComponents);
+      if (compGroups !== undefined) storageService.setItem(STORAGE_KEYS.COMP_GROUPS, compGroups);
+      if (compFamilies !== undefined) storageService.setItem(STORAGE_KEYS.COMP_FAMILIES, compFamilies);
+      if (compTemplates !== undefined) storageService.setItem(STORAGE_KEYS.COMP_TEMPLATES, compTemplates);
+      if (partTypes !== undefined) storageService.setItem(STORAGE_KEYS.PART_TYPES, partTypes);
+      if (partDesignations !== undefined) storageService.setItem(STORAGE_KEYS.PART_DESIGNATIONS, partDesignations);
+      if (preventiveTasks !== undefined) storageService.setItem(STORAGE_KEYS.PREVENTIVE_TASKS, preventiveTasks);
+      if (preventiveActions !== undefined) storageService.setItem(STORAGE_KEYS.PREVENTIVE_ACTIONS, preventiveActions);
+      if (preventiveGuides !== undefined) storageService.setItem(STORAGE_KEYS.PREVENTIVE_GUIDES, preventiveGuides);
+      if (preventivePlans !== undefined) storageService.setItem(STORAGE_KEYS.PREVENTIVE_PLANS, preventivePlans);
+      if (sortiesExterne !== undefined) storageService.setItem(STORAGE_KEYS.SORTIE_EXTERNE, sortiesExterne);
+      if (correctiveInterventions !== undefined) storageService.setItem(STORAGE_KEYS.CORRECTIVE_INTERVENTIONS, correctiveInterventions);
+      if (correctiveActionsByPanne !== undefined) storageService.setItem(STORAGE_KEYS.CORRECTIVE_ACTIONS_BY_PANNE, correctiveActionsByPanne);
+      if (correctivePanneCategories !== undefined) storageService.setItem(STORAGE_KEYS.CORRECTIVE_PANNE_CATEGORIES, correctivePanneCategories);
+      if (correctiveTravauxAFaire !== undefined) storageService.setItem(STORAGE_KEYS.CORRECTIVE_TRAVAUX, correctiveTravauxAFaire);
+      if (correctiveIntervenants !== undefined) storageService.setItem(STORAGE_KEYS.CORRECTIVE_INTERVENANTS, correctiveIntervenants);
+
+      // High performance single-transaction batch save to IndexedDB using canonical keys
       indexedDBService.setItemsBatch({
-        gmao_full_state_v1: fullState,
-        gmao_users_v2: users || [],
-        gmao_blueprints_v1: blueprints,
-        gmao_warehouse_items_v1: warehouseItems,
-        gmao_mouvements: mouvements,
-        gmao_raw_stock_v6: rawStock,
-        gmao_preventive_tasks_v8: preventiveTasks || [],
-        gmao_sortie_externe_bobinage_v1: sortiesExterne || [],
-        gmao_corrective_interventions: correctiveInterventions || [],
-        gmao_corrective_actions_by_panne_v2: correctiveActionsByPanne || {},
-        gmao_corrective_panne_categories_v1: correctivePanneCategories || {},
-        gmao_corrective_travaux_v1: correctiveTravauxAFaire || [],
-        gmao_corrective_intervenants_v1: correctiveIntervenants || [],
+        [STORAGE_KEYS.FULL_STATE_SNAPSHOT]: fullState,
+        [STORAGE_KEYS.PERSONNEL]: users || [],
+        [STORAGE_KEYS.MACHINES]: machines || [],
+        [STORAGE_KEYS.BLUEPRINTS]: blueprints || [],
+        [STORAGE_KEYS.WAREHOUSE_ITEMS]: warehouseItems || [],
+        [STORAGE_KEYS.MOUVEMENTS]: mouvements || [],
+        [STORAGE_KEYS.RAW_STOCK]: rawStock || [],
+        [STORAGE_KEYS.PREVENTIVE_TASKS]: preventiveTasks || [],
+        [STORAGE_KEYS.SORTIE_EXTERNE]: sortiesExterne || [],
+        [STORAGE_KEYS.CORRECTIVE_INTERVENTIONS]: correctiveInterventions || [],
+        [STORAGE_KEYS.CORRECTIVE_ACTIONS_BY_PANNE]: correctiveActionsByPanne || {},
+        [STORAGE_KEYS.CORRECTIVE_PANNE_CATEGORIES]: correctivePanneCategories || {},
+        [STORAGE_KEYS.CORRECTIVE_TRAVAUX]: correctiveTravauxAFaire || [],
+        [STORAGE_KEYS.CORRECTIVE_INTERVENANTS]: correctiveIntervenants || [],
       });
 
       // Broadcast state update instantly to other open browser tabs
@@ -183,6 +200,7 @@ export function useAutoSave(state, debounceMs = 1000, onStateChange = null) {
     partDesignations,
     machines,
     warehouseItems,
+    entrepotComponents,
     zones,
     users,
     technicians,

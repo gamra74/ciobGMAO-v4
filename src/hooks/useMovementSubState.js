@@ -1,5 +1,7 @@
-import { useState } from 'react';
-import { storageService } from '../utils/storageService';
+import { useState, useEffect } from 'react';
+import { STORAGE_KEYS } from '../infrastructure/persistence/storageKeys';
+import { loadCollection } from '../infrastructure/persistence/migrateStorage';
+import { DataGateway } from '../application/DataGateway';
 import initialMouvements from '../data/movements/seedMouvements.json';
 import { safeNum } from '../utils/formulaEngine';
 
@@ -36,7 +38,6 @@ export function normalizeMovement(m, idx = 0) {
       ) {
         return String(direct).trim();
       }
-      // Smart inference from commentary: e.g. "OT-1234", "CMD-042", "BC-99"
       const com = m.commentaire || m['Commentaire / Motif'] || '';
       if (com) {
         const match = String(com).match(
@@ -44,7 +45,6 @@ export function normalizeMovement(m, idx = 0) {
         );
         if (match) return match[1].toUpperCase();
       }
-      // If it is a Commande type
       const mType = m.type || m['Type (Entrée/Sortie)'] || '';
       const mBon = m.code_bon || m['Code_Bon'] || m['Code Bon'] || '';
       if (String(mType).toUpperCase().includes('COMMANDE') && mBon) {
@@ -91,24 +91,27 @@ export function normalizeMovement(m, idx = 0) {
 }
 
 /**
- * Hook managing Movements log and transactions
- * Implements Dedicated Clean Seed Architecture (Standard Corrective Pattern)
+ * Hook managing Movements log and transactions.
+ * Enforces SSOT: canonical STORAGE_KEYS.MOUVEMENTS only, no length >= 300 threshold, no silent seed replacement.
  */
 export function useMovementSubState(groupedState = {}) {
   const [mouvements, setMouvements] = useState(() => {
-    if (groupedState.mouvements && Array.isArray(groupedState.mouvements) && groupedState.mouvements.length > 0) {
+    if (Array.isArray(groupedState.mouvements)) {
       return groupedState.mouvements.map((m, idx) => normalizeMovement(m, idx));
     }
-    const saved = storageService.getItem('gmao_mouvements_v2') || storageService.getItem('gmao_mouvements');
-    if (saved && Array.isArray(saved) && saved.length >= 300) {
-      return saved.map((m, idx) => normalizeMovement(m, idx));
-    }
-    return initialMouvements.map((m, idx) => normalizeMovement(m, idx));
+    const loaded = loadCollection(STORAGE_KEYS.MOUVEMENTS, {
+      allowDemoFallback: true,
+      demoSeed: initialMouvements,
+    });
+    return loaded.map((m, idx) => normalizeMovement(m, idx));
   });
+
+  useEffect(() => {
+    DataGateway.saveMouvements(mouvements);
+  }, [mouvements]);
 
   return {
     mouvements,
     setMouvements,
   };
 }
-

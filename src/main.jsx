@@ -8,6 +8,10 @@ import { ServiceProvider } from './core/di/ServiceProvider';
 import { Logger } from './core/logger/LoggerService';
 import { errorTracker } from './services/ErrorTrackingService';
 import { analytics } from './services/AnalyticsService';
+import { migrateStorageOnce } from './infrastructure/persistence/migrateStorage';
+
+// 1. Run one-time SSOT storage migration before any hook reads storage
+migrateStorageOnce();
 
 // Initialize Enterprise Architecture DI Container and Error / Analytics Tracking
 ServiceProvider.register();

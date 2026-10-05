@@ -1,18 +1,16 @@
 import { INITIAL_ACTIONS } from './INITIAL_ACTIONS.js';
 import { storageService } from '../../../utils/storageService.js';
+import { STORAGE_KEYS } from '../../../infrastructure/persistence/storageKeys.js';
+import { loadCollection } from '../../../infrastructure/persistence/migrateStorage.js';
 
-export const STORAGE_KEY_ACTIONS = 'gmao_preventive_actions_v2';
+export const STORAGE_KEY_ACTIONS = STORAGE_KEYS.PREVENTIVE_ACTIONS;
 
 export class ActionService {
   static getActions() {
-    try {
-      const data = storageService.getItem(STORAGE_KEY_ACTIONS);
-      if (data && Array.isArray(data) && data.length > 0) return data;
-    } catch {
-      // fallback
-    }
-    this.saveActions(INITIAL_ACTIONS);
-    return INITIAL_ACTIONS;
+    return loadCollection(STORAGE_KEY_ACTIONS, {
+      allowDemoFallback: true,
+      demoSeed: INITIAL_ACTIONS,
+    });
   }
 
   static saveActions(actions) {
@@ -24,7 +22,7 @@ export class ActionService {
   }
 
   static addAction(actionData) {
-    const current = this.getActions();
+    const current = [...this.getActions()];
     const code = (actionData.code || 'X').trim().toUpperCase();
     const libelle = (actionData.libelle || 'Action').trim();
     const shortLib = libelle.replace(/[^a-zA-Z0-9]/g, '').slice(0, 5).toUpperCase();
@@ -50,7 +48,7 @@ export class ActionService {
   }
 
   static updateAction(action_id, updatedFields) {
-    const current = this.getActions();
+    const current = [...this.getActions()];
     const idx = current.findIndex(a => a.action_id === action_id);
     if (idx !== -1) {
       current[idx] = { ...current[idx], ...updatedFields, updated_at: new Date().toISOString() };

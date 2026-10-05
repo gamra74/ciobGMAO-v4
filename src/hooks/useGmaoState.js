@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { storageService } from '../utils/storageService';
 import { BASELINE_STOCK_ITEMS } from '../utils/baselineStock';
+import { migrateStorageOnce } from '../infrastructure/persistence/migrateStorage';
+import { DataGateway } from '../application/DataGateway';
 import { useStockSubState } from './useStockSubState';
 import { useMachineSubState } from './useMachineSubState';
 import { useWarehouseSubState } from './useWarehouseSubState';
@@ -19,17 +20,11 @@ export { BASELINE_STOCK_ITEMS };
  * Composes domain-specific sub-states: Stock, Machines, Warehouse, Users, Movements, Preventive Maintenance, and Sortie Externe.
  */
 export function useGmaoState() {
-  // Use a lazy initializer for groupedState but keep it minimal to avoid blocking main thread
+  // Ensure one-time legacy key migration has executed (idempotent)
   const [groupedState, setGroupedState] = useState(() => {
-    try {
-      // Only read if absolutely necessary, otherwise fallback to empty to let sub-hooks handle their own seed/storage
-      const saved = storageService.getItem('gmao_full_state_v1');
-      if (saved && typeof saved === 'object' && Object.keys(saved).length > 5) {
-        return saved;
-      }
-    } catch {
-      return {};
-    }
+    migrateStorageOnce();
+    // Do not initialize from gmao_full_state_v1 to prevent conflicting partial snapshots;
+    // each sub-hook reads its own canonical key from STORAGE_KEYS.
     return {};
   });
 
@@ -217,5 +212,71 @@ export function useGmaoState() {
     handleDeleteCorrectiveIntervention: correctiveSub.deleteIntervention,
     handleBulkImportCorrective: correctiveSub.bulkImportInterventions,
     handleResetCorrectiveToSeed: correctiveSub.resetToSeedData,
+    handleLoadDemoData: () =>
+      DataGateway.loadDemoData({
+        setTypes: stockSub.setTypes,
+        setDesignations: stockSub.setDesignations,
+        setRawStock: stockSub.setRawStock,
+        setFamilies: machineSub.setFamilies,
+        setTemplates: machineSub.setTemplates,
+        setBlueprints: machineSub.setBlueprints,
+        setMachines: machineSub.setMachines,
+        setZones: machineSub.setZones,
+        setMachineElementsLedger: machineSub.setMachineElementsLedger,
+        setWarehouseItems: warehouseSub.setWarehouseItems,
+        setEntrepotComponents: warehouseSub.setEntrepotComponents,
+        setCompGroups: warehouseSub.setCompGroups,
+        setCompFamilies: warehouseSub.setCompFamilies,
+        setCompTemplates: warehouseSub.setCompTemplates,
+        setPartTypes: warehouseSub.setPartTypes,
+        setPartDesignations: warehouseSub.setPartDesignations,
+        setUsers: userSub.setUsers,
+        setTechnicians: userSub.setTechnicians,
+        setOperations: userSub.setOperations,
+        setMouvements: movementSub.setMouvements,
+        setPreventiveTasks: preventiveSub.setTasks,
+        setPreventiveActions: preventiveSub.setActions,
+        setPreventiveGuides: preventiveSub.setGuides,
+        setPreventivePlans: preventiveSub.setPlans,
+        setSortiesExterne: sortieExterneSub.setSortiesExterne,
+        setCorrectiveInterventions: correctiveSub.setInterventions,
+        setCorrectiveActionsByPanne: correctiveSub.setActionsByPanne,
+        setCorrectivePanneCategories: correctiveSub.setPanneCategories,
+        setCorrectiveTravauxAFaire: correctiveSub.setTravauxAFaire,
+        setCorrectiveIntervenants: correctiveSub.setIntervenants,
+      }),
+    handleClearAllForRealFactory: () =>
+      DataGateway.clearAllForRealFactory({
+        setTypes: stockSub.setTypes,
+        setDesignations: stockSub.setDesignations,
+        setRawStock: stockSub.setRawStock,
+        setFamilies: machineSub.setFamilies,
+        setTemplates: machineSub.setTemplates,
+        setBlueprints: machineSub.setBlueprints,
+        setMachines: machineSub.setMachines,
+        setZones: machineSub.setZones,
+        setMachineElementsLedger: machineSub.setMachineElementsLedger,
+        setWarehouseItems: warehouseSub.setWarehouseItems,
+        setEntrepotComponents: warehouseSub.setEntrepotComponents,
+        setCompGroups: warehouseSub.setCompGroups,
+        setCompFamilies: warehouseSub.setCompFamilies,
+        setCompTemplates: warehouseSub.setCompTemplates,
+        setPartTypes: warehouseSub.setPartTypes,
+        setPartDesignations: warehouseSub.setPartDesignations,
+        setUsers: userSub.setUsers,
+        setTechnicians: userSub.setTechnicians,
+        setOperations: userSub.setOperations,
+        setMouvements: movementSub.setMouvements,
+        setPreventiveTasks: preventiveSub.setTasks,
+        setPreventiveActions: preventiveSub.setActions,
+        setPreventiveGuides: preventiveSub.setGuides,
+        setPreventivePlans: preventiveSub.setPlans,
+        setSortiesExterne: sortieExterneSub.setSortiesExterne,
+        setCorrectiveInterventions: correctiveSub.setInterventions,
+        setCorrectiveActionsByPanne: correctiveSub.setActionsByPanne,
+        setCorrectivePanneCategories: correctiveSub.setPanneCategories,
+        setCorrectiveTravauxAFaire: correctiveSub.setTravauxAFaire,
+        setCorrectiveIntervenants: correctiveSub.setIntervenants,
+      }),
   };
 }

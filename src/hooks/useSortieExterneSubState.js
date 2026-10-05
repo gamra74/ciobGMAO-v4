@@ -1,25 +1,27 @@
 import { useState, useCallback, useEffect } from 'react';
-import { storageService } from '../utils/storageService';
+import { STORAGE_KEYS } from '../infrastructure/persistence/storageKeys';
+import { loadCollection } from '../infrastructure/persistence/migrateStorage';
+import { DataGateway } from '../application/DataGateway';
 import SortieExterneService, { INITIAL_SORTIES_BOBINAGE } from '../application/services/SortieExterneService';
-
-const STORAGE_KEY = 'gmao_sortie_externe_bobinage_v1';
-const STORAGE_KEY_INIT = 'gmao_sortie_externe_initialized_v1';
 
 /**
  * Sub-state Hook for Sortie Externe & Motor Bobinage Repairs.
- * Fully follows the Centralized State Orchestrator Pattern.
+ * Enforces SSOT: canonical STORAGE_KEYS.SORTIE_EXTERNE only, no automatic seed writes on startup.
  */
 export function useSortieExterneSubState(groupedState = {}) {
   const [sorties, setSorties] = useState(() => {
-    const saved = groupedState.sortiesExterne || storageService.getItem(STORAGE_KEY);
-    if (Array.isArray(saved) && saved.length > 0) return saved;
-
-    // Check if initialized previously (e.g. empty user factory)
-    const isInit = storageService.getItem(STORAGE_KEY_INIT);
-    if (isInit) return [];
-
-    return INITIAL_SORTIES_BOBINAGE;
+    if (Array.isArray(groupedState.sortiesExterne)) {
+      return groupedState.sortiesExterne;
+    }
+    return loadCollection(STORAGE_KEYS.SORTIE_EXTERNE, {
+      allowDemoFallback: true,
+      demoSeed: INITIAL_SORTIES_BOBINAGE,
+    });
   });
+
+  useEffect(() => {
+    DataGateway.saveSortiesExterne(sorties);
+  }, [sorties]);
 
   // Listen to broadcast / custom events for cross-tab or external changes
   useEffect(() => {
@@ -40,7 +42,6 @@ export function useSortieExterneSubState(groupedState = {}) {
   const handleAddSortieExterne = useCallback((sortieData) => {
     const created = SortieExterneService.addSortie(sortieData);
     setSorties((prev) => [created, ...prev]);
-    storageService.setItem(STORAGE_KEY_INIT, 'true');
     return created;
   }, []);
 
@@ -68,17 +69,13 @@ export function useSortieExterneSubState(groupedState = {}) {
   }, []);
 
   const handleClearSortiesForRealFactory = useCallback(() => {
-    SortieExterneService.saveSorties([]);
+    DataGateway.saveSortiesExterne([]);
     setSorties([]);
-    storageService.setItem(STORAGE_KEY_INIT, 'true');
-    storageService.setItem(STORAGE_KEY, []);
   }, []);
 
   const handleResetSortiesToBaseline = useCallback(() => {
-    SortieExterneService.saveSorties(INITIAL_SORTIES_BOBINAGE);
+    DataGateway.saveSortiesExterne(INITIAL_SORTIES_BOBINAGE);
     setSorties(INITIAL_SORTIES_BOBINAGE);
-    storageService.setItem(STORAGE_KEY_INIT, 'true');
-    storageService.setItem(STORAGE_KEY, INITIAL_SORTIES_BOBINAGE);
   }, []);
 
   return {

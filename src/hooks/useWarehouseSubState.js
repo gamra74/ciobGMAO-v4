@@ -1,5 +1,7 @@
-import { useState } from 'react';
-import { storageService } from '../utils/storageService';
+import { useState, useEffect } from 'react';
+import { STORAGE_KEYS } from '../infrastructure/persistence/storageKeys';
+import { loadCollection } from '../infrastructure/persistence/migrateStorage';
+import { DataGateway } from '../application/DataGateway';
 import initialWarehouseItems from '../data/warehouse/seedWarehouseItems.json';
 import initialCompGroups from '../data/warehouse/seedCompGroups.json';
 import initialCompFamilies from '../data/warehouse/seedCompFamilies.json';
@@ -9,83 +11,111 @@ import initialPartTypes from '../data/warehouse/seedPartTypes.json';
 import initialPartDesignations from '../data/warehouse/seedPartDesignations.json';
 
 /**
- * Hook managing Entrepôt items, component groups/families/templates, and part types/designations
- * Implements Dedicated Clean Seed Architecture (Standard Corrective Pattern)
+ * Hook managing Entrepôt items, component groups/families/templates, and part types/designations.
+ * Enforces SSOT: canonical keys only, no arbitrary length checks, no automatic seed writes on startup.
  */
 export function useWarehouseSubState(groupedState = {}) {
   const [compGroups, setCompGroups] = useState(() => {
-    if (groupedState.compGroups && Array.isArray(groupedState.compGroups) && groupedState.compGroups.length > 0) {
+    if (Array.isArray(groupedState.compGroups)) {
       return groupedState.compGroups;
     }
-    const cached = storageService.getItem('gmao_comp_groups_v2') || storageService.getItem('gmao_comp_groups_v1');
-    if (cached && Array.isArray(cached) && cached.length >= initialCompGroups.length) {
-      return cached;
-    }
-    return initialCompGroups;
+    return loadCollection(STORAGE_KEYS.COMP_GROUPS, {
+      allowDemoFallback: true,
+      demoSeed: initialCompGroups,
+    });
   });
 
   const [warehouseItems, setWarehouseItems] = useState(() => {
-    if (groupedState.warehouseItems && Array.isArray(groupedState.warehouseItems) && groupedState.warehouseItems.length > 0) {
+    if (Array.isArray(groupedState.warehouseItems)) {
       return groupedState.warehouseItems;
     }
-    const cached = storageService.getItem('gmao_warehouse_items_v3') || storageService.getItem('gmao_warehouse_items_v2');
-    if (cached && Array.isArray(cached) && cached.length > 0 && cached[0]?.ref) {
-      return cached;
-    }
-    return initialWarehouseItems;
+    return loadCollection(STORAGE_KEYS.WAREHOUSE_ITEMS, {
+      allowDemoFallback: true,
+      demoSeed: initialWarehouseItems,
+    });
   });
 
   const [entrepotComponents, setEntrepotComponents] = useState(() => {
-    if (groupedState.entrepotComponents && Array.isArray(groupedState.entrepotComponents) && groupedState.entrepotComponents.length > 0) {
+    if (Array.isArray(groupedState.entrepotComponents)) {
       return groupedState.entrepotComponents;
     }
-    const cached = storageService.getItem('gmao_entrepot_components_v3') || storageService.getItem('gmao_entrepot_components_v2');
-    if (cached && Array.isArray(cached) && cached.length > 0 && cached[0]?.ref) {
-      return cached;
-    }
-    return initialEntrepotComponents;
+    return loadCollection(STORAGE_KEYS.ENTREPOT_COMPONENTS, {
+      allowDemoFallback: true,
+      demoSeed: initialEntrepotComponents,
+    });
   });
 
   const [compFamilies, setCompFamilies] = useState(() => {
-    if (groupedState.compFamilies && Array.isArray(groupedState.compFamilies) && groupedState.compFamilies.length > 0) {
+    if (Array.isArray(groupedState.compFamilies)) {
       return groupedState.compFamilies;
     }
-    const cached = storageService.getItem('gmao_comp_families_v3') || storageService.getItem('gmao_comp_families_v2');
-    if (cached && Array.isArray(cached) && cached.length >= initialCompFamilies.length) return cached;
-    return initialCompFamilies;
+    return loadCollection(STORAGE_KEYS.COMP_FAMILIES, {
+      allowDemoFallback: true,
+      demoSeed: initialCompFamilies,
+    });
   });
 
   const [compTemplates, setCompTemplates] = useState(() => {
-    if (groupedState.compTemplates && Array.isArray(groupedState.compTemplates) && groupedState.compTemplates.length > 0) {
+    if (Array.isArray(groupedState.compTemplates)) {
       return groupedState.compTemplates;
     }
-    const cached = storageService.getItem('gmao_comp_templates_v3') || storageService.getItem('gmao_comp_templates_v2');
-    if (cached && Array.isArray(cached) && cached.length > 0 && cached[0]?.ref) {
-      return cached;
-    }
-    return initialCompTemplates.map((t, idx) => ({
+    const formattedDemo = initialCompTemplates.map((t, idx) => ({
       ...t,
-      id_templates: t.id_templates || t.id_template || t.id_comp_template || `TPL-${idx + 1}`
+      id_templates: t.id_templates || t.id_template || t.id_comp_template || `TPL-${idx + 1}`,
     }));
+    return loadCollection(STORAGE_KEYS.COMP_TEMPLATES, {
+      allowDemoFallback: true,
+      demoSeed: formattedDemo,
+    });
   });
 
   const [partTypes, setPartTypes] = useState(() => {
-    if (groupedState.partTypes && Array.isArray(groupedState.partTypes) && groupedState.partTypes.length > 0) {
+    if (Array.isArray(groupedState.partTypes)) {
       return groupedState.partTypes;
     }
-    const cached = storageService.getItem('gmao_part_types_v2') || storageService.getItem('gmao_part_types_v1');
-    if (cached && Array.isArray(cached) && cached.length > 0) return cached;
-    return initialPartTypes;
+    return loadCollection(STORAGE_KEYS.PART_TYPES, {
+      allowDemoFallback: true,
+      demoSeed: initialPartTypes,
+    });
   });
 
   const [partDesignations, setPartDesignations] = useState(() => {
-    if (groupedState.partDesignations && Array.isArray(groupedState.partDesignations) && groupedState.partDesignations.length > 0) {
+    if (Array.isArray(groupedState.partDesignations)) {
       return groupedState.partDesignations;
     }
-    const cached = storageService.getItem('gmao_part_designations_v2') || storageService.getItem('gmao_part_designations_v1');
-    if (cached && Array.isArray(cached) && cached.length > 0) return cached;
-    return initialPartDesignations;
+    return loadCollection(STORAGE_KEYS.PART_DESIGNATIONS, {
+      allowDemoFallback: true,
+      demoSeed: initialPartDesignations,
+    });
   });
+
+  useEffect(() => {
+    DataGateway.saveCompGroups(compGroups);
+  }, [compGroups]);
+
+  useEffect(() => {
+    DataGateway.saveWarehouseItems(warehouseItems);
+  }, [warehouseItems]);
+
+  useEffect(() => {
+    DataGateway.saveEntrepotComponents(entrepotComponents);
+  }, [entrepotComponents]);
+
+  useEffect(() => {
+    DataGateway.saveCompFamilies(compFamilies);
+  }, [compFamilies]);
+
+  useEffect(() => {
+    DataGateway.saveCompTemplates(compTemplates);
+  }, [compTemplates]);
+
+  useEffect(() => {
+    DataGateway.savePartTypes(partTypes);
+  }, [partTypes]);
+
+  useEffect(() => {
+    DataGateway.savePartDesignations(partDesignations);
+  }, [partDesignations]);
 
   return {
     compGroups,
@@ -104,4 +134,3 @@ export function useWarehouseSubState(groupedState = {}) {
     setPartDesignations,
   };
 }
-

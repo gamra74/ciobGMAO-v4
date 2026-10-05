@@ -1,37 +1,24 @@
 import * as XLSX from 'xlsx';
 import { Logger } from '../../../core/logger/LoggerService.js';
 import { storageService } from '../../../utils/storageService.js';
+import { STORAGE_KEYS } from '../../../infrastructure/persistence/storageKeys.js';
+import { loadCollection } from '../../../infrastructure/persistence/migrateStorage.js';
 import initialTasks from '../../../data/preventive/seedPreventiveTasks.json';
 
-export const STORAGE_KEY_TASKS = 'gmao_preventive_tasks_v8';
+export const STORAGE_KEY_TASKS = STORAGE_KEYS.PREVENTIVE_TASKS;
 export const INITIAL_TASKS = Array.isArray(initialTasks) ? initialTasks : [];
 
 export class TaskService {
   static getTasks() {
-    try {
-      const keys = [
-        STORAGE_KEY_TASKS,
-        'gmao_preventive_tasks_v9',
-        'gmao_preventive_tasks_v7',
-        'gmao_preventive_tasks_v6',
-        'gmao_preventive_tasks_v2',
-        'gmao_preventive_tasks',
-      ];
-      for (const k of keys) {
-        const data = storageService.getItem(k);
-        if (data && Array.isArray(data) && data.length >= 10) return data;
-      }
-    } catch {
-      // fallback
-    }
-    this.saveTasks(INITIAL_TASKS);
-    return INITIAL_TASKS;
+    return loadCollection(STORAGE_KEY_TASKS, {
+      allowDemoFallback: true,
+      demoSeed: INITIAL_TASKS,
+    });
   }
 
   static saveTasks(tasks) {
     try {
       storageService.setItem(STORAGE_KEY_TASKS, tasks);
-      storageService.setItem('gmao_preventive_tasks_v9', tasks);
     } catch {
       // storage error
     }

@@ -1,19 +1,17 @@
 import { TaskService } from './TaskService.js';
 import { storageService } from '../../../utils/storageService.js';
+import { STORAGE_KEYS } from '../../../infrastructure/persistence/storageKeys.js';
+import { loadCollection } from '../../../infrastructure/persistence/migrateStorage.js';
 
-export const STORAGE_KEY_PLANS = 'gmao_preventive_plans_v2';
+export const STORAGE_KEY_PLANS = STORAGE_KEYS.PREVENTIVE_PLANS;
 export const INITIAL_PLANS = [];
 
 export class PlanService {
   static getPlans() {
-    try {
-      const data = storageService.getItem(STORAGE_KEY_PLANS);
-      if (data && Array.isArray(data) && data.length > 0) return data;
-    } catch {
-      // fallback
-    }
-    this.savePlans(INITIAL_PLANS);
-    return INITIAL_PLANS;
+    return loadCollection(STORAGE_KEY_PLANS, {
+      allowDemoFallback: true,
+      demoSeed: INITIAL_PLANS,
+    });
   }
 
   static savePlans(plans) {
@@ -65,7 +63,6 @@ export class PlanService {
       created_at: new Date().toISOString(),
     };
 
-    // Génération des tâches avec passeport id/ref/code
     const generatedTasks = taskItems.map((item, index) => {
       const compName = item.is_global_machine ? 'Machine entière' : (item.composant || 'Composant');
       const cleanComp = compName.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toUpperCase();
@@ -73,7 +70,6 @@ export class PlanService {
       const freq = item.frequence || 'Mensuel';
       const taskSeq = String(currentTasks.length + index + 1).padStart(4, '0');
 
-      // Distribution planning sur les 52 semaines selon la fréquence
       const planning = item.planning || this.generatePlanningForFrequency(freq, item.target_week || planData.semaine_cible || 'S1', actCode);
 
       return {

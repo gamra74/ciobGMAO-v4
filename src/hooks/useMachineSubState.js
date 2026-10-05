@@ -1,5 +1,7 @@
-import { useState, useCallback } from 'react';
-import { storageService } from '../utils/storageService';
+import { useState, useCallback, useEffect } from 'react';
+import { STORAGE_KEYS } from '../infrastructure/persistence/storageKeys';
+import { loadCollection } from '../infrastructure/persistence/migrateStorage';
+import { DataGateway } from '../application/DataGateway';
 import initialFamilies from '../data/machines/seedFamilies.json';
 import initialTemplates from '../data/machines/seedTemplates.json';
 import initialBlueprints from '../data/machines/seedBlueprints.json';
@@ -8,12 +10,12 @@ import initialZones from '../data/machines/seedZones.json';
 import initialMachineBomLedger from '../data/machines/seedMachineBomLedger.json';
 
 /**
- * Hook managing Machine hierarchy: Families, Templates, Blueprints, Machines, Zones, and BOM Ledger
- * Implements Dedicated Clean Seed Architecture (Standard Corrective Pattern)
+ * Hook managing Machine hierarchy: Families, Templates, Blueprints, Machines, Zones, and BOM Ledger.
+ * Enforces SSOT: canonical keys only, no arbitrary length thresholds, no automatic seed writes on startup.
  */
 export function useMachineSubState(groupedState = {}) {
   const isValidMachineTemplates = useCallback((arr) => {
-    if (!Array.isArray(arr) || arr.length === 0) return false;
+    if (!Array.isArray(arr)) return false;
     return arr.every(
       (item) =>
         item &&
@@ -23,7 +25,7 @@ export function useMachineSubState(groupedState = {}) {
   }, []);
 
   const isValidMachineFamilies = useCallback((arr) => {
-    if (!Array.isArray(arr) || arr.length === 0) return false;
+    if (!Array.isArray(arr)) return false;
     return arr.every(
       (item) =>
         item &&
@@ -33,97 +35,100 @@ export function useMachineSubState(groupedState = {}) {
   }, []);
 
   const [families, setFamilies] = useState(() => {
-    if (groupedState.families && Array.isArray(groupedState.families) && groupedState.families.length > 0) {
+    if (Array.isArray(groupedState.families)) {
       return groupedState.families;
     }
-    const candidate = storageService.getItem('gmao_families_v2') || storageService.getItem('gmao_families');
-    if (
-      Array.isArray(candidate) &&
-      candidate.length >= 10 &&
-      isValidMachineFamilies(candidate)
-    ) {
-      return candidate;
-    }
-    return initialFamilies;
+    return loadCollection(STORAGE_KEYS.FAMILIES, {
+      allowDemoFallback: true,
+      demoSeed: initialFamilies,
+    });
   });
 
   const [templates, setTemplates] = useState(() => {
-    if (groupedState.templates && Array.isArray(groupedState.templates) && groupedState.templates.length > 0) {
+    if (Array.isArray(groupedState.templates)) {
       return groupedState.templates;
     }
-    const candidate = storageService.getItem('gmao_templates_v2') || storageService.getItem('gmao_templates');
-    if (
-      Array.isArray(candidate) &&
-      candidate.length >= 30 &&
-      isValidMachineTemplates(candidate)
-    ) {
-      return candidate;
-    }
-    return initialTemplates;
+    return loadCollection(STORAGE_KEYS.TEMPLATES, {
+      allowDemoFallback: true,
+      demoSeed: initialTemplates,
+    });
   });
 
   const [blueprints, setBlueprints] = useState(() => {
-    if (groupedState.blueprints && Array.isArray(groupedState.blueprints) && groupedState.blueprints.length > 0) {
+    if (Array.isArray(groupedState.blueprints)) {
       return groupedState.blueprints;
     }
-    const candidate = storageService.getItem('gmao_blueprints_v2') || storageService.getItem('gmao_blueprints_v1');
-    if (Array.isArray(candidate) && candidate.length >= 40) {
-      return candidate;
-    }
-    return initialBlueprints;
+    return loadCollection(STORAGE_KEYS.BLUEPRINTS, {
+      allowDemoFallback: true,
+      demoSeed: initialBlueprints,
+    });
   });
 
   const [machines, setMachines] = useState(() => {
-    if (groupedState.machines && Array.isArray(groupedState.machines) && groupedState.machines.length > 0) {
+    if (Array.isArray(groupedState.machines)) {
       return groupedState.machines;
     }
-    const candidate = storageService.getItem('gmao_machines_v2') || storageService.getItem('gmao_machines');
-    if (
-      Array.isArray(candidate) &&
-      candidate.length >= 300 &&
-      candidate.some((m) => m.id_machine_registered === 'DET-01' || m.id_machine_registered === 'PRH-01')
-    ) {
-      return candidate;
-    }
-    return initialMachines;
+    return loadCollection(STORAGE_KEYS.MACHINES, {
+      allowDemoFallback: true,
+      demoSeed: initialMachines,
+    });
   });
 
   const [zones, setZones] = useState(() => {
-    if (groupedState.zones && Array.isArray(groupedState.zones) && groupedState.zones.length > 0) {
+    if (Array.isArray(groupedState.zones)) {
       return groupedState.zones;
     }
-    const raw = storageService.getItem('gmao_zones_v2') || storageService.getItem('gmao_zones');
-    if (
-      Array.isArray(raw) &&
-      raw.length >= 14 &&
-      raw.some((z) => z.id_zone === 'Détourage' || z.id_zone === 'FM' || z.code_zone === 'DETOURAG')
-    ) {
-      return raw.map((z) => ({
-        ...z,
-        code_zone: z.code_zone || z.code || z.id_zone,
-        id_zone: z.id_zone || z.code_zone || z.code,
-      }));
-    }
-    return initialZones;
+    const loaded = loadCollection(STORAGE_KEYS.ZONES, {
+      allowDemoFallback: true,
+      demoSeed: initialZones,
+    });
+    return loaded.map((z) => ({
+      ...z,
+      code_zone: z.code_zone || z.code || z.id_zone,
+      id_zone: z.id_zone || z.code_zone || z.code,
+    }));
   });
 
   const [machineElementsLedger, setMachineElementsLedger] = useState(() => {
-    if (groupedState.machineElementsLedger && Array.isArray(groupedState.machineElementsLedger) && groupedState.machineElementsLedger.length > 0) {
+    if (Array.isArray(groupedState.machineElementsLedger)) {
       return groupedState.machineElementsLedger;
     }
-    const candidate = storageService.getItem('gmao_machine_bom_ledger_v1');
-    if (Array.isArray(candidate) && candidate.length > 0) {
-      return candidate;
-    }
-    return initialMachineBomLedger;
+    return loadCollection(STORAGE_KEYS.MACHINE_BOM, {
+      allowDemoFallback: true,
+      demoSeed: initialMachineBomLedger,
+    });
   });
+
+  useEffect(() => {
+    DataGateway.saveFamilies(families);
+  }, [families]);
+
+  useEffect(() => {
+    DataGateway.saveTemplates(templates);
+  }, [templates]);
+
+  useEffect(() => {
+    DataGateway.saveBlueprints(blueprints);
+  }, [blueprints]);
+
+  useEffect(() => {
+    DataGateway.saveMachines(machines);
+  }, [machines]);
+
+  useEffect(() => {
+    DataGateway.saveZones(zones);
+  }, [zones]);
+
+  useEffect(() => {
+    DataGateway.saveMachineBom(machineElementsLedger);
+  }, [machineElementsLedger]);
 
   const addMachineElement = useCallback((element) => {
     setMachineElementsLedger((prev) => {
       const id = element.id || `BOM-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
       const newEntry = { ...element, id };
       const updated = [newEntry, ...prev];
-      storageService.setItem('gmao_machine_bom_ledger_v1', updated);
+      DataGateway.saveMachineBom(updated);
       return updated;
     });
   }, []);
@@ -131,7 +136,7 @@ export function useMachineSubState(groupedState = {}) {
   const updateMachineElement = useCallback((id, updates) => {
     setMachineElementsLedger((prev) => {
       const updated = prev.map((item) => (item.id === id ? { ...item, ...updates } : item));
-      storageService.setItem('gmao_machine_bom_ledger_v1', updated);
+      DataGateway.saveMachineBom(updated);
       return updated;
     });
   }, []);
@@ -139,7 +144,7 @@ export function useMachineSubState(groupedState = {}) {
   const deleteMachineElement = useCallback((id) => {
     setMachineElementsLedger((prev) => {
       const updated = prev.filter((item) => item.id !== id);
-      storageService.setItem('gmao_machine_bom_ledger_v1', updated);
+      DataGateway.saveMachineBom(updated);
       return updated;
     });
   }, []);
@@ -152,7 +157,6 @@ export function useMachineSubState(groupedState = {}) {
       }
       const cloned = [];
       targetMachineIds.forEach((targetId) => {
-        // Avoid duplicates on target
         sourceElements.forEach((src) => {
           const exists = prev.some((e) => e.id_machine_registered === targetId && e.ref_element === src.ref_element);
           if (!exists) {
@@ -167,7 +171,7 @@ export function useMachineSubState(groupedState = {}) {
         });
       });
       const updated = [...cloned, ...prev];
-      storageService.setItem('gmao_machine_bom_ledger_v1', updated);
+      DataGateway.saveMachineBom(updated);
       return updated;
     });
   }, []);

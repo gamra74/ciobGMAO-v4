@@ -2,6 +2,7 @@ import CryptoJS from 'crypto-js';
 import bcrypt from 'bcryptjs';
 import { Logger } from '../core/logger/LoggerService.js';
 import { indexedDBService } from '../infrastructure/database/IndexedDBService.js';
+import { STORAGE_KEYS, ALL_LEGACY_KEYS } from '../infrastructure/persistence/storageKeys.js';
 
 // Cache configuration
 const MAX_CACHE_SIZE = 50;
@@ -89,35 +90,25 @@ const KEY_ID = 'main_aes_gcm_key';
 
 let webCryptoKey = null;
 
-// Stale / Legacy keys that can be safely purged when localStorage faces quota pressure
-const OBSOLETE_OR_DUPLICATE_KEYS = [
-  'gmao_corrective_interventions_v3',
-  'gmao_corrective_interventions_v2',
-  'gmao_corrective_interventions_v1',
-  'gmao_corrective_interventions_v800',
-  'gmao_raw_stock_v1',
-  'gmao_raw_stock_v2',
-  'gmao_raw_stock_v3',
-  'gmao_raw_stock_v4',
-  'gmao_raw_stock_v5',
-  'gmao_machines_catalog_v1',
-  'gmao_machines_catalog_v2',
-  'gmao_machines_catalog_v3',
-];
+// Stale / Legacy keys that can be safely purged when localStorage faces quota pressure (after one-time migration)
+const OBSOLETE_OR_DUPLICATE_KEYS = ALL_LEGACY_KEYS;
 
 /**
  * Safely purges obsolete keys and stale snapshots when quota limit is approached
  */
 function purgeObsoleteStorageKeys() {
   if (typeof localStorage === 'undefined') return 0;
+  // Only purge legacy keys if one-time migration has already run
+  const migrated = localStorage.getItem(STORAGE_KEYS.STORAGE_MIGRATED);
   let freedCount = 0;
 
-  // 1. Remove known deprecated / duplicate versioned keys
-  for (const obsoleteKey of OBSOLETE_OR_DUPLICATE_KEYS) {
-    if (localStorage.getItem(obsoleteKey) !== null) {
-      localStorage.removeItem(obsoleteKey);
-      memoryCache.delete(obsoleteKey);
-      freedCount++;
+  if (migrated === 'true' || migrated === '"true"') {
+    for (const obsoleteKey of OBSOLETE_OR_DUPLICATE_KEYS) {
+      if (localStorage.getItem(obsoleteKey) !== null) {
+        localStorage.removeItem(obsoleteKey);
+        memoryCache.delete(obsoleteKey);
+        freedCount++;
+      }
     }
   }
 
@@ -138,11 +129,6 @@ function purgeObsoleteStorageKeys() {
 
   return freedCount;
 }
-
-// Initial purge of known legacy keys on startup
-try {
-  purgeObsoleteStorageKeys();
-} catch {}
 
 // Pre-populate memoryCache from localStorage safely on startup
 try {
@@ -519,7 +505,7 @@ export const storageService = {
    * Convenience method to save updated stock articles
    */
   saveArticles(articles) {
-    return this.setItem('gmao_raw_stock_v6', articles);
+    return this.setItem(STORAGE_KEYS.RAW_STOCK, articles);
   },
 
   /**

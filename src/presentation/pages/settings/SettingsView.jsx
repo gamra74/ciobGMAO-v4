@@ -100,6 +100,8 @@ export default function SettingsView({
   setCorrectiveInterventions,
   onResetCorrective,
   onBulkImportCorrective,
+  onLoadDemoData,
+  onClearAllForRealFactory,
   onExportExcel,
   onDownloadBlankTemplate,
   showToast,
@@ -745,19 +747,26 @@ export default function SettingsView({
   const handleResetToZero = () => {
     if (
       window.confirm(
-        'Etes-vous sur de vouloir TOUT effacer ? Cette action videra les tables locales de stockage.'
+        'Etes-vous sur de vouloir TOUT effacer ? Cette action videra toutes les tables locales de stockage (Mode Usine Réelle).'
       )
     ) {
-      setRawStock([]);
-      setMouvements([]);
-      setMachines([]);
-      setFamilies([]);
-      setTemplates([]);
-      setZones([]);
-      setTechnicians([]);
-      setOperations([]);
-      setTypes([]);
-      showToast('Base de donnees videe !', 'info');
+      if (typeof onClearAllForRealFactory === 'function') {
+        onClearAllForRealFactory();
+      } else {
+        setRawStock([]);
+        setMouvements([]);
+        setMachines([]);
+        setFamilies([]);
+        setTemplates([]);
+        setZones([]);
+        setTechnicians([]);
+        setOperations([]);
+        setTypes([]);
+        if (setPreventiveTasks) setPreventiveTasks([]);
+        if (setCorrectiveInterventions) setCorrectiveInterventions([]);
+      }
+      setIsDemoMode(false);
+      showToast('Base de donnees videe (Mode Usine Réelle actif) !', 'info');
     }
   };
 
@@ -790,12 +799,17 @@ export default function SettingsView({
   };
 
   const handleInjectAll = () => {
-    handleInjectGroup('stock');
-    handleInjectGroup('parc');
-    handleInjectGroup('zones');
-    handleInjectGroup('mouvements');
-    handleInjectGroup('corrective');
-    showToast('Injection globale de toute l\'usine terminee avec succes.', 'success');
+    if (typeof onLoadDemoData === 'function') {
+      onLoadDemoData();
+    } else {
+      handleInjectGroup('stock');
+      handleInjectGroup('parc');
+      handleInjectGroup('zones');
+      handleInjectGroup('mouvements');
+      handleInjectGroup('corrective');
+    }
+    setIsDemoMode(true);
+    showToast('Injection globale de toute l\'usine (Données Démo SSOT) terminee avec succes.', 'success');
   };
 
   // Orphan calculations & handlers

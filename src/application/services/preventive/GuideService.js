@@ -1,18 +1,16 @@
 import { INITIAL_GUIDES } from './INITIAL_GUIDES.js';
 import { storageService } from '../../../utils/storageService.js';
+import { STORAGE_KEYS } from '../../../infrastructure/persistence/storageKeys.js';
+import { loadCollection } from '../../../infrastructure/persistence/migrateStorage.js';
 
-export const STORAGE_KEY_GUIDES = 'gmao_preventive_guides_v2';
+export const STORAGE_KEY_GUIDES = STORAGE_KEYS.PREVENTIVE_GUIDES;
 
 export class GuideService {
   static getGuides() {
-    try {
-      const data = storageService.getItem(STORAGE_KEY_GUIDES);
-      if (data && Array.isArray(data) && data.length > 0) return data;
-    } catch {
-      // fallback
-    }
-    this.saveGuides(INITIAL_GUIDES);
-    return INITIAL_GUIDES;
+    return loadCollection(STORAGE_KEY_GUIDES, {
+      allowDemoFallback: true,
+      demoSeed: INITIAL_GUIDES,
+    });
   }
 
   static saveGuides(guides) {
@@ -24,7 +22,7 @@ export class GuideService {
   }
 
   static addGuide(guideData) {
-    const current = this.getGuides();
+    const current = [...this.getGuides()];
     const seq = String(current.length + 1).padStart(3, '0');
     const compSlug = (guideData.composant_type || 'COMP').replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase();
     
@@ -46,7 +44,7 @@ export class GuideService {
   }
 
   static updateGuide(guide_id, updatedFields) {
-    const current = this.getGuides();
+    const current = [...this.getGuides()];
     const idx = current.findIndex(g => g.guide_id === guide_id);
     if (idx !== -1) {
       current[idx] = { ...current[idx], ...updatedFields, updated_at: new Date().toISOString() };

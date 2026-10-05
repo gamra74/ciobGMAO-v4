@@ -1,12 +1,12 @@
 import { useMemo, useSyncExternalStore, useEffect, useRef } from 'react';
 import { safeNum } from '../utils/formulaEngine';
-import { INITIAL_FAMILIES, INITIAL_TEMPLATES } from '../data/seedData';
 import { stockIndexStore } from '../application/StockIndexStore';
 import { reactiveCalculationEngine } from '../services/reactiveCalculationEngine';
 
 /**
  * High-Performance Hook to compute real-time stock calculations, warehouse stock, KPIs, and fallback lists.
  * Utilizes stockIndexStore for O(1) indexed lookups and eliminates linear array scans over movement history.
+ * Strictly respects SSOT: never substitutes short or empty user arrays with legacy seedData.js!
  */
 export function useAppCalculations({
   rawStock = [],
@@ -22,7 +22,6 @@ export function useAppCalculations({
   useEffect(() => {
     if (!mouvements) return;
 
-    // Avoid redundant rebuilds if array reference and length are unchanged
     if (
       lastMouvementsLengthRef.current === mouvements.length &&
       stockIndexStore.isHydrated()
@@ -78,29 +77,11 @@ export function useAppCalculations({
   }, [designations, stockItems]);
 
   const effectiveFamilies = useMemo(() => {
-    if (
-      Array.isArray(families) &&
-      families.length >= 10 &&
-      !families.some((f) => f.ref || f.stockInitial !== undefined || f.stockActuel !== undefined) &&
-      families.some((f) => f.id_family === 'FAM-TOUR' || f.id_family === 'FAM-PRES')
-    ) {
-      return families;
-    }
-    return INITIAL_FAMILIES;
+    return Array.isArray(families) ? families : [];
   }, [families]);
 
   const effectiveTemplates = useMemo(() => {
-    if (
-      Array.isArray(templates) &&
-      templates.length >= 14 &&
-      !templates.some(
-        (t) => t.ref || t.stockInitial !== undefined || t.stockActuel !== undefined
-      ) &&
-      templates.some((t) => t.id_templates === 'TPL-TOURDEDETOUR' || t.id_templates === 'TPL-PRESSEHYDRAU')
-    ) {
-      return templates;
-    }
-    return INITIAL_TEMPLATES;
+    return Array.isArray(templates) ? templates : [];
   }, [templates]);
 
   const diagnostics = effectiveDesignations;

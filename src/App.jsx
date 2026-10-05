@@ -128,6 +128,8 @@ export default function App() {
     updateMachineElement,
     deleteMachineElement,
     duplicateBOMToTwins,
+    handleLoadDemoData,
+    handleClearAllForRealFactory,
   } = gmaoState;
 
   // Auto Backup and Performance Monitor Initialization
@@ -342,6 +344,8 @@ export default function App() {
       handleDeleteTravail,
       handleResetCorrectiveActions,
       handleForceSyncCorrectiveSeed,
+      handleLoadDemoData,
+      handleClearAllForRealFactory,
     },
     setters: gmaoState,
     showToast,
@@ -371,7 +375,7 @@ export default function App() {
           families: effectiveFamilies.length,
           templates: effectiveTemplates.length,
           blueprints: (blueprints || []).length,
-          preventive: (preventiveTasks || []).length || 1175,
+          preventive: (preventiveTasks || []).length,
           preventiveGuides: (preventiveGuides || []).length,
           preventiveActions: (preventiveActions || []).length,
           preventivePlans: (preventivePlans || []).length,

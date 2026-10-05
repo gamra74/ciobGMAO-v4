@@ -4,28 +4,24 @@
 
 import { Logger } from '../../core/logger/LoggerService.js';
 import { storageService } from '../../utils/storageService.js';
+import { STORAGE_KEYS } from '../../infrastructure/persistence/storageKeys.js';
+import { loadCollection } from '../../infrastructure/persistence/migrateStorage.js';
 import initialSorties from '../../data/movements/seedSortiesExternes.json';
 
-const STORAGE_KEY = 'gmao_sortie_externe_bobinage_v1';
+const STORAGE_KEY = STORAGE_KEYS.SORTIE_EXTERNE;
 
 // Seed Initial issu des archives de l'usine
 export const INITIAL_SORTIES_BOBINAGE = initialSorties;
 
 class SortieExterneService {
   /**
-   * Charge la liste des sorties depuis storageService ou le seed initial
+   * Charge la liste des sorties depuis storageService ou le seed démo si activé
    */
   static getSorties() {
-    try {
-      const stored = storageService.getItem(STORAGE_KEY, null);
-      if (stored && Array.isArray(stored) && stored.length > 0) {
-        return stored;
-      }
-      storageService.setItem(STORAGE_KEY, INITIAL_SORTIES_BOBINAGE);
-      return INITIAL_SORTIES_BOBINAGE;
-    } catch {
-      return INITIAL_SORTIES_BOBINAGE;
-    }
+    return loadCollection(STORAGE_KEY, {
+      allowDemoFallback: true,
+      demoSeed: INITIAL_SORTIES_BOBINAGE,
+    });
   }
 
   /**

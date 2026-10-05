@@ -1,6 +1,7 @@
 import { stockIndexStore } from './StockIndexStore';
 import type { MovementDelta } from './IncrementalStockIndex';
 import { storageService } from '../utils/storageService';
+import { STORAGE_KEYS } from '../infrastructure/persistence/storageKeys';
 import { TaskApplicationService } from './services/TaskApplicationService';
 
 export interface MovementEntity {
@@ -134,7 +135,7 @@ export class MovementRepository {
       try {
         const taskService = new TaskApplicationService();
         const idbTasks = await taskService.listTasks();
-        const savedMovements = idbTasks && idbTasks.length > 0 ? idbTasks : (storageService.getItem('gmao_mouvements') || []);
+        const savedMovements = idbTasks && idbTasks.length > 0 ? idbTasks : (storageService.getItem(STORAGE_KEYS.MOUVEMENTS) || []);
         const deltas: MovementDelta[] = savedMovements.map((m: any) => ({
           ref: m.ref || m['Référence'] || '',
           type: m.type || m['Type (Entrée/Sortie)'] || '',
