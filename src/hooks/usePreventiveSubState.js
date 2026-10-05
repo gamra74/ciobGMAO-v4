@@ -47,15 +47,26 @@ export function usePreventiveSubState(groupedState = {}) {
 
   // 4. Preventive Execution Tasks State (Primary S1-S52 matrix: 1,175 baseline tasks)
   const [tasks, setTasks] = useState(() => {
-    if (groupedState.tasks && Array.isArray(groupedState.tasks)) {
-      return groupedState.tasks;
+    const groupedTasks = groupedState.preventiveTasks || groupedState.tasks;
+    if (Array.isArray(groupedTasks) && groupedTasks.length >= 10) {
+      return groupedTasks;
     }
-    const saved = storageService.getItem(STORAGE_KEY_TASKS);
-    const isInit = storageService.getItem(STORAGE_KEY_PREVENTIVE_INIT);
-    if (Array.isArray(saved) && (isInit || saved.length > 0)) {
-      return saved;
+    const keys = [
+      STORAGE_KEY_TASKS,
+      'gmao_preventive_tasks_v8',
+      'gmao_preventive_tasks_v7',
+      'gmao_preventive_tasks_v6',
+      'gmao_preventive_tasks_v2',
+      'gmao_preventive_tasks',
+    ];
+    for (const k of keys) {
+      const saved = storageService.getItem(k);
+      if (Array.isArray(saved) && saved.length >= 10) {
+        return saved;
+      }
     }
     storageService.setItem(STORAGE_KEY_TASKS, initialTasks);
+    storageService.setItem('gmao_preventive_tasks_v8', initialTasks);
     storageService.setItem(STORAGE_KEY_PREVENTIVE_INIT, 'true');
     return initialTasks;
   });
@@ -71,11 +82,15 @@ export function usePreventiveSubState(groupedState = {}) {
   // Synchronize with external events (Excel import, vault restore, service updates)
   useEffect(() => {
     const handleTasksUpdated = (e) => {
-      if (e.detail && Array.isArray(e.detail)) {
+      if (e.detail && Array.isArray(e.detail) && e.detail.length >= 10) {
         setTasks(e.detail);
       } else {
         const current = PreventiveService.getTasks();
-        if (Array.isArray(current)) setTasks(current);
+        if (Array.isArray(current) && current.length >= 10) {
+          setTasks(current);
+        } else {
+          setTasks(initialTasks);
+        }
       }
     };
 
@@ -194,6 +209,10 @@ export function usePreventiveSubState(groupedState = {}) {
     PreventiveService.savePlans([]);
     storageService.setItem(STORAGE_KEY_TASKS, initialTasks);
     storageService.setItem(STORAGE_KEY_PREVENTIVE_INIT, 'true');
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('preventive_tasks_updated', { detail: initialTasks }));
+    }
 
     // After baseline: report orphans vs CURRENT machines
     const orphans = dataIntegrityService

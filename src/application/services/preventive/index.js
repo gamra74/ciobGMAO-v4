@@ -1,5 +1,7 @@
 // PreventiveService - INDEX
-export const INITIAL_TASKS = [];
+import initialTasks from '../../../data/preventive/seedPreventiveTasks.json';
+
+export const INITIAL_TASKS = Array.isArray(initialTasks) ? initialTasks : [];
 export const INITIAL_PLANS = [];
 
 // Re-export standard references

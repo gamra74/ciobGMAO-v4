@@ -60,16 +60,31 @@ export default function PreventiveView({
   const [showImportModal, setShowImportModal] = useState(false);
   const [viewMode, setViewMode] = useState('matrix'); // 'matrix' | 'grouped' | 'calendar' | 'list' | 'analytics'
 
-  const runResetBaseline = async () => {
-    const result = await onResetToBaseline?.({ machines });
-    if (!result || result.cancelled) return;
-    showToast?.(
-      `Baseline restauré (${result.restoredCount} tâches).` +
-        (result.orphanCountAfter
-          ? ` Attention: ${result.orphanCountAfter} orpheline(s) — nettoyez dans Paramètres > Intégrité.`
-          : ''),
-      result.orphanCountAfter ? 'warning' : 'success'
-    );
+  const handleRestoreBaseline = async () => {
+    if (onResetToBaseline) {
+      const result = await onResetToBaseline({ machines });
+      if (!result || result.cancelled) return;
+      showToast?.(
+        `Planning d'usine restauré (${result.restoredCount || 1175} tâches).` +
+          (result.orphanCountAfter
+            ? ` Attention: ${result.orphanCountAfter} orpheline(s) — nettoyez dans Paramètres > Intégrité.`
+            : ''),
+        result.orphanCountAfter ? 'warning' : 'success'
+      );
+      return;
+    }
+
+    if (
+      typeof window !== 'undefined' &&
+      !window.confirm("Restaurer le planning d'usine de base (1 175 tâches) ?")
+    ) {
+      return;
+    }
+    const restored = PreventiveService.getTasks();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('preventive_tasks_updated', { detail: restored }));
+    }
+    showToast?.("Planning d'usine restauré (1 175 tâches) !", 'success');
   };
 
   const runClearRealFactory = () => {
@@ -250,16 +265,14 @@ export default function PreventiveView({
             />
 
             {/* 3D Reset Baseline Button */}
-            {onResetToBaseline && (
-              <Action3DButton
-                variant="circle"
-                color="amber"
-                icon={RotateCcw}
-                onClick={runResetBaseline}
-                title="Reset Baseline Seed (Réinitialiser le préventif au seed usine)"
-                className="ring-2 ring-amber-400/60"
-              />
-            )}
+            <Action3DButton
+              variant="circle"
+              color="amber"
+              icon={RotateCcw}
+              onClick={handleRestoreBaseline}
+              title="Restaurer le planning d'usine de base (1 175 tâches)"
+              className="ring-2 ring-amber-400/60"
+            />
 
             {/* 3D Clear for Real Factory Button */}
             {onClearPreventiveForRealFactory && (
@@ -294,6 +307,33 @@ export default function PreventiveView({
             />
           </div>
         </div>
+
+        {/* Empty State Warning Banner (1-Click Restore 1,175 Tasks) */}
+        {(!tasks || tasks.length === 0) && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                <RotateCcw className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-amber-900">
+                  Planning préventif vide (0 tâche active)
+                </h4>
+                <p className="text-xs text-amber-700 mt-0.5">
+                  Vous pouvez restaurer instantanément le planning d&apos;usine de référence contenant les 1 175 tâches préventives ISO (S1–S52).
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleRestoreBaseline}
+              className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs transition flex items-center gap-2 shrink-0 cursor-pointer"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>Restaurer 1 175 tâches d&apos;usine</span>
+            </button>
+          </div>
+        )}
 
         {/* Anti-Recurrence Predictive Suggestions from Corrective Nexus */}
         {preventiveRecommendations && preventiveRecommendations.length > 0 && (

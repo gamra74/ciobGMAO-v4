@@ -12,13 +12,14 @@ import {
   INITIAL_ACTIONS,
   INITIAL_GUIDES,
 } from './preventive/index.js';
+import initialTasks from '../../data/preventive/seedPreventiveTasks.json';
 
 export {
   INITIAL_ACTIONS,
   INITIAL_GUIDES,
 };
 
-export const INITIAL_TASKS = [];
+export const INITIAL_TASKS = Array.isArray(initialTasks) && initialTasks.length > 0 ? initialTasks : [];
 export const INITIAL_PLANS = [];
 
 const STORAGE_KEY_TASKS = 'gmao_preventive_tasks_v8';
@@ -291,6 +292,7 @@ export class PreventiveService {
     try {
       const keys = [
         STORAGE_KEY_TASKS,
+        'gmao_preventive_tasks_v9',
         'gmao_preventive_tasks_v7',
         'gmao_preventive_tasks_v6',
         'gmao_preventive_tasks_v2',
@@ -298,12 +300,13 @@ export class PreventiveService {
       ];
       for (const k of keys) {
         const data = storageService.getItem(k);
-        if (data && Array.isArray(data)) return data;
+        if (data && Array.isArray(data) && data.length >= 10) return data;
       }
     } catch {
       // fallback
     }
-    return [];
+    this.saveTasks(INITIAL_TASKS);
+    return INITIAL_TASKS;
   }
 
   // Rétrocompatibilité
@@ -314,6 +317,7 @@ export class PreventiveService {
   static saveTasks(tasks) {
     try {
       storageService.setItem(STORAGE_KEY_TASKS, tasks);
+      storageService.setItem('gmao_preventive_tasks_v9', tasks);
     } catch {
       // storage error handling
     }
@@ -792,7 +796,8 @@ export class PreventiveService {
   }
 
   static markTaskAsDone(id, validationData = {}) {
-    const current = this.getTasks();
+    const rawCurrent = this.getTasks();
+    const current = Array.isArray(rawCurrent) && rawCurrent.length > 0 ? rawCurrent : INITIAL_TASKS;
     const task = current.find(t => t.id === id);
     const execDateStr = validationData.date_realisation || new Date().toISOString().split('T')[0];
     const execDate = new Date(execDateStr);
