@@ -50,6 +50,7 @@ export const STORAGE_KEYS = {
 
   // 8. System & Migration Flags
   DEMO_MODE: 'gmao_demo_data_loaded_v1',
+  START_MODE: 'gmao_start_mode',
   STORAGE_MIGRATED: 'gmao_storage_migrated_v1',
   FULL_STATE_SNAPSHOT: 'gmao_full_state_v1',
 };

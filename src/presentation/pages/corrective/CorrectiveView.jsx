@@ -264,7 +264,7 @@ export default function CorrectiveView({
                 // Dictionaries only if interventions reset succeeded
                 await onResetActionsToSeed?.();
                 showToast?.(
-                  `Correctif réinitialisé (${result?.restoredCount ?? 800} interventions).` +
+                  `Correctif réinitialisé (${result?.restoredCount ?? (result?.items || []).length} interventions).` +
                     (result?.orphanCountAfter
                       ? ` ${result.orphanCountAfter} orpheline(s) possibles — Paramètres > Intégrité.`
                       : ''),

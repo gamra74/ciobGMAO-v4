@@ -55,6 +55,7 @@ import initialTechnicians from '../../../data/users/seedTechnicians.json';
 import initialOperations from '../../../data/users/seedOperations.json';
 import initialCorrectiveInterventions from '../../../data/corrective/seedCorrectiveInterventions.json';
 import { storageService } from '../../../utils/storageService';
+import { STORAGE_KEYS } from '../../../infrastructure/persistence/storageKeys';
 import { vaultService } from '../../../utils/vaultService';
 import { backupService } from '../../../utils/BackupService';
 import { auditService } from '../../../utils/AuditService';
@@ -141,7 +142,9 @@ export default function SettingsView({
   });
 
   const [isDemoMode, setIsDemoMode] = useState(() => {
-    return localStorage.getItem('gmao_start_mode') !== 'empty';
+    const demoFlag = storageService.getItem(STORAGE_KEYS.DEMO_MODE);
+    const startMode = storageService.getItem(STORAGE_KEYS.START_MODE);
+    return startMode === 'demo' || (demoFlag === true && startMode !== 'empty');
   });
 
   // Admin & Security Config States (Zero-Knowledge Vault)
@@ -739,7 +742,8 @@ export default function SettingsView({
     storageService.setItem('gmao_shared_folder_path', sharedFolderPath);
     storageService.setItem('gmao_auto_write_excel', String(autoWriteExcel));
     storageService.setItem('gmao_polling_interval', pollingInterval);
-    storageService.setItem('gmao_start_mode', isDemoMode ? 'demo' : 'empty');
+    storageService.setItem(STORAGE_KEYS.START_MODE, isDemoMode ? 'demo' : 'empty');
+    storageService.setItem(STORAGE_KEYS.DEMO_MODE, isDemoMode);
     showToast('Parametres systeme mis a jour !', 'success');
   };
 

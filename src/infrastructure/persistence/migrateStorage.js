@@ -124,7 +124,8 @@ export function loadCollection(
 
   // Key is absent from storage: return emptyDefault unless user explicitly activated DEMO_MODE
   const demoFlag = storageService.getItem(STORAGE_KEYS.DEMO_MODE);
-  const demoLoaded = demoFlag === true || demoFlag === 'true';
+  const startMode = storageService.getItem(STORAGE_KEYS.START_MODE);
+  const demoLoaded = (demoFlag === true || demoFlag === 'true') && startMode !== 'empty';
 
   if (allowDemoFallback && demoLoaded && demoSeed !== undefined && demoSeed !== null) {
     return demoSeed;

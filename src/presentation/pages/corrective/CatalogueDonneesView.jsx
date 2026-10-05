@@ -89,7 +89,7 @@ export default function CatalogueDonneesView({
       if (typeof onForceSyncSeed === 'function') {
         const res = onForceSyncSeed();
         showToast?.(
-          `Données réelles synchronisées avec succès : ${res?.interventionsCount || 800} Interventions, ${res?.travauxCount || 114} Travaux, ${res?.pannesCount || 282} Pannes !`,
+          `Données réelles synchronisées avec succès : ${res?.interventionsCount ?? res?.interventions?.length ?? (interventions || []).length} Interventions, ${res?.travauxCount || (travauxAFaire || []).length} Travaux, ${res?.pannesCount || Object.keys(panneCategories || {}).length} Pannes !`,
           'success'
         );
       } else {

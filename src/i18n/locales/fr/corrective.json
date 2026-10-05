@@ -12,7 +12,7 @@
   "buttons": {
     "new_di": "Nouvelle Demande (DI)",
     "export_excel": "Exporter Tout (.xlsx)",
-    "reset_seed": "Réinitialiser 800 Interventions",
+    "reset_seed": "Réinitialiser les Interventions Démo",
     "formulas": "Formules Excel & Calcul Temps",
     "cancel": "Annuler",
     "save": "Enregistrer",

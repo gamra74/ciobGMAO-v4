@@ -12,7 +12,7 @@
   "buttons": {
     "new_di": "New Request (DI)",
     "export_excel": "Export All (.xlsx)",
-    "reset_seed": "Reset 800 Interventions",
+    "reset_seed": "Reset Baseline Interventions",
     "formulas": "Excel Formulas & Working Time",
     "cancel": "Cancel",
     "save": "Save",
