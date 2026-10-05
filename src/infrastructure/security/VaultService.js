@@ -7,7 +7,7 @@ import bcrypt from 'bcryptjs';
  */
 export class VaultService {
   constructor() {
-    this.PBKDF2_ITERATIONS = 100000;
+    this.PBKDF2_ITERATIONS = 600000;
     this.SALT_LENGTH = 16;
     this.IV_LENGTH = 12;
   }

@@ -1,5 +1,5 @@
 // vaultService.js - Coffre-fort Chiffré Zero-Knowledge
-// Architecture : Master PIN = Clé cryptographique unique (PBKDF2 100 000 itérations + AES-256-GCM)
+// Architecture : Master PIN = Clé cryptographique unique (PBKDF2 600 000 itérations + AES-256-GCM)
 // Données au repos chiffrées sans aucun mot de passe ni sel statique stocké dans le code source.
 
 import CryptoJS from 'crypto-js';
@@ -8,6 +8,9 @@ const VAULT_SALT_KEY = 'gmao_vault_salt_v2';
 const VAULT_CIPHER_KEY = 'gmao_vault_cipher_v2';
 const VAULT_IV_KEY = 'gmao_vault_iv_v2';
 const VAULT_PIN_HASH_KEY = 'gmao_vault_pin_hash_v2';
+
+const PBKDF2_STANDARD_ITERATIONS = 600000;
+const PBKDF2_LEGACY_ITERATIONS = 100000;
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -45,8 +48,8 @@ export function getOrCreateSalt() {
   return saltB64;
 }
 
-// Dérivation de clé AES-256-GCM depuis le PIN + Sel via PBKDF2 (100 000 itérations SHA-256)
-export async function deriveKeyFromPin(pin, saltB64) {
+// Dérivation de clé AES-256-GCM depuis le PIN + Sel via PBKDF2 (600 000 itérations SHA-256)
+export async function deriveKeyFromPin(pin, saltB64, iterations = PBKDF2_STANDARD_ITERATIONS) {
   const saltBuf = base64ToBuf(saltB64);
   const pinKey = await crypto.subtle.importKey(
     'raw',
@@ -59,7 +62,7 @@ export async function deriveKeyFromPin(pin, saltB64) {
     {
       name: 'PBKDF2',
       salt: saltBuf,
-      iterations: 100000,
+      iterations,
       hash: 'SHA-256',
     },
     pinKey,
@@ -73,7 +76,7 @@ export async function deriveKeyFromPin(pin, saltB64) {
 // Chiffrement intégral du coffre en AES-256-GCM
 export async function encryptVault(vaultObject, pin) {
   const saltB64 = getOrCreateSalt();
-  const key = await deriveKeyFromPin(pin, saltB64);
+  const key = await deriveKeyFromPin(pin, saltB64, PBKDF2_STANDARD_ITERATIONS);
   const iv = crypto.getRandomValues(new Uint8Array(12)); // 12 octets standards pour AES-GCM
   const dataBuf = enc.encode(JSON.stringify(vaultObject));
   const cipherBuf = await crypto.subtle.encrypt(
@@ -96,10 +99,13 @@ export async function decryptVault(pin) {
   if (!cipherB64 || !ivB64 || !saltB64) {
     throw new Error('Le coffre-fort est inexistant. Veuillez d\'abord définir un Master PIN.');
   }
-  const key = await deriveKeyFromPin(pin, saltB64);
+
   const cipherBuf = base64ToBuf(cipherB64);
   const ivBuf = new Uint8Array(base64ToBuf(ivB64));
+
+  // 1. Try modern 600,000 iterations
   try {
+    const key = await deriveKeyFromPin(pin, saltB64, PBKDF2_STANDARD_ITERATIONS);
     const plainBuf = await crypto.subtle.decrypt(
       { name: 'AES-GCM', iv: ivBuf },
       key,
@@ -108,7 +114,22 @@ export async function decryptVault(pin) {
     const json = dec.decode(plainBuf);
     return JSON.parse(json);
   } catch {
-    throw new Error('Master PIN incorrect ou échec du déchiffrement du coffre-fort (AES-256-GCM).');
+    // 2. Fallback to legacy 100,000 iterations if existing vault was created with earlier version
+    try {
+      const legacyKey = await deriveKeyFromPin(pin, saltB64, PBKDF2_LEGACY_ITERATIONS);
+      const plainBuf = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: ivBuf },
+        legacyKey,
+        cipherBuf
+      );
+      const json = dec.decode(plainBuf);
+      const parsed = JSON.parse(json);
+      // Seamlessly upgrade vault to 600,000 iterations in the background
+      await encryptVault(parsed, pin);
+      return parsed;
+    } catch {
+      throw new Error('Master PIN incorrect ou échec du déchiffrement du coffre-fort (AES-256-GCM).');
+    }
   }
 }
 
