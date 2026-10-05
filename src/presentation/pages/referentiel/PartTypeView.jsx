@@ -125,6 +125,21 @@ export default function PartTypeView({
     );
   };
 
+  const getSortFieldLabel = (field) => {
+    switch (field) {
+      case 'id_type':
+        return t('part_types.col_id', 'Code Type');
+      case 'libelle':
+        return t('part_types.col_libelle', 'Libellé');
+      case 'designations_count':
+        return t('part_types.col_count', 'Désignations');
+      case 'warehouse_count':
+        return t('part_types.col_warehouse', 'Entrepôt');
+      default:
+        return field?.toUpperCase() || '';
+    }
+  };
+
   const handleExportExcel = () => {
     const headers = ['ID Type Part', 'Libellé Type Part', 'Nb Désignations', 'Nb Articles Entrepôt'];
     const rows = filtered.map((t) => [
@@ -323,7 +338,7 @@ export default function PartTypeView({
           </div>
           <div>
             <h2 className="text-xl font-black text-slate-900 tracking-tight">
-              {t('nav.type_pdr', 'Types de Parts d’Entrepôt')}
+              {t('part_types.title', 'Types de Parts d’Entrepôt')}
             </h2>
             <p className="text-xs text-slate-500 mt-1 max-w-3xl leading-relaxed">
               {t('part_types.subtitle', 'Nomenclature des types et catégories de pièces gérées au sein du groupe entrepôt (Distinctes du Stock).')}
@@ -334,7 +349,7 @@ export default function PartTypeView({
         <div className="flex items-center gap-2.5 shrink-0 relative">
           <FormulasModalButton
             onClick={() => setShowFormulasModal(true)}
-            title={t('header.formulas_excel', 'Formules Excel (Types de Parts)')}
+            title={t('part_types.formulas_button', 'Formules Excel (Types de Parts)')}
           />
 
           <Action3DButton
@@ -350,7 +365,7 @@ export default function PartTypeView({
               });
               setShowAddModal(true);
             }}
-            title={t('common.add', 'Nouveau Type de Part')}
+            title={t('part_types.new_type_button', 'Nouveau Type de Part')}
           />
         </div>
       </div>
@@ -446,7 +461,7 @@ export default function PartTypeView({
                 {t('common.filters.sort_and_order', 'TRI DES ENREGISTREMENTS')}
               </label>
               <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wide bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs">
-                {t('common.filters.order', 'Ordre A-Z')}
+                {sortOrder === 'asc' ? t('common.filters.order_asc', 'Ordre A-Z') : t('common.filters.order_desc', 'Ordre Z-A')}
               </span>
             </div>
             <button
@@ -462,8 +477,7 @@ export default function PartTypeView({
                   <ArrowUpDown className="w-3 h-3" />
                 </span>
                 <span>
-                  {t('common.filters.sort_prefix', 'Tri :')} <b className="font-mono text-slate-900">{sortField.toUpperCase()}</b> (
-                  {sortOrder === 'asc' ? 'A→Z' : 'Z→A'})
+                  {t('common.filters.sort_prefix', 'Tri :')} <b className="font-semibold text-slate-900">{getSortFieldLabel(sortField)}</b> ({sortOrder === 'asc' ? t('common.filters.order_asc_short', 'A→Z') : t('common.filters.order_desc_short', 'Z→A')})
                 </span>
               </div>
               <ChevronDown
@@ -476,7 +490,7 @@ export default function PartTypeView({
                 <div className="flex items-center justify-between pb-2 border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                   <span className="flex items-center gap-1.5 text-slate-700 font-semibold">
                     <SlidersHorizontal className="w-3.5 h-3.5 text-teal-600" />
-                    Trier par
+                    {t('common.sort_options', 'Trier par')}
                   </span>
                 </div>
                 <div className="grid grid-cols-1 gap-1 text-xs">
@@ -495,7 +509,7 @@ export default function PartTypeView({
                         : 'hover:bg-slate-50 text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    <span>ID Type de Part (A)</span>
+                    <span>{t('part_types.col_id', 'ID Type de Part (A)')}</span>
                     {sortField === 'id_type' &&
                       (sortOrder === 'asc' ? (
                         <ArrowUp className="w-3.5 h-3.5 text-teal-600 shrink-0" />
@@ -519,7 +533,7 @@ export default function PartTypeView({
                         : 'hover:bg-slate-50 text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    <span>Libellé Type de Part (B)</span>
+                    <span>{t('part_types.col_libelle', 'Libellé Type de Part (B)')}</span>
                     {sortField === 'libelle' &&
                       (sortOrder === 'asc' ? (
                         <ArrowUp className="w-3.5 h-3.5 text-teal-600 shrink-0" />
@@ -536,10 +550,10 @@ export default function PartTypeView({
         {/* Active Filter Chips */}
         {search && (
           <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 text-xs">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Filtre actif :</span>
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{t('common.active_filter', 'Filtre actif :')}</span>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-teal-50 border border-teal-200 text-teal-800 text-xs font-semibold">
               <Search className="w-3 h-3 text-teal-600" />
-              Recherche: &quot;{search}&quot;
+              {t('common.search_term', 'Recherche:')} &quot;{search}&quot;
               <button
                 onClick={() => setSearch('')}
                 className="hover:bg-teal-200/60 p-0.5 rounded-full transition cursor-pointer"
@@ -584,15 +598,15 @@ export default function PartTypeView({
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
             <h3 className="font-bold text-base text-slate-900 mb-1">
-              Nouveau Type de Part
+              {t('part_types.add_title', 'Nouveau Type de Part')}
             </h3>
             <p className="text-xs text-slate-500 mb-4">
-              Catégorie de pièces détachées (PDR) d&apos;entrepôt.
+              {t('part_types.add_desc', "Catégorie de pièces détachées (PDR) d'entrepôt.")}
             </p>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
                 <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  ID Type (Clé Unique)
+                  {t('part_types.code_label', 'ID Type (Clé Unique) *')}
                 </label>
                 <input
                   type="text"
@@ -606,14 +620,14 @@ export default function PartTypeView({
 
               <div>
                 <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  Libellé du Type de Part
+                  {t('part_types.libelle_label', 'Libellé du Type de Part *')}
                 </label>
                 <input
                   type="text"
                   required
                   value={form.libelle}
                   onChange={(e) => setForm({ ...form, libelle: e.target.value })}
-                  placeholder="ex: Fixation & Visserie Industrielle"
+                  placeholder={t('part_types.libelle_placeholder', 'ex: Fixation & Visserie Industrielle')}
                   className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:ring-2 focus:ring-teal-500"
                 />
               </div>
@@ -624,14 +638,14 @@ export default function PartTypeView({
                   onClick={() => setShowAddModal(false)}
                   className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
                 >
-                  Annuler
+                  {t('common.cancel', 'Annuler')}
                 </button>
 
                 <button
                   type="submit"
                   className="px-4 py-2 text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-xl shadow-[0_12px_32px_-6px_rgba(0,0,0,0.12),0_4px_12px_-2px_rgba(0,0,0,0.06)] hover:shadow-[0_16px_40px_-8px_rgba(0,0,0,0.16),0_6px_16px_-3px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-300 ease-out cursor-pointer"
                 >
-                  Enregistrer
+                  {t('common.save', 'Enregistrer')}
                 </button>
 
               </div>
@@ -645,7 +659,7 @@ export default function PartTypeView({
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
             <h3 className="font-bold text-base text-slate-900 mb-1">
-              Modifier Type de Part
+              {t('part_types.edit_title', 'Modifier Type de Part')}
             </h3>
             <p className="text-xs font-mono text-teal-700 mb-4">{toEdit.id_type}</p>
             <form
@@ -658,7 +672,7 @@ export default function PartTypeView({
             >
               <div>
                 <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  Libellé
+                  {t('part_types.libelle_label', 'Libellé *')}
                 </label>
                 <input
                   type="text"
@@ -675,14 +689,14 @@ export default function PartTypeView({
                   onClick={() => setToEdit(null)}
                   className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
                 >
-                  Annuler
+                  {t('common.cancel', 'Annuler')}
                 </button>
 
                 <button
                   type="submit"
                   className="px-4 py-2 text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-xl shadow-[0_12px_32px_-6px_rgba(0,0,0,0.12),0_4px_12px_-2px_rgba(0,0,0,0.06)] hover:shadow-[0_16px_40px_-8px_rgba(0,0,0,0.16),0_6px_16px_-3px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-300 ease-out cursor-pointer"
                 >
-                  Mettre à jour
+                  {t('common.save', 'Mettre à jour')}
                 </button>
 
               </div>
@@ -696,19 +710,17 @@ export default function PartTypeView({
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 border border-slate-200">
             <h3 className="font-bold text-base text-slate-900 mb-1">
-              Supprimer ce Type de Part ?
+              {t('part_types.delete_title', 'Supprimer ce Type de Part ?')}
             </h3>
             <p className="text-xs text-slate-500 mb-4">
-              Êtes-vous sûr de vouloir supprimer{' '}
-              <strong className="text-slate-900 font-mono">{toDelete.id_type}</strong> (
-              {toDelete.libelle}) ?
+              {t('part_types.delete_confirm', 'Confirmez-vous la suppression de {{name}} ?', { name: `${toDelete.id_type} (${toDelete.libelle})` })}
             </p>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setToDelete(null)}
                 className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
               >
-                Annuler
+                {t('common.cancel', 'Annuler')}
               </button>
 
               <button
@@ -718,7 +730,7 @@ export default function PartTypeView({
                 }}
                 className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-[0_12px_32px_-6px_rgba(0,0,0,0.12),0_4px_12px_-2px_rgba(0,0,0,0.06)] hover:shadow-[0_16px_40px_-8px_rgba(0,0,0,0.16),0_6px_16px_-3px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-300 ease-out cursor-pointer"
               >
-                Supprimer
+                {t('common.delete', 'Supprimer')}
               </button>
 
             </div>
@@ -736,8 +748,8 @@ export default function PartTypeView({
                   <Calculator className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-black text-slate-900 text-base">Formules Excel — Types de Parts d'Entrepôt</h3>
-                  <p className="text-xs text-slate-500">Formules miroir de l'onglet Part_Types (GMAO)</p>
+                  <h3 className="font-black text-slate-900 text-base">{t('part_types.formulas_title', "Formules Excel — Types de Parts d'Entrepôt")}</h3>
+                  <p className="text-xs text-slate-500">{t('part_types.formulas_subtitle', "Formules miroir de l'onglet Part_Types (GMAO)")}</p>
                 </div>
               </div>
               <button
@@ -779,7 +791,7 @@ export default function PartTypeView({
                 onClick={() => setShowFormulasModal(false)}
                 className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-bold transition shadow-[0_12px_32px_-6px_rgba(0,0,0,0.12),0_4px_12px_-2px_rgba(0,0,0,0.06)] hover:shadow-[0_16px_40px_-8px_rgba(0,0,0,0.16),0_6px_16px_-3px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-300 ease-out cursor-pointer"
               >
-                Fermer
+                {t('common.close', 'Fermer')}
               </button>
 
             </div>

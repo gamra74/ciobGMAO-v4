@@ -170,6 +170,25 @@ export default function CompFamilyView({
     setShowAddModal(false);
   };
 
+  const getSortFieldLabel = (field) => {
+    switch (field) {
+      case 'id_family':
+        return t('components.family.col_id', 'ID Type');
+      case 'id_groupe':
+        return t('components.family.col_group', 'Groupe Parent');
+      case 'libelle':
+        return t('components.family.col_libelle', 'Libellé Type');
+      case 'componentCode':
+        return t('components.family.col_prefix', 'Code Composant');
+      case 'templates_count':
+        return t('components.family.col_templates', 'Désignations');
+      case 'warehouse_items':
+        return t('components.family.col_warehouse', 'Entrepôt');
+      default:
+        return field?.toUpperCase() || '';
+    }
+  };
+
   const handleExportExcel = () => {
     const headers = ['ID Type', 'Libellé Type', 'Préfixe Code', 'Nb Désignations', 'Nb Articles'];
     const rows = filtered.map((f) => [
@@ -627,7 +646,7 @@ export default function CompFamilyView({
                 {t('components.family.sort_label', 'TRI DES ENREGISTREMENTS')}
               </label>
               <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wide bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs">
-                {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                {sortOrder === 'asc' ? t('common.filters.order_asc', 'Ordre A-Z') : t('common.filters.order_desc', 'Ordre Z-A')}
               </span>
             </div>
             <button
@@ -643,8 +662,7 @@ export default function CompFamilyView({
                   <ArrowUpDown className="w-3 h-3" />
                 </span>
                 <span>
-                  {t('common.sort_by', 'Tri')} : <b className="font-mono text-slate-900">{sortField.toUpperCase()}</b> (
-                  {sortOrder === 'asc' ? 'A→Z' : 'Z→A'})
+                  {t('common.filters.sort_prefix', 'Tri :')} <b className="font-semibold text-slate-900">{getSortFieldLabel(sortField)}</b> ({sortOrder === 'asc' ? t('common.filters.order_asc_short', 'A→Z') : t('common.filters.order_desc_short', 'Z→A')})
                 </span>
               </div>
               <ChevronDown
@@ -657,7 +675,7 @@ export default function CompFamilyView({
                 <div className="flex items-center justify-between pb-2 border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                   <span className="flex items-center gap-1.5 text-slate-700 font-semibold">
                     <SlidersHorizontal className="w-3.5 h-3.5 text-teal-600" />
-                    {t('common.sort_options', 'Trier par')}
+                    {t('common.filters.sort_by', 'Trier par')}
                   </span>
                 </div>
                 <div className="grid grid-cols-1 gap-1 text-xs">
@@ -789,15 +807,15 @@ export default function CompFamilyView({
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
             <h3 className="font-bold text-base text-slate-900 mb-1">
-              Nouveau Type de Composant
+              {t('components.family.add_title', 'Nouvelle Famille de Composants')}
             </h3>
             <p className="text-xs text-slate-500 mb-4">
-              Type d&apos;ensembles et sous-systèmes stockés en entrepôt.
+              {t('components.family.add_desc', "Type d'ensembles et sous-systèmes stockés en entrepôt.")}
             </p>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
                 <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  ID Type (Clé Unique)
+                  {t('components.family.code_label', 'ID Type (Clé Unique) *')}
                 </label>
                 <input
                   type="text"
@@ -811,14 +829,14 @@ export default function CompFamilyView({
 
               <div>
                 <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  Groupe Parent (Niveau 1)
+                  {t('components.family.group_select_label', 'Groupe Parent (Niveau 1)')}
                 </label>
                 <select
                   value={form.id_groupe || ''}
                   onChange={(e) => setForm({ ...form, id_groupe: e.target.value })}
                   className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:ring-2 focus:ring-teal-500"
                 >
-                  <option value="">-- Aucun Groupe Parent --</option>
+                  <option value="">{t('components.family.no_parent_group', '-- Aucun Groupe Parent --')}</option>
                   {compGroups.map((g) => (
                     <option key={g.id || g.code} value={g.code || g.id}>
                       {g.code || g.id} - {g.name || g.libelle}
@@ -829,21 +847,21 @@ export default function CompFamilyView({
 
               <div>
                 <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  Libellé / Désignation du Type
+                  {t('components.family.libelle_label', 'Libellé / Désignation du Type *')}
                 </label>
                 <input
                   type="text"
                   required
                   value={form.libelle}
                   onChange={(e) => setForm({ ...form, libelle: e.target.value })}
-                  placeholder="ex: Moteurs & Motoréducteurs"
+                  placeholder={t('components.family.libelle_placeholder', 'ex: Moteurs & Motoréducteurs')}
                   className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:ring-2 focus:ring-teal-500"
                 />
               </div>
 
               <div>
                 <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  Préfixe Code Composant (Optionnel)
+                  {t('components.family.prefix_label', 'Préfixe Code Composant (Optionnel)')}
                 </label>
                 <input
                   type="text"
@@ -853,7 +871,7 @@ export default function CompFamilyView({
                   className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-semibold text-slate-900 focus:bg-white focus:ring-2 focus:ring-teal-500"
                 />
                 <span className="text-[10px] text-slate-400 mt-0.5 block">
-                  Utilisé pour générer les codes automatiques en entrepôt (ex: MOT-01, MOT-02...).
+                  {t('components.family.prefix_helper', 'Utilisé pour générer les codes automatiques en entrepôt (ex: MOT-01, MOT-02...).')}
                 </span>
               </div>
 
@@ -863,13 +881,13 @@ export default function CompFamilyView({
                   onClick={() => setShowAddModal(false)}
                   className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
                 >
-                  Annuler
+                  {t('common.cancel', 'Annuler')}
                 </button>
                 <button
                   type="submit"
                   className="px-4 py-2 text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-xl shadow-[0_12px_32px_-6px_rgba(0,0,0,0.12),0_4px_12px_-2px_rgba(0,0,0,0.06)] hover:shadow-[0_16px_40px_-8px_rgba(0,0,0,0.16),0_6px_16px_-3px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-300 ease-out cursor-pointer"
                 >
-                  Enregistrer
+                  {t('common.save', 'Enregistrer')}
                 </button>
               </div>
             </form>
@@ -882,7 +900,7 @@ export default function CompFamilyView({
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
             <h3 className="font-bold text-base text-slate-900 mb-1">
-              Modifier Type de Composant
+              {t('components.family.edit_title', 'Modifier la Famille de Composants')}
             </h3>
             <p className="text-xs font-mono text-teal-700 mb-4">{toEdit.id_family}</p>
             <form
@@ -895,14 +913,14 @@ export default function CompFamilyView({
             >
               <div>
                 <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  Groupe Parent (Niveau 1)
+                  {t('components.family.group_select_label', 'Groupe Parent (Niveau 1)')}
                 </label>
                 <select
                   value={toEdit.id_groupe || ''}
                   onChange={(e) => setToEdit({ ...toEdit, id_groupe: e.target.value })}
                   className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:ring-2 focus:ring-teal-500"
                 >
-                  <option value="">-- Aucun Groupe Parent --</option>
+                  <option value="">{t('components.family.no_parent_group', '-- Aucun Groupe Parent --')}</option>
                   {compGroups.map((g) => (
                     <option key={g.id || g.code} value={g.code || g.id}>
                       {g.code || g.id} - {g.name || g.libelle}
@@ -913,7 +931,7 @@ export default function CompFamilyView({
 
               <div>
                 <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  Libellé
+                  {t('components.family.libelle_label', 'Libellé / Désignation du Type *')}
                 </label>
                 <input
                   type="text"
@@ -926,7 +944,7 @@ export default function CompFamilyView({
 
               <div>
                 <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  Préfixe Code Composant
+                  {t('components.family.prefix_label', 'Préfixe Code Composant (Optionnel)')}
                 </label>
                 <input
                   type="text"
@@ -947,13 +965,13 @@ export default function CompFamilyView({
                   onClick={() => setToEdit(null)}
                   className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
                 >
-                  Annuler
+                  {t('common.cancel', 'Annuler')}
                 </button>
                 <button
                   type="submit"
                   className="px-4 py-2 text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-xl shadow-[0_12px_32px_-6px_rgba(0,0,0,0.12),0_4px_12px_-2px_rgba(0,0,0,0.06)] hover:shadow-[0_16px_40px_-8px_rgba(0,0,0,0.16),0_6px_16px_-3px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-300 ease-out cursor-pointer"
                 >
-                  Mettre à jour
+                  {t('common.save', 'Mettre à jour')}
                 </button>
               </div>
             </form>
@@ -966,19 +984,17 @@ export default function CompFamilyView({
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 border border-slate-200">
             <h3 className="font-bold text-base text-slate-900 mb-1">
-              Supprimer ce Type de Composant ?
+              {t('components.family.delete_title', 'Supprimer cette famille de composants ?')}
             </h3>
             <p className="text-xs text-slate-500 mb-4">
-              Êtes-vous sûr de vouloir supprimer{' '}
-              <strong className="text-slate-900 font-mono">{toDelete.id_family}</strong> (
-              {toDelete.libelle}) ?
+              {t('components.family.delete_confirm', 'Confirmez-vous la suppression de {{name}} ?', { name: `${toDelete.id_family} (${toDelete.libelle})` })}
             </p>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setToDelete(null)}
                 className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
               >
-                Annuler
+                {t('common.cancel', 'Annuler')}
               </button>
               <button
                 onClick={() => {
@@ -987,7 +1003,7 @@ export default function CompFamilyView({
                 }}
                 className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-[0_12px_32px_-6px_rgba(0,0,0,0.12),0_4px_12px_-2px_rgba(0,0,0,0.06)] hover:shadow-[0_16px_40px_-8px_rgba(0,0,0,0.16),0_6px_16px_-3px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-300 ease-out cursor-pointer"
               >
-                Supprimer
+                {t('common.delete', 'Supprimer')}
               </button>
             </div>
           </div>
@@ -1004,8 +1020,8 @@ export default function CompFamilyView({
                   <Calculator className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-black text-slate-900 text-base">Formules Excel — Types de Composants</h3>
-                  <p className="text-xs text-slate-500">Formules miroir de l'onglet Comp_Families (GMAO)</p>
+                  <h3 className="font-black text-slate-900 text-base">{t('components.family.formulas_title', 'Formules Excel — Familles Composants')}</h3>
+                  <p className="text-xs text-slate-500">{t('components.family.formulas_subtitle', "Formules miroir de l'onglet Familles Composants (GMAO)")}</p>
                 </div>
               </div>
               <button
@@ -1046,7 +1062,7 @@ export default function CompFamilyView({
                 onClick={() => setShowFormulasModal(false)}
                 className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-bold transition shadow-[0_12px_32px_-6px_rgba(0,0,0,0.12),0_4px_12px_-2px_rgba(0,0,0,0.06)] hover:shadow-[0_16px_40px_-8px_rgba(0,0,0,0.16),0_6px_16px_-3px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-300 ease-out cursor-pointer"
               >
-                Fermer
+                {t('common.close', 'Fermer')}
               </button>
             </div>
           </div>

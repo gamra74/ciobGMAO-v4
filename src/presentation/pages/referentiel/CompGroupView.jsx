@@ -229,6 +229,26 @@ export default function CompGroupView({
     setForm({ id: '', code: '', libelle: '', description: '' });
   };
 
+  const getSortFieldLabel = (field) => {
+    switch (field) {
+      case 'code':
+        return t('components.group.col_code', 'Code Groupe');
+      case 'libelle':
+        return t('components.group.col_libelle', 'Libellé');
+      case 'description':
+        return t('components.group.col_description', 'Description');
+      case 'familiesCount':
+        return t('components.group.col_families', 'Familles');
+      case 'templatesCount':
+        return t('components.group.col_templates', 'Templates');
+      case 'passport_id':
+      case 'id':
+        return t('components.group.col_id', 'ID Passport');
+      default:
+        return field?.toUpperCase() || '';
+    }
+  };
+
   const handleExportExcel = () => {
     const headers = [
       'ID Passport',
@@ -645,7 +665,7 @@ export default function CompGroupView({
                 {t('components.group.sort_label', 'TRI DES ENREGISTREMENTS')}
               </label>
               <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wide bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs">
-                {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                {sortOrder === 'asc' ? t('common.filters.order_asc', 'Ordre A-Z') : t('common.filters.order_desc', 'Ordre Z-A')}
               </span>
             </div>
             <button
@@ -661,8 +681,7 @@ export default function CompGroupView({
                   <ArrowUpDown className="w-3 h-3" />
                 </span>
                 <span>
-                  {t('common.sort_by', 'Tri')} : <b className="font-mono text-slate-900">{sortField.toUpperCase()}</b> (
-                  {sortOrder === 'asc' ? 'A→Z' : 'Z→A'})
+                  {t('common.filters.sort_prefix', 'Tri :')} <b className="font-semibold text-slate-900">{getSortFieldLabel(sortField)}</b> ({sortOrder === 'asc' ? t('common.filters.order_asc_short', 'A→Z') : t('common.filters.order_desc_short', 'Z→A')})
                 </span>
               </div>
               <ChevronDown
@@ -762,10 +781,10 @@ export default function CompGroupView({
                 </div>
                 <div>
                   <h3 className="text-base font-black text-slate-900">
-                    Nouveau Groupe de Composants
+                    {t('components.group.add_title', 'Nouveau Groupe de Composants')}
                   </h3>
                   <p className="text-xs text-slate-400">
-                    Niveau 1 de la hiérarchie Composants
+                    {t('components.group.add_desc', 'Niveau 1 de la hiérarchie Composants')}
                   </p>
                 </div>
               </div>
@@ -780,57 +799,57 @@ export default function CompGroupView({
             <form onSubmit={handleAddSubmit} className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-slate-700 mb-1 block">
-                  Code Groupe (Maison court) *
+                  {t('components.group.code_label', 'Code Groupe (Maison court) *')}
                 </label>
                 <input
                   type="text"
                   required
                   value={form.code}
                   onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
-                  placeholder="Ex: MOTEUR, REDUCTEUR, POMPE..."
+                  placeholder={t('components.group.code_placeholder', 'Ex: MOTEUR, REDUCTEUR, POMPE...')}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 uppercase focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 />
                 <span className="text-[10px] text-slate-400 mt-1 block">
-                  Code unique servant de préfixe et repère usine
+                  {t('components.group.code_helper', 'Code unique servant de préfixe et repère usine')}
                 </span>
               </div>
 
               <div>
                 <label className="text-xs font-bold text-slate-700 mb-1 block">
-                  Désignation / Libellé Complet *
+                  {t('components.group.libelle_label', 'Désignation / Libellé Complet *')}
                 </label>
                 <input
                   type="text"
                   required
                   value={form.libelle}
                   onChange={(e) => setForm({ ...form, libelle: e.target.value })}
-                  placeholder="Ex: Moteurs & Actionneurs Électriques"
+                  placeholder={t('components.group.libelle_placeholder', 'Ex: Moteurs & Actionneurs Électriques')}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 />
               </div>
 
               <div>
                 <label className="text-xs font-bold text-slate-700 mb-1 block">
-                  Description / Périmètre technique
+                  {t('components.group.description_label', 'Description / Périmètre technique')}
                 </label>
                 <textarea
                   rows={2}
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  placeholder="Ex: Tous types de moteurs d'entraînement : asynchrones, synchrones, servo, courant continu..."
+                  placeholder={t('components.group.description_placeholder', "Ex: Tous types de moteurs d'entraînement : asynchrones, synchrones, servo, courant continu...")}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none"
                 />
               </div>
 
               <div>
                 <label className="text-xs font-bold text-slate-700 mb-1 block">
-                  ID Passport (Système)
+                  {t('components.group.id_label', 'ID Passport (Système)')}
                 </label>
                 <input
                   type="text"
                   value={form.id}
                   onChange={(e) => setForm({ ...form, id: e.target.value.toUpperCase() })}
-                  placeholder="Laisser vide pour auto-génération"
+                  placeholder={t('components.group.id_placeholder', 'Laisser vide pour auto-génération')}
                   className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs font-mono text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                 />
               </div>
@@ -841,13 +860,13 @@ export default function CompGroupView({
                   onClick={() => setShowAddModal(false)}
                   className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
                 >
-                  Annuler
+                  {t('common.cancel', 'Annuler')}
                 </button>
                 <button
                   type="submit"
                   className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition shadow-sm cursor-pointer"
                 >
-                  Créer le Groupe
+                  {t('components.group.create_submit', 'Créer le Groupe')}
                 </button>
               </div>
             </form>
@@ -866,7 +885,7 @@ export default function CompGroupView({
                 </div>
                 <div>
                   <h3 className="text-base font-black text-slate-900">
-                    Modifier le Groupe
+                    {t('components.group.edit_title', 'Modifier le Groupe de Composants')}
                   </h3>
                   <p className="text-xs font-mono text-indigo-600">
                     {editingGroup.id || editingGroup.id_groupe}
@@ -884,7 +903,7 @@ export default function CompGroupView({
             <form onSubmit={handleEditSubmit} className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-slate-700 mb-1 block">
-                  Code Groupe (Maison court) *
+                  {t('components.group.code_label', 'Code Groupe (Maison court) *')}
                 </label>
                 <input
                   type="text"
@@ -897,7 +916,7 @@ export default function CompGroupView({
 
               <div>
                 <label className="text-xs font-bold text-slate-700 mb-1 block">
-                  Désignation / Libellé Complet *
+                  {t('components.group.libelle_label', 'Désignation / Libellé Complet *')}
                 </label>
                 <input
                   type="text"
@@ -910,7 +929,7 @@ export default function CompGroupView({
 
               <div>
                 <label className="text-xs font-bold text-slate-700 mb-1 block">
-                  Description / Périmètre technique
+                  {t('components.group.description_label', 'Description / Périmètre technique')}
                 </label>
                 <textarea
                   rows={3}
@@ -926,13 +945,13 @@ export default function CompGroupView({
                   onClick={() => setEditingGroup(null)}
                   className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
                 >
-                  Annuler
+                  {t('common.cancel', 'Annuler')}
                 </button>
                 <button
                   type="submit"
                   className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition shadow-sm cursor-pointer"
                 >
-                  Enregistrer les modifications
+                  {t('components.group.save_submit', 'Enregistrer les modifications')}
                 </button>
               </div>
             </form>
@@ -950,7 +969,7 @@ export default function CompGroupView({
               </div>
               <div>
                 <h3 className="text-base font-black text-slate-900">
-                  Supprimer ce Groupe ?
+                  {t('components.group.delete_title', 'Supprimer ce groupe de composants ?')}
                 </h3>
                 <p className="text-xs text-rose-600 font-bold">
                   {deletingGroup.libelle} ({deletingGroup.code})
@@ -959,8 +978,8 @@ export default function CompGroupView({
             </div>
 
             <p className="text-xs text-slate-500 leading-relaxed">
-              Êtes-vous sûr de vouloir supprimer le groupe{' '}
-              <strong className="text-slate-800">{deletingGroup.code}</strong> ? Les familles et templates rattachés perdront leur affectation de groupe de niveau 1.
+              {t('components.group.delete_confirm', 'Confirmez-vous la suppression du groupe {{name}} ?', { name: deletingGroup.code })}{' '}
+              {t('components.group.delete_warning', 'Cette action est irréversible et peut affecter les familles et templates rattachés.')}
             </p>
 
             <div className="flex items-center justify-end gap-2.5 pt-2">
@@ -969,7 +988,7 @@ export default function CompGroupView({
                 onClick={() => setDeletingGroup(null)}
                 className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
               >
-                Annuler
+                {t('common.cancel', 'Annuler')}
               </button>
               <button
                 type="button"
@@ -979,7 +998,7 @@ export default function CompGroupView({
                 }}
                 className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition shadow-sm cursor-pointer"
               >
-                Confirmer la suppression
+                {t('common.confirm', 'Confirmer la suppression')}
               </button>
             </div>
           </div>
@@ -997,10 +1016,10 @@ export default function CompGroupView({
                 </div>
                 <div>
                   <h3 className="text-base font-black text-slate-900">
-                    Hiérarchie des Composants & Architecture 4 Niveaux
+                    {t('components.group.formulas_title', 'Hiérarchie des Composants & Architecture 4 Niveaux')}
                   </h3>
                   <p className="text-xs text-slate-400">
-                    Miroir de la structure Machines
+                    {t('components.group.formulas_subtitle', 'Miroir de la structure Machines & Relations Excel')}
                   </p>
                 </div>
               </div>
@@ -1016,41 +1035,40 @@ export default function CompGroupView({
               <div className="p-3 bg-indigo-50/60 rounded-xl border border-indigo-200/80 space-y-1.5">
                 <div className="font-bold text-indigo-900 flex items-center gap-1.5">
                   <span className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-mono">1</span>
-                  Groupe Composants (Ce niveau)
+                  {t('components.group.level_1_title', 'Groupe Composants (Niveau 1)')}
                 </div>
                 <p className="text-[11px] text-indigo-800">
-                  Ex: <strong>MOTEUR</strong>, <strong>REDUCTEUR</strong>, <strong>POMPE</strong>, <strong>VARIATEUR</strong>.
-                  Définit la grande catégorie technologique.
+                  {t('components.group.level_1_desc', 'Ex: MOTEUR, REDUCTEUR, POMPE, VARIATEUR. Définit la grande catégorie technologique.')}
                 </p>
               </div>
 
               <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-200/80 space-y-1.5">
                 <div className="font-bold text-amber-900 flex items-center gap-1.5">
                   <span className="w-5 h-5 rounded-full bg-amber-600 text-white flex items-center justify-center text-[10px] font-mono">2</span>
-                  Famille Composants (Niveau 2)
+                  {t('components.group.level_2_title', 'Famille Composants (Niveau 2)')}
                 </div>
                 <p className="text-[11px] text-amber-800">
-                  Ex: Dans le Groupe MOTEUR $\rightarrow$ <strong>Moteur Triphasé (3PH)</strong>, <strong>Monophasé (1PH)</strong>, <strong>Synchrone</strong>, <strong>Servo</strong>.
+                  {t('components.group.level_2_desc', 'Ex: Dans le Groupe MOTEUR → Moteur Triphasé (3PH), Monophasé (1PH), Synchrone, Servo.')}
                 </p>
               </div>
 
               <div className="p-3 bg-purple-50/60 rounded-xl border border-purple-200/80 space-y-1.5">
                 <div className="font-bold text-purple-900 flex items-center gap-1.5">
                   <span className="w-5 h-5 rounded-full bg-purple-600 text-white flex items-center justify-center text-[10px] font-mono">3</span>
-                  Templates Composants (Niveau 3)
+                  {t('components.group.level_3_title', 'Templates Composants (Niveau 3)')}
                 </div>
                 <p className="text-[11px] text-purple-800">
-                  Ex: Fiche technique précise $\rightarrow$ <strong>Moteur 4KW 1430tr/min B3</strong>. Spécifie les caractéristiques sans être une pièce physique unique.
+                  {t('components.group.level_3_desc', 'Ex: Fiche technique précise → Moteur 4KW 1430tr/min B3. Spécifie les caractéristiques sans être une pièce physique unique.')}
                 </p>
               </div>
 
               <div className="p-3 bg-emerald-50/60 rounded-xl border border-emerald-200/80 space-y-1.5">
                 <div className="font-bold text-emerald-900 flex items-center gap-1.5">
                   <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-mono">4</span>
-                  Stock Entrepôt (Élément Réel - Niveau 4)
+                  {t('components.group.level_4_title', 'Stock Entrepôt (Élément Réel - Niveau 4)')}
                 </div>
                 <p className="text-[11px] text-emerald-800">
-                  Ex: La pièce réelle avec son numéro de série / barcode physique en rayon <strong>A-01-03</strong> avec quantité, état et fournisseur.
+                  {t('components.group.level_4_desc', 'Ex: La pièce réelle avec son numéro de série / barcode physique en rayon avec quantité, état et emplacement.')}
                 </p>
               </div>
             </div>
@@ -1060,7 +1078,7 @@ export default function CompGroupView({
                 onClick={() => setShowFormulasModal(false)}
                 className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition cursor-pointer"
               >
-                Fermer
+                {t('common.close', 'Fermer')}
               </button>
             </div>
           </div>

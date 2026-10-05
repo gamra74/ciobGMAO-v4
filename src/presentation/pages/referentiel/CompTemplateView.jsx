@@ -230,6 +230,23 @@ export default function CompTemplateView({
     );
   };
 
+  const getSortFieldLabel = (field) => {
+    switch (field) {
+      case 'id_templates':
+        return t('components.template.col_id', 'Code Template');
+      case 'groupe':
+        return t('components.template.col_group', 'Groupe');
+      case 'libelle':
+        return t('components.template.col_libelle', 'Libellé / Modèle');
+      case 'id_family':
+        return t('components.template.col_family', 'Famille');
+      case 'warehouse_count':
+        return t('components.template.col_warehouse', 'Entrepôt');
+      default:
+        return field?.toUpperCase() || '';
+    }
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!form.id_templates || !form.libelle || !form.id_family) return;
@@ -734,7 +751,7 @@ export default function CompTemplateView({
                 {t('components.template.sort_label', 'TRI DES ENREGISTREMENTS')}
               </label>
               <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wide bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs">
-                {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                {sortOrder === 'asc' ? t('common.filters.order_asc', 'Ordre A-Z') : t('common.filters.order_desc', 'Ordre Z-A')}
               </span>
             </div>
             <button
@@ -750,8 +767,7 @@ export default function CompTemplateView({
                   <ArrowUpDown className="w-3 h-3" />
                 </span>
                 <span>
-                  {t('common.sort_by', 'Tri')} : <b className="font-mono text-slate-900">{sortField.toUpperCase()}</b> (
-                  {sortOrder === 'asc' ? 'A→Z' : 'Z→A'})
+                  {t('common.filters.sort_prefix', 'Tri :')} <b className="font-semibold text-slate-900">{getSortFieldLabel(sortField)}</b> ({sortOrder === 'asc' ? t('common.filters.order_asc_short', 'A→Z') : t('common.filters.order_desc_short', 'Z→A')})
                 </span>
               </div>
               <ChevronDown
@@ -764,7 +780,7 @@ export default function CompTemplateView({
                 <div className="flex items-center justify-between pb-2 border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                   <span className="flex items-center gap-1.5 text-slate-700 font-semibold">
                     <SlidersHorizontal className="w-3.5 h-3.5 text-purple-600" />
-                    Trier par
+                    {t('common.filters.sort_by', 'Trier par')}
                   </span>
                 </div>
                 <div className="grid grid-cols-1 gap-1 text-xs">
@@ -783,7 +799,7 @@ export default function CompTemplateView({
                         : 'hover:bg-slate-50 text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    <span>ID Désignation (A)</span>
+                    <span>{t('components.template.sort_id', 'ID Désignation (A)')}</span>
                     {sortField === 'id_templates' &&
                       (sortOrder === 'asc' ? (
                         <ArrowUp className="w-3.5 h-3.5 text-purple-600 shrink-0" />
@@ -807,7 +823,7 @@ export default function CompTemplateView({
                         : 'hover:bg-slate-50 text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    <span>Libellé / Modèle (B)</span>
+                    <span>{t('components.template.sort_libelle', 'Libellé / Modèle (B)')}</span>
                     {sortField === 'libelle' &&
                       (sortOrder === 'asc' ? (
                         <ArrowUp className="w-3.5 h-3.5 text-purple-600 shrink-0" />
@@ -831,7 +847,7 @@ export default function CompTemplateView({
                         : 'hover:bg-slate-50 text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    <span>Type de Composant (C)</span>
+                    <span>{t('components.template.sort_family', 'Type de Composant (C)')}</span>
                     {sortField === 'id_family' &&
                       (sortOrder === 'asc' ? (
                         <ArrowUp className="w-3.5 h-3.5 text-purple-600 shrink-0" />
@@ -848,11 +864,11 @@ export default function CompTemplateView({
         {/* Active Filter Chips */}
         {(search || (activeGroupFilter && activeGroupFilter !== 'ALL') || compTemplateFamilyFilter) && (
           <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 text-xs">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Filtres actifs :</span>
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{t('common.filters.active_filters', 'Filtres actifs :')}</span>
             {activeGroupFilter && activeGroupFilter !== 'ALL' && (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-800 text-xs font-semibold">
                 <Boxes className="w-3 h-3 text-indigo-600" />
-                Groupe: {activeGroupFilter}
+                {t('common.group', 'Groupe')} : {activeGroupFilter}
                 <button
                   onClick={() => setActiveGroupFilter('')}
                   className="hover:bg-indigo-200/60 p-0.5 rounded-full transition cursor-pointer"
@@ -864,7 +880,7 @@ export default function CompTemplateView({
             {compTemplateFamilyFilter && (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-50 border border-purple-200 text-purple-800 text-xs font-semibold">
                 <Tag className="w-3 h-3 text-purple-600" />
-                Famille: {compTemplateFamilyFilter}
+                {t('common.family', 'Famille')} : {compTemplateFamilyFilter}
                 <button
                   onClick={() => setCompTemplateFamilyFilter && setCompTemplateFamilyFilter('')}
                   className="hover:bg-purple-200/60 p-0.5 rounded-full transition cursor-pointer"
@@ -876,7 +892,7 @@ export default function CompTemplateView({
             {search && (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold">
                 <Search className="w-3 h-3 text-amber-600" />
-                Recherche: &quot;{search}&quot;
+                {t('common.filters.search_prefix', 'Recherche :')} &quot;{search}&quot;
                 <button
                   onClick={() => setSearch('')}
                   className="hover:bg-amber-200/60 p-0.5 rounded-full transition cursor-pointer"
@@ -922,15 +938,15 @@ export default function CompTemplateView({
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
             <h3 className="font-bold text-base text-slate-900 mb-1">
-              Nouvelle Désignation de Composant
+              {t('components.template.add_title', 'Nouveau Template de Composant')}
             </h3>
             <p className="text-xs text-slate-500 mb-4">
-              Modèle de sous-système standardisé stocké en entrepôt.
+              {t('components.template.add_desc', 'Modèle et gabarit technique de composant rattaché à une famille.')}
             </p>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
                 <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  ID Désignation (Clé Unique)
+                  {t('components.template.code_label', 'Code Template (ex: TPL-MOT-01) *')}
                 </label>
                 <input
                   type="text"
@@ -944,21 +960,21 @@ export default function CompTemplateView({
 
               <div>
                 <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  Libellé / Modèle
+                  {t('components.template.libelle_label', 'Libellé / Désignation du Modèle *')}
                 </label>
                 <input
                   type="text"
                   required
                   value={form.libelle}
                   onChange={(e) => setForm({ ...form, libelle: e.target.value })}
-                  placeholder="ex: Moteur Asynchrone 380V Trifasé 5.5kW"
+                  placeholder={t('components.template.libelle_placeholder', 'ex: Moteur Asynchrone 380V Triphasé 5.5kW')}
                   className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:ring-2 focus:ring-teal-500"
                 />
               </div>
 
               <div>
                 <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  Type de Composant Parent
+                  {t('components.template.family_select_label', 'Famille Parente (Niveau 2) *')}
                 </label>
                 <select
                   required
@@ -970,7 +986,7 @@ export default function CompTemplateView({
                   }}
                   className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:ring-2 focus:ring-teal-500 cursor-pointer"
                 >
-                  <option value="">Sélectionnez un type...</option>
+                  <option value="">{t('components.template.no_parent_family', '-- Sélectionner une Famille --')}</option>
                   {compFamilies.map((f) => (
                     <option key={f.id_family} value={f.id_family}>
                       {f.id_family} - {f.libelle} {f.id_groupe ? `(${f.id_groupe})` : ''}
@@ -985,13 +1001,13 @@ export default function CompTemplateView({
                   onClick={handleCloseAddModal}
                   className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
                 >
-                  Annuler
+                  {t('common.cancel', 'Annuler')}
                 </button>
                 <button
                   type="submit"
                   className="px-4 py-2 text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-xl shadow-[0_12px_32px_-6px_rgba(0,0,0,0.12),0_4px_12px_-2px_rgba(0,0,0,0.06)] hover:shadow-[0_16px_40px_-8px_rgba(0,0,0,0.16),0_6px_16px_-3px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-300 ease-out cursor-pointer"
                 >
-                  Enregistrer
+                  {t('common.save', 'Enregistrer')}
                 </button>
               </div>
             </form>
@@ -1004,7 +1020,7 @@ export default function CompTemplateView({
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
             <h3 className="font-bold text-base text-slate-900 mb-1">
-              Modifier Désignation de Composant
+              {t('components.template.edit_title', 'Modifier le Template de Composant')}
             </h3>
             <p className="text-xs font-mono text-teal-700 mb-4">{toEdit.id_templates}</p>
             <form
@@ -1017,7 +1033,7 @@ export default function CompTemplateView({
             >
               <div>
                 <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  Modèle / Libellé
+                  {t('components.template.libelle_label', 'Libellé / Désignation du Modèle *')}
                 </label>
                 <input
                   type="text"
@@ -1030,7 +1046,7 @@ export default function CompTemplateView({
 
               <div>
                 <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  Type de Composant Parent
+                  {t('components.template.family_select_label', 'Famille Parente (Niveau 2) *')}
                 </label>
                 <select
                   required
@@ -1052,13 +1068,13 @@ export default function CompTemplateView({
                   onClick={() => setToEdit(null)}
                   className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
                 >
-                  Annuler
+                  {t('common.cancel', 'Annuler')}
                 </button>
                 <button
                   type="submit"
                   className="px-4 py-2 text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-xl shadow-[0_12px_32px_-6px_rgba(0,0,0,0.12),0_4px_12px_-2px_rgba(0,0,0,0.06)] hover:shadow-[0_16px_40px_-8px_rgba(0,0,0,0.16),0_6px_16px_-3px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-300 ease-out cursor-pointer"
                 >
-                  Mettre à jour
+                  {t('common.save', 'Mettre à jour')}
                 </button>
               </div>
             </form>
@@ -1071,19 +1087,17 @@ export default function CompTemplateView({
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 border border-slate-200">
             <h3 className="font-bold text-base text-slate-900 mb-1">
-              Supprimer cette Désignation de Composant ?
+              {t('components.template.delete_title', 'Supprimer ce template de composant ?')}
             </h3>
             <p className="text-xs text-slate-500 mb-4">
-              Êtes-vous sûr de vouloir supprimer{' '}
-              <strong className="text-slate-900 font-mono">{toDelete.id_templates}</strong> (
-              {toDelete.libelle}) ?
+              {t('components.template.delete_confirm', 'Confirmez-vous la suppression de {{name}} ?', { name: `${toDelete.id_templates} (${toDelete.libelle})` })}
             </p>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setToDelete(null)}
                 className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
               >
-                Annuler
+                {t('common.cancel', 'Annuler')}
               </button>
               <button
                 onClick={() => {
@@ -1092,7 +1106,7 @@ export default function CompTemplateView({
                 }}
                 className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-[0_12px_32px_-6px_rgba(0,0,0,0.12),0_4px_12px_-2px_rgba(0,0,0,0.06)] hover:shadow-[0_16px_40px_-8px_rgba(0,0,0,0.16),0_6px_16px_-3px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-300 ease-out cursor-pointer"
               >
-                Supprimer
+                {t('common.delete', 'Supprimer')}
               </button>
             </div>
           </div>
@@ -1109,8 +1123,8 @@ export default function CompTemplateView({
                   <Calculator className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-black text-slate-900 text-base">Formules Excel — Désignations de Composants</h3>
-                  <p className="text-xs text-slate-500">Formules miroir de l'onglet Comp_Templates (GMAO)</p>
+                  <h3 className="font-black text-slate-900 text-base">{t('components.template.formulas_title', 'Formules Excel — Templates Composants')}</h3>
+                  <p className="text-xs text-slate-500">{t('components.template.formulas_subtitle', "Formules miroir de l'onglet Templates Composants (GMAO)")}</p>
                 </div>
               </div>
               <button
@@ -1151,7 +1165,7 @@ export default function CompTemplateView({
                 onClick={() => setShowFormulasModal(false)}
                 className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-bold transition shadow-[0_12px_32px_-6px_rgba(0,0,0,0.12),0_4px_12px_-2px_rgba(0,0,0,0.06)] hover:shadow-[0_16px_40px_-8px_rgba(0,0,0,0.16),0_6px_16px_-3px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-300 ease-out cursor-pointer"
               >
-                Fermer
+                {t('common.close', 'Fermer')}
               </button>
             </div>
           </div>
