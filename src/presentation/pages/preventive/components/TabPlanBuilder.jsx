@@ -13,6 +13,7 @@ import {
 import Action3DButton from '../../../components/common/Action3DButton';
 import PreventiveService from '../../../../application/services/PreventiveService';
 import { Logger } from '../../../../core/logger/LoggerService.js';
+import { filterActiveMachines } from '../../../../utils/activeMachines';
 
 export default function TabPlanBuilder({
   machines = [],
@@ -513,14 +514,12 @@ export default function TabPlanBuilder({
                 className="w-full px-3 py-2.5 text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer"
               >
                 <option value="">-- Sélectionner une Machine du Parc --</option>
-                {machines.length > 0 ? (
-                  machines
-                    .filter((m) => m.status !== 'ARCHIVEE' && m.is_active !== false)
-                    .map((m) => (
-                      <option key={m.id_machine_registered || m.id || m.code_machine} value={m.code_machine || m.id_machine_registered}>
-                        {m.code_machine || m.id_machine_registered} - {m.nom || m.designation || 'Machine'} ({m.id_zone || m.zone || 'Zone'})
-                      </option>
-                    ))
+                {filterActiveMachines(machines).length > 0 ? (
+                  filterActiveMachines(machines).map((m) => (
+                    <option key={m.id_machine_registered || m.id || m.code_machine} value={m.code_machine || m.id_machine_registered}>
+                      {m.code_machine || m.id_machine_registered} - {m.nom || m.designation || 'Machine'} ({m.id_zone || m.zone || 'Zone'})
+                    </option>
+                  ))
                 ) : (
                   <>
                     <option value="FRM-01">FRM-01 - Formeuse Hydraulique (AFM)</option>

@@ -700,7 +700,11 @@ class DataIntegrityService {
     const matchMachine = (value) => String(value || '').trim().toUpperCase() === id;
 
     const preventiveHits = (preventiveTasks || []).filter(
-      (t) => matchMachine(t.id_machine) || matchMachine(t.machine_id) || matchMachine(t.code_machine)
+      (t) =>
+        matchMachine(t.id_machine) ||
+        matchMachine(t.machine_id) ||
+        matchMachine(t.code_machine) ||
+        matchMachine(t.id_machine_registered)
     );
 
     const correctiveHits = (correctiveInterventions || []).filter(
@@ -712,11 +716,18 @@ class DataIntegrityService {
     );
 
     const movementsHits = (mouvements || []).filter(
-      (m) => matchMachine(m.id_machine_registered) || matchMachine(m.machine) || matchMachine(m.code_machine)
+      (m) =>
+        matchMachine(m.id_machine_registered) ||
+        matchMachine(m.machine) ||
+        matchMachine(m.code_machine) ||
+        matchMachine(m.id_machine)
     );
 
-    const bomHits = (machineElementsLedger || []).filter((e) =>
-      matchMachine(e.id_machine_registered)
+    const bomHits = (machineElementsLedger || []).filter(
+      (e) =>
+        matchMachine(e.id_machine_registered) ||
+        matchMachine(e.id_machine) ||
+        matchMachine(e.code_machine)
     );
 
     const total =
@@ -810,11 +821,27 @@ class DataIntegrityService {
 
     const warnings = [];
     if (action === 'CLEAR_PREVENTIVE') {
-      warnings.push(`Cette action va supprimer ${(preventiveTasks || []).length} tâche(s) préventive(s). La liste des machines restera intacte.`);
+      warnings.push(
+        `Cette action va supprimer ${(preventiveTasks || []).length} tâche(s) préventive(s). La liste des machines restera intacte.`
+      );
     } else if (action === 'RESET_PREVENTIVE_BASELINE') {
-      warnings.push(`Cette action va réinitialيز / recharger le planning préventif de base. ${prevOrphans.length} tâche(s) orpheline(s) détectée(s) actuellement.`);
+      warnings.push(
+        `Cette action va réinitialiser / recharger le planning préventif de base. ${prevOrphans.length} tâche(s) orpheline(s) détectée(s) actuellement.`
+      );
+      warnings.push(
+        `⚠️ Si le parc machines diffère du seed, des orphelins peuvent apparaître — utilisez Purger dans Paramètres > Intégrité.`
+      );
+    } else if (action === 'RESET_CORRECTIVE') {
+      warnings.push(
+        `Cette action va réinitialiser le correctif au seed d'origine. ${corrOrphans.length} intervention(s) orpheline(s) détectée(s) actuellement.`
+      );
+      warnings.push(
+        `⚠️ Si le parc machines diffère du seed, des orphelins peuvent apparaître — utilisez Purger dans Paramètres > Intégrité.`
+      );
     } else if (action === 'CLEAR_CORRECTIVE') {
-      warnings.push(`Cette action va vider les demandes et interventions correctives (${(correctiveInterventions || []).length} éléments).`);
+      warnings.push(
+        `Cette action va vider les demandes et interventions correctives (${(correctiveInterventions || []).length} éléments).`
+      );
     }
 
     return {

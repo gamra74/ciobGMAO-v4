@@ -16,6 +16,8 @@ import {
   Package,
   Sparkles,
   Plus,
+  RotateCcw,
+  Trash2,
 } from 'lucide-react';
 import AnimatedPage from '../../components/common/AnimatedPage';
 import Action3DButton from '../../components/common/Action3DButton';
@@ -35,8 +37,8 @@ export default function PreventiveView({
   onDeleteTask: onDeleteTaskProp = null,
   onUpdateTaskCounter: onUpdateTaskCounterProp = null,
   onMarkTaskDone: onMarkTaskDoneProp = null,
-  onResetToBaseline: _onResetToBaseline = null,
-  onClearPreventiveForRealFactory: _onClearPreventiveForRealFactory = null,
+  onResetToBaseline = null,
+  onClearPreventiveForRealFactory = null,
   machines = [],
   zones = [],
   technicians = [],
@@ -57,6 +59,24 @@ export default function PreventiveView({
   const [showGuideModal, setShowGuideModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [viewMode, setViewMode] = useState('matrix'); // 'matrix' | 'grouped' | 'calendar' | 'list' | 'analytics'
+
+  const runResetBaseline = async () => {
+    const result = await onResetToBaseline?.({ machines });
+    if (!result || result.cancelled) return;
+    showToast?.(
+      `Baseline restauré (${result.restoredCount} tâches).` +
+        (result.orphanCountAfter
+          ? ` Attention: ${result.orphanCountAfter} orpheline(s) — nettoyez dans Paramètres > Intégrité.`
+          : ''),
+      result.orphanCountAfter ? 'warning' : 'success'
+    );
+  };
+
+  const runClearRealFactory = () => {
+    const result = onClearPreventiveForRealFactory?.({ machines });
+    if (!result || result.cancelled) return;
+    showToast?.(`Préventif vidé (${result.clearedCount || 0} tâches).`, 'info');
+  };
 
   // ==========================================
   // MAIN VIEW HANDLERS (PRIMARY VIEW)
@@ -228,6 +248,30 @@ export default function PreventiveView({
               title="Philosophie & Manuel de la Maintenance Préventive"
               className="ring-2 ring-teal-400/60"
             />
+
+            {/* 3D Reset Baseline Button */}
+            {onResetToBaseline && (
+              <Action3DButton
+                variant="circle"
+                color="amber"
+                icon={RotateCcw}
+                onClick={runResetBaseline}
+                title="Reset Baseline Seed (Réinitialiser le préventif au seed usine)"
+                className="ring-2 ring-amber-400/60"
+              />
+            )}
+
+            {/* 3D Clear for Real Factory Button */}
+            {onClearPreventiveForRealFactory && (
+              <Action3DButton
+                variant="circle"
+                color="rose"
+                icon={Trash2}
+                onClick={runClearRealFactory}
+                title="Clear for Real Factory (Vider les tâches pour usine réelle)"
+                className="ring-2 ring-rose-400/60"
+              />
+            )}
 
             {/* 3D Import Tasks Button */}
             <Action3DButton

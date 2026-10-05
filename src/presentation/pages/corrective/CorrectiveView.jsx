@@ -258,16 +258,18 @@ export default function CorrectiveView({
               variant="circle"
               color="slate"
               icon={RefreshCw}
-              onClick={() => {
-                if (
-                  window.confirm(
-                    'Réinitialiser toutes les interventions et référentiels d\'actions aux données industrielles d\'origine (800 interventions d\'usine) ?'
-                  )
-                ) {
-                  onResetToSeed?.();
-                  onResetActionsToSeed?.();
-                  showToast?.('Données correctives réinitialisées avec succès (800 interventions)', 'success');
-                }
+              onClick={async () => {
+                const result = await onResetToSeed?.({ machines });
+                if (result?.cancelled) return;
+                // Dictionaries only if interventions reset succeeded
+                await onResetActionsToSeed?.();
+                showToast?.(
+                  `Correctif réinitialisé (${result?.restoredCount ?? 800} interventions).` +
+                    (result?.orphanCountAfter
+                      ? ` ${result.orphanCountAfter} orpheline(s) possibles — Paramètres > Intégrité.`
+                      : ''),
+                  result?.orphanCountAfter ? 'warning' : 'success'
+                );
               }}
               title={t('corrective.buttons.reset_seed')}
               ariaLabel="Réinitialiser données"

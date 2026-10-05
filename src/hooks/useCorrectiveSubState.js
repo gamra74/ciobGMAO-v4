@@ -9,6 +9,7 @@ import initialIntervenants from '../data/corrective/seedIntervenants.json';
 import { CorrectiveIntervention } from '../domain/corrective/entities/CorrectiveIntervention';
 import { CorrectiveCalculationService } from '../domain/corrective/services/CorrectiveCalculationService';
 import { movementRepository } from '../application/MovementRepository';
+import { dataIntegrityService } from '../services/dataIntegrityService';
 
 const STORAGE_KEY = 'gmao_corrective_interventions';
 const ACTIVE_LIVE_KEY = 'gmao_corrective_active_live';
@@ -60,11 +61,8 @@ export function useCorrectiveSubState(groupedState = {}) {
   const [interventions, setInterventions] = useState(() => {
     try {
       const stored = storageService.getItem(STORAGE_KEY);
-      if (
-        Array.isArray(stored) &&
-        stored.length >= initialInterventions.length &&
-        stored.some((i) => i?.id?.startsWith('CORR-0'))
-      ) {
+      const isInit = storageService.getItem(STORAGE_KEY_CORRECTIVE_INIT);
+      if (Array.isArray(stored) && (isInit || stored.length > 0)) {
         return stored;
       }
 
@@ -85,6 +83,14 @@ export function useCorrectiveSubState(groupedState = {}) {
       return initialInterventions;
     }
   });
+
+  // Auto-persist interventions whenever setInterventions is called (including Purge / Relink)
+  useEffect(() => {
+    try {
+      storageService.setItem(STORAGE_KEY, interventions);
+      storageService.setItem(STORAGE_KEY_CORRECTIVE_INIT, 'true');
+    } catch {}
+  }, [interventions]);
 
   // 2. Actions par Panne Dictionary
   const [actionsByPanne, setActionsByPanne] = useState(() => {
@@ -728,14 +734,47 @@ export function useCorrectiveSubState(groupedState = {}) {
   }, []);
 
   // 8. Reset to baseline seed
-  const resetToSeedData = useCallback(async () => {
+  const resetToSeedData = useCallback(async (ctx = {}) => {
+    const { machines = [], skipConfirm = false } = ctx;
+
+    const impact = dataIntegrityService.previewClearImpact({
+      action: 'RESET_CORRECTIVE',
+      machines,
+      preventiveTasks: [],
+      correctiveInterventions: interventions,
+    });
+
+    const msg =
+      `Réinitialiser le correctif au seed (≈800 interventions) ?\n` +
+      `• Interventions actuelles: ${impact.correctiveCount}\n` +
+      `• Machines: ${impact.machineCount}\n` +
+      `\nLes machines et le préventif ne seront PAS modifiés.`;
+
+    if (!skipConfirm && typeof window !== 'undefined' && !window.confirm(msg)) {
+      return { cancelled: true };
+    }
+
     const baseline = await loadBaselineCorrectiveData();
-    const finalItems = baseline?.interventions && baseline.interventions.length > 0 ? baseline.interventions : initialInterventions;
+    const finalItems =
+      baseline?.interventions && baseline.interventions.length > 0
+        ? baseline.interventions
+        : initialInterventions;
+
     setInterventions(finalItems);
     setActiveLiveId(null);
     storageService.setItem(STORAGE_KEY, finalItems);
     await resetCorrectiveActionsToSeed();
-  }, [resetCorrectiveActionsToSeed]);
+
+    const orphans = dataIntegrityService
+      .annotateCorrectiveOrphans(finalItems, machines)
+      .filter((i) => i._isOrphan);
+
+    return {
+      cancelled: false,
+      restoredCount: finalItems.length,
+      orphanCountAfter: orphans.length,
+    };
+  }, [resetCorrectiveActionsToSeed, interventions]);
 
   return {
     interventions,

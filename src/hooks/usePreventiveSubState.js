@@ -4,11 +4,13 @@ import initialTasks from '../data/preventive/seedPreventiveTasks.json';
 import initialActions from '../data/preventive/seedPreventiveActions.json';
 import initialGuides from '../data/preventive/seedPreventiveGuides.json';
 import PreventiveService from '../application/services/PreventiveService';
+import { dataIntegrityService } from '../services/dataIntegrityService';
 
 const STORAGE_KEY_TASKS = 'gmao_preventive_tasks_v9';
 const STORAGE_KEY_ACTIONS = 'gmao_preventive_actions_v3';
 const STORAGE_KEY_GUIDES = 'gmao_preventive_guides_v3';
 const STORAGE_KEY_PLANS = 'gmao_preventive_plans_v3';
+const STORAGE_KEY_PREVENTIVE_INIT = 'gmao_preventive_initialized_v1';
 
 /**
  * Hook for managing Preventive Maintenance state (Primary Matrix + Secondary Plans/Guides/Actions).
@@ -45,15 +47,26 @@ export function usePreventiveSubState(groupedState = {}) {
 
   // 4. Preventive Execution Tasks State (Primary S1-S52 matrix: 1,175 baseline tasks)
   const [tasks, setTasks] = useState(() => {
-    if (groupedState.tasks && Array.isArray(groupedState.tasks) && groupedState.tasks.length > 0) {
+    if (groupedState.tasks && Array.isArray(groupedState.tasks)) {
       return groupedState.tasks;
     }
     const saved = storageService.getItem(STORAGE_KEY_TASKS);
-    if (Array.isArray(saved) && saved.length >= 800) {
+    const isInit = storageService.getItem(STORAGE_KEY_PREVENTIVE_INIT);
+    if (Array.isArray(saved) && (isInit || saved.length > 0)) {
       return saved;
     }
+    storageService.setItem(STORAGE_KEY_TASKS, initialTasks);
+    storageService.setItem(STORAGE_KEY_PREVENTIVE_INIT, 'true');
     return initialTasks;
   });
+
+  // Auto-persist tasks whenever setTasks is called (including Purge / Relink in Settings)
+  useEffect(() => {
+    try {
+      storageService.setItem(STORAGE_KEY_TASKS, tasks);
+      storageService.setItem(STORAGE_KEY_PREVENTIVE_INIT, 'true');
+    } catch {}
+  }, [tasks]);
 
   // Synchronize with external events (Excel import, vault restore, service updates)
   useEffect(() => {
@@ -151,7 +164,26 @@ export function usePreventiveSubState(groupedState = {}) {
   }, []);
 
   // Clear / Reset to baseline explicitly (User-initiated only, no automatic overwrite!)
-  const handleResetPreventiveToBaseline = useCallback(async () => {
+  const handleResetPreventiveToBaseline = useCallback(async (ctx = {}) => {
+    const { machines = [], skipConfirm = false } = ctx;
+    const impact = dataIntegrityService.previewClearImpact({
+      action: 'RESET_PREVENTIVE_BASELINE',
+      machines,
+      preventiveTasks: tasks,
+      correctiveInterventions: [],
+    });
+
+    const msg =
+      `Réinitialiser le préventif au baseline seed ?\n` +
+      `• Tâches actuelles: ${impact.preventiveCount}\n` +
+      `• Machines enregistrées: ${impact.machineCount}\n` +
+      (impact.warnings?.length ? `\n${impact.warnings.join('\n')}` : '') +
+      `\n\nLes machines ne seront PAS modifiées.`;
+
+    if (!skipConfirm && typeof window !== 'undefined' && !window.confirm(msg)) {
+      return { cancelled: true };
+    }
+
     setTasks(initialTasks);
     setActions(initialActions);
     setGuides(initialGuides);
@@ -161,17 +193,48 @@ export function usePreventiveSubState(groupedState = {}) {
     PreventiveService.saveGuides(initialGuides);
     PreventiveService.savePlans([]);
     storageService.setItem(STORAGE_KEY_TASKS, initialTasks);
-    return initialTasks;
-  }, []);
+    storageService.setItem(STORAGE_KEY_PREVENTIVE_INIT, 'true');
+
+    // After baseline: report orphans vs CURRENT machines
+    const orphans = dataIntegrityService
+      .annotatePreventiveOrphans(initialTasks, machines)
+      .filter((t) => t._isOrphan);
+
+    return {
+      cancelled: false,
+      restoredCount: initialTasks.length,
+      orphanCountAfter: orphans.length,
+    };
+  }, [tasks]);
 
   // Clear all preventive data to start empty for real factory deployment
-  const handleClearPreventiveForRealFactory = useCallback(() => {
+  const handleClearPreventiveForRealFactory = useCallback((ctx = {}) => {
+    const { machines = [], skipConfirm = false } = ctx;
+    const impact = dataIntegrityService.previewClearImpact({
+      action: 'CLEAR_PREVENTIVE',
+      machines,
+      preventiveTasks: tasks,
+      correctiveInterventions: [],
+    });
+
+    const msg =
+      `Vider TOUTES les tâches préventives pour déploiement usine réelle ?\n` +
+      `• ${impact.preventiveCount} tâche(s) seront supprimées.\n` +
+      `• Les machines et le correctif ne seront PAS touchés.\n` +
+      `\nAction irréversible (sauf backup).`;
+
+    if (!skipConfirm && typeof window !== 'undefined' && !window.confirm(msg)) {
+      return { cancelled: true };
+    }
+
     setTasks([]);
     setPlans([]);
     PreventiveService.saveTasks([]);
     PreventiveService.savePlans([]);
     storageService.setItem(STORAGE_KEY_TASKS, []);
-  }, []);
+    storageService.setItem(STORAGE_KEY_PREVENTIVE_INIT, 'true');
+    return { cancelled: false, clearedCount: impact.preventiveCount };
+  }, [tasks]);
 
   return {
     tasks,

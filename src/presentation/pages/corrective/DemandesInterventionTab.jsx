@@ -28,6 +28,7 @@ import CustomSelect from '../../components/common/CustomSelect';
 import GmaoIndustrialDataGrid from '../../components/common/GmaoIndustrialDataGrid.jsx';
 import { useI18n } from '../../../i18n/I18nContext';
 import { dataIntegrityService } from '../../../services/dataIntegrityService';
+import { filterActiveMachines } from '../../../utils/activeMachines';
 
 export default function DemandesInterventionTab({
   interventions = [],
@@ -130,16 +131,15 @@ export default function DemandesInterventionTab({
 
   // Combined machine list from registered state (SSOT)
   const allMachineOptions = useMemo(() => {
-    if (Array.isArray(machines) && machines.length > 0) {
-      return machines
-        .filter((m) => m.status !== 'ARCHIVEE' && m.is_active !== false)
-        .map((m) => ({
-          id_machine_registered: m.id_machine_registered || m.code || m.id,
-          code: m.code || m.id_machine_registered || m.id,
-          zone: m.id_zone_default || m.id_zone || m.zone || 'Atelier',
-          designation: m.designation || m.nom || m.id_machine_registered || m.id,
-          totalInterventions: m.totalInterventions || 0,
-        }));
+    const active = filterActiveMachines(machines);
+    if (active.length > 0) {
+      return active.map((m) => ({
+        id_machine_registered: m.id_machine_registered || m.code || m.id,
+        code: m.code || m.id_machine_registered || m.id,
+        zone: m.id_zone_default || m.id_zone || m.zone || 'Atelier',
+        designation: m.designation || m.nom || m.id_machine_registered || m.id,
+        totalInterventions: m.totalInterventions || 0,
+      }));
     }
     return [
       { id_machine_registered: 'RCP-02', code: 'RCP-02', zone: 'FM' },

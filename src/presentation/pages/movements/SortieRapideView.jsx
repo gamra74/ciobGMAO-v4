@@ -52,6 +52,7 @@ import MouvementsJournalTable from '../warehouse/MouvementsJournalTable';
 import SortieEntreeIcon from '../../components/common/SortieEntreeIcon';
 import AnimatedPage from '../../components/common/AnimatedPage';
 import SortieExterneBobinageTab from './components/SortieExterneBobinageTab';
+import { filterActiveMachines } from '../../../utils/activeMachines';
 
 // Custom Select Component with BDR Light styling and optional onAddNew
 function CustomSelect({
@@ -682,12 +683,12 @@ export default function SortieRapideView({
 
   // Dynamic available machines based on selected zone
   const availableMachines = useMemo(() => {
-    let list = machines;
+    let list = filterActiveMachines(machines);
     if (form.id_zone) {
       const targetZ = zones.find(
         (z) => z.id_zone === form.id_zone || z.code_zone === form.id_zone || z.code === form.id_zone
       );
-      list = machines.filter((m) => {
+      list = list.filter((m) => {
         if (m.id_zone_default === form.id_zone) return true;
         if (targetZ) {
           return (
@@ -699,7 +700,7 @@ export default function SortieRapideView({
         return false;
       });
     }
-    return list.filter((m) => m.status !== 'ARCHIVEE' && m.is_active !== false);
+    return list;
   }, [machines, form.id_zone, zones]);
 
   // Available technicians:
