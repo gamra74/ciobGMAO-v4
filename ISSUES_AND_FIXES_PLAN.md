@@ -49,12 +49,28 @@
   1. توحيد وترقية `src/presentation/components/common/VirtualizedTable.jsx` ليتوافق مع `react-window` v2 (`rowComponent`, `rowCount`, `rowHeight`, `overscanCount`) وحذف النسخة المكررة.
   2. دمج محرك التمرير الافتراضي (Windowed Virtual Scrolling بسرعة 60fps) مباشرة في الشبكة الموحدة `GmaoIndustrialDataGrid.jsx` و `DetailedTaskListView.jsx` لتفعيل التقطيع التلقائي (Windowing) عند تجاوز عتبة الـ 50 صفاً (مثل اختيار `Tout` أو عرض آلاف الحركات/الأصناف/التدخلات) دون المساس برؤوس الجداول المثبتة (`Sticky thead`) أو القوائم المنبثقة.
 
-## **P1-3: استكمال التحويل التدريجي إلى TypeScript الصارم**
-- **الحالة**: ⏳ قيد التنفيذ للمرحلة التالية.
+## **P1-3: استكمال التحويل التدريجي إلى TypeScript الصارم وتوحيد العقود**
+- **الحالة**: ✅ مُنفذة ومُحدثة.
+- **الآلية**:
+  1. بناء منظومة عقود وأنواع TypeScript صارمة وشاملة تغطي كافة مجالات التطبيق (`src/types/`):
+     - الصيانة العلاجية (`IDemandeIntervention`, `IBonTravail`, `IRapportIntervention`, `UrgenceLevel`, `StatutDI`, `StatutBT`).
+     - الصيانة الوقائية (`IPreventivePlan`, `IPreventiveTask`, `IPreventiveExecution`, `FrequenceType`, `StatutPlan`).
+     - الأمان والجلسات وحفظ السجلات (`IUserSession`, `IAuditLog`, `IVaultRecord`, `UserRole`).
+     - طابور المزامنة والأداء (`ISyncQueueItem`, `IPerformanceMetric`, `IIndexBenchmarkResult`).
+     - مؤشرات الأداء الصناعية (`IMtbfMttrData`, `IStockKpiSummary`, `IMaintenanceKpiSummary`).
+  2. توحيد التصديرات عبر `src/types/index.ts` وتوافق مسارات الاستيراد المختصرة `@/*`.
+  3. إنشاء وتوثيق اختبارات التحقق من صحة العقود والأنواع في `src/tests/unit/TypeScriptDomainTypes.test.ts`.
 
 ---
 
 # 🟡 المشاكل المتوسطة (P2)
 
-1. **P2-1**: تهيئة إدارة ملفات Excel الثنائية عبر Git LFS.
-2. **P2-2**: إضافة قناة التزامن السحابي التكميلي (Phase 3).
+## **P2-1: تهيئة إدارة ملفات Excel والملفات الثنائية عبر Git LFS**
+- **الحالة**: ✅ مُنفذة ومُحدثة.
+- **الآلية**:
+  1. إنشاء ملف التهيئة المعياري `/.gitattributes` مع تفعيل مرشحات `Git LFS` (`filter=lfs diff=lfs merge=lfs -text`) لجميع قوالب وجداول Excel الثنائية (`*.xlsx`, `*.xls`, `*.xlsm`, `*.xlsb`) والملفات الثنائية الكبيرة (`*.pdf`, `*.zip`, `*.sqlite`, `*.db`).
+  2. توحيد نهايات الأسطر البرمجية `LF` (`eol=lf`) لجميع ملفات الشيفرة المصدرية لمنع تضارب الـ diff بين بيئات التطوير.
+  3. توثيق اختبار التحقق في `src/tests/unit/GitLfsConfiguration.test.ts`.
+
+## **P2-2: إضافة قناة التزامن السحابي التكميلي (Phase 3)**
+- **الحالة**: ⏳ قيد التخطيط والتنفيذ.

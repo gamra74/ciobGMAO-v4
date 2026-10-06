@@ -89,7 +89,7 @@ export class PerformanceOptimizer {
     fn: T,
     delay: number = 300
   ): T {
-    let timeoutId: NodeJS.Timeout;
+    let timeoutId: any;
 
     return ((...args: any[]) => {
       clearTimeout(timeoutId);

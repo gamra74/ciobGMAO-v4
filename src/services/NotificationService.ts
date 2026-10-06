@@ -24,17 +24,17 @@ export class NotificationService {
 
   static async requestPermission(): Promise<NotificationPermission> {
     if (!this.isSupported()) {
-      Logger.warn('Web Notifications API is not supported in this environment.', null, 'NotificationService');
+      Logger.warn('Web Notifications API is not supported in this environment.', 'NotificationService');
       return 'denied';
     }
 
     try {
       const perm = await Notification.requestPermission();
       this.permission = perm;
-      Logger.info(`Notification permission status: ${perm}`, null, 'NotificationService');
+      Logger.info(`Notification permission status: ${perm}`, 'NotificationService');
       return perm;
     } catch (err) {
-      Logger.error('Failed to request notification permission:', err, 'NotificationService');
+      Logger.error('Failed to request notification permission:', 'NotificationService', err);
       return 'denied';
     }
   }
@@ -45,7 +45,7 @@ export class NotificationService {
 
   static notify(title: string, options: NotificationOptions = {}): boolean {
     if (!this.canNotify()) {
-      Logger.debug(`Notification suppressed (Permission: ${this.permission}): ${title}`, null, 'NotificationService');
+      Logger.debug(`Notification suppressed (Permission: ${this.permission}): ${title}`, 'NotificationService');
       return false;
     }
 
@@ -74,7 +74,7 @@ export class NotificationService {
 
       return true;
     } catch (err) {
-      Logger.error('Error triggering notification:', err, 'NotificationService');
+      Logger.error('Error triggering notification:', 'NotificationService', err);
       return false;
     }
   }

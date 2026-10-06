@@ -1,5 +1,7 @@
+// ✅ ملف: src/tests/security/VaultService.test.ts
+
 import { describe, it, expect } from 'vitest';
-import VaultService from '../../infrastructure/security/VaultService';
+import VaultService from '@/infrastructure/security/VaultService';
 
 describe('VaultService', () => {
   describe('Encryption/Decryption', () => {

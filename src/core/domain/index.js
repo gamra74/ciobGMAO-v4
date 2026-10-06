@@ -11,3 +11,9 @@ export { Operation } from './Operation.js';
 export { Diagnostic } from './Diagnostic.js';
 export { PartType } from './PartType.js';
 export { PartDesignation } from './PartDesignation.js';
+export { ReactiveCalculationEngine } from './services/ReactiveCalculationEngine';
+export { ExcelFormulaEngine } from './services/ExcelFormulaEngine';
+export { StockCalculationService } from './services/StockCalculationService';
+export { IncrementalStockIndex } from './services/IncrementalStockIndex';
+
+

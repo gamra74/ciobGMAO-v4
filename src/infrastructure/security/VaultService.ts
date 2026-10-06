@@ -1,127 +1,106 @@
+// ✅ ملف: src/infrastructure/security/VaultService.ts
+
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 
 /**
  * Vault Service
- * ✅ تشفير وحماية البيانات
+ * ✅ تشفير وحماية البيانات بمعيار AES-256-GCM و PBKDF2 (600,000 تكرار) و bcrypt لتجزئة PIN
  */
 export class VaultService {
-  private static readonly PBKDF2_ITERATIONS = 100000;
   private static readonly ALGORITHM = 'aes-256-gcm';
   private static readonly SALT_LENGTH = 16;
-  private static readonly TAG_LENGTH = 16;
   private static readonly IV_LENGTH = 12;
+  private static readonly TAG_LENGTH = 16;
+  private static readonly PBKDF2_ITERATIONS = 600000;
 
   /**
-   * توليد Salt آمن
+   * توليد Salt عشوائي آمن
    */
   static generateSalt(): Buffer {
     return crypto.randomBytes(this.SALT_LENGTH);
   }
 
   /**
-   * اشتقاق مفتاح من كلمة المرور
+   * اشتقاق مفتاح تشفير 256-bit من كلمة المرور
    */
-  static deriveKey(password: string, salt: Buffer): Buffer {
+  static deriveKey(password: string, salt: Buffer, iterations = this.PBKDF2_ITERATIONS): Buffer {
     return crypto.pbkdf2Sync(
       password,
       salt,
-      this.PBKDF2_ITERATIONS,
+      iterations,
       32, // 256 bits
       'sha256'
     );
   }
 
   /**
-   * تشفير البيانات
+   * تشفير البيانات باستخدام AES-256-GCM
    */
   static encrypt(data: any, password: string): string {
-    try {
-      // توليد salt و IV
-      const salt = this.generateSalt();
-      const iv = crypto.randomBytes(this.IV_LENGTH);
-
-      // اشتقاق المفتاح
-      const key = this.deriveKey(password, salt);
-
-      // إنشاء cipher
-      const cipher = crypto.createCipheriv(this.ALGORITHM, key, iv);
-
-      // تشفير البيانات
-      let encrypted = cipher.update(JSON.stringify(data), 'utf8', 'hex');
-      encrypted += cipher.final('hex');
-
-      // الحصول على authentication tag
-      const tag = cipher.getAuthTag();
-
-      // دمج النتائج
-      const result = Buffer.concat([salt, iv, tag, Buffer.from(encrypted, 'hex')]);
-
-      return result.toString('base64');
-    } catch (error) {
-      console.error('Encryption failed:', error);
-      throw new Error('Failed to encrypt data');
+    if (!password) {
+      throw new Error('Password is required for encryption');
     }
+
+    const salt = crypto.randomBytes(this.SALT_LENGTH);
+    const iv = crypto.randomBytes(this.IV_LENGTH);
+    const key = this.deriveKey(password, salt);
+
+    const cipher = crypto.createCipheriv(this.ALGORITHM, key, iv);
+    let encrypted = cipher.update(JSON.stringify(data), 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+
+    const tag = cipher.getAuthTag();
+    const result = Buffer.concat([salt, iv, tag, Buffer.from(encrypted, 'hex')]);
+
+    return result.toString('base64');
   }
 
   /**
-   * فك تشفير البيانات
+   * فك تشفير البيانات والتحقق من سلامة الـ AuthTag (AES-256-GCM)
    */
   static decrypt(encryptedData: string, password: string): any {
-    try {
-      // تحويل من base64
-      const buffer = Buffer.from(encryptedData, 'base64');
-
-      // استخراج المكونات
-      const salt = buffer.slice(0, this.SALT_LENGTH);
-      const iv = buffer.slice(this.SALT_LENGTH, this.SALT_LENGTH + this.IV_LENGTH);
-      const tag = buffer.slice(
-        this.SALT_LENGTH + this.IV_LENGTH,
-        this.SALT_LENGTH + this.IV_LENGTH + this.TAG_LENGTH
-      );
-      const encrypted = buffer.slice(this.SALT_LENGTH + this.IV_LENGTH + this.TAG_LENGTH);
-
-      // اشتقاق المفتاح
-      const key = this.deriveKey(password, salt);
-
-      // إنشاء decipher
-      const decipher = crypto.createDecipheriv(this.ALGORITHM, key, iv);
-      decipher.setAuthTag(tag);
-
-      // فك التشفير
-      let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-      decrypted += decipher.final('utf8');
-
-      return JSON.parse(decrypted);
-    } catch (error) {
-      console.error('Decryption failed:', error);
-      throw new Error('Failed to decrypt data');
+    if (!encryptedData || !password) {
+      throw new Error('Encrypted data and password are required');
     }
+
+    const buffer = Buffer.from(encryptedData, 'base64');
+    if (buffer.length < this.SALT_LENGTH + this.IV_LENGTH + this.TAG_LENGTH) {
+      throw new Error('Invalid encrypted payload length');
+    }
+
+    const salt = buffer.subarray(0, this.SALT_LENGTH);
+    const iv = buffer.subarray(this.SALT_LENGTH, this.SALT_LENGTH + this.IV_LENGTH);
+    const tag = buffer.subarray(
+      this.SALT_LENGTH + this.IV_LENGTH,
+      this.SALT_LENGTH + this.IV_LENGTH + this.TAG_LENGTH
+    );
+    const encrypted = buffer.subarray(this.SALT_LENGTH + this.IV_LENGTH + this.TAG_LENGTH);
+
+    const key = this.deriveKey(password, salt);
+
+    const decipher = crypto.createDecipheriv(this.ALGORITHM, key, iv);
+    decipher.setAuthTag(tag);
+
+    let decrypted = decipher.update(encrypted, undefined, 'utf8');
+    decrypted += decipher.final('utf8');
+
+    return JSON.parse(decrypted);
   }
 
   /**
-   * تجزئة PIN
+   * تجزئة PIN باستخدام bcrypt
    */
   static async hashPIN(pin: string): Promise<string> {
-    try {
-      const salt = await bcrypt.genSalt(10);
-      return await bcrypt.hash(pin, salt);
-    } catch (error) {
-      console.error('PIN hashing failed:', error);
-      throw new Error('Failed to hash PIN');
-    }
+    const salt = await bcrypt.genSalt(10);
+    return await bcrypt.hash(pin, salt);
   }
 
   /**
-   * التحقق من PIN
+   * التحقق من PIN باستخدام bcrypt
    */
   static async verifyPIN(pin: string, hash: string): Promise<boolean> {
-    try {
-      return await bcrypt.compare(pin, hash);
-    } catch (error) {
-      console.error('PIN verification failed:', error);
-      return false;
-    }
+    return await bcrypt.compare(pin, hash);
   }
 
   /**
@@ -133,30 +112,47 @@ export class VaultService {
   } {
     const errors: string[] = [];
 
-    if (password.length < 12) {
+    if (!password || password.length < 12) {
       errors.push('Password must be at least 12 characters');
     }
-
-    if (!/[A-Z]/.test(password)) {
+    if (!/[A-Z]/.test(password || '')) {
       errors.push('Password must contain uppercase letters');
     }
-
-    if (!/[a-z]/.test(password)) {
+    if (!/[a-z]/.test(password || '')) {
       errors.push('Password must contain lowercase letters');
     }
-
-    if (!/[0-9]/.test(password)) {
+    if (!/[0-9]/.test(password || '')) {
       errors.push('Password must contain numbers');
     }
-
-    if (!/[!@#$%^&*]/.test(password)) {
+    if (!/[!@#$%^&*]/.test(password || '')) {
       errors.push('Password must contain special characters');
     }
 
     return {
       isValid: errors.length === 0,
-      errors
+      errors,
     };
+  }
+
+  // Instance methods delegating to static methods for backward compatibility
+  encrypt(data: any, password: string): string {
+    return VaultService.encrypt(data, password);
+  }
+
+  decrypt(encryptedData: string, password: string): any {
+    return VaultService.decrypt(encryptedData, password);
+  }
+
+  async hashPIN(pin: string): Promise<string> {
+    return VaultService.hashPIN(pin);
+  }
+
+  async verifyPIN(pin: string, hash: string): Promise<boolean> {
+    return VaultService.verifyPIN(pin, hash);
+  }
+
+  validatePasswordStrength(password: string) {
+    return VaultService.validatePasswordStrength(password);
   }
 }
 

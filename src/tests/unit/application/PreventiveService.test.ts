@@ -16,7 +16,7 @@ describe('PreventiveService', () => {
   });
 
   it('should return initial actions when storage is empty', () => {
-    storageService.getItem.mockImplementation((key) => {
+    (storageService.getItem as any).mockImplementation((key: string) => {
       if (key === 'gmao_demo_data_loaded_v1') return true;
       return null;
     });

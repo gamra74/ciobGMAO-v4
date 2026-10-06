@@ -25,7 +25,7 @@ export class KeyboardShortcutsService {
 
     window.addEventListener('keydown', this.handleKeyDown);
     this.isListening = true;
-    Logger.debug('KeyboardShortcutsService event listener active.', null, 'KeyboardShortcuts');
+    Logger.debug('KeyboardShortcutsService event listener active.', 'KeyboardShortcuts');
   }
 
   static stop(): void {
@@ -73,7 +73,7 @@ export class KeyboardShortcutsService {
       try {
         listener(list);
       } catch (err) {
-        Logger.error('Error notifying shortcut listener:', err, 'KeyboardShortcuts');
+        Logger.error('Error notifying shortcut listener:', 'KeyboardShortcuts', err);
       }
     });
   }
@@ -110,7 +110,7 @@ export class KeyboardShortcutsService {
         try {
           shortcut.callback(event);
         } catch (err) {
-          Logger.error(`Error executing shortcut callback [${shortcut.id}]:`, err, 'KeyboardShortcuts');
+          Logger.error(`Error executing shortcut callback [${shortcut.id}]:`, 'KeyboardShortcuts', err);
         }
         break;
       }

@@ -1,4 +1,9 @@
 export * from './domain';
+export * from './corrective';
+export * from './preventive';
+export * from './security';
+export * from './sync';
+export * from './kpis';
 
 export type NavigationTab =
   | 'dashboard'
@@ -47,3 +52,4 @@ export interface ICounts {
   technicians?: number;
   operations?: number;
 }
+

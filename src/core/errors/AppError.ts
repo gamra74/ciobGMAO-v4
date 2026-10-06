@@ -21,8 +21,9 @@ export class AppError extends ApplicationError {
   constructor(message: string, code: ErrorCode = 'GENERIC_ERROR', details: Record<string, any> = {}) {
     super(message, code, 400, details);
     this.name = 'AppError';
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, AppError);
+    const errConst = Error as any;
+    if (typeof errConst.captureStackTrace === 'function') {
+      errConst.captureStackTrace(this, AppError);
     }
   }
 }

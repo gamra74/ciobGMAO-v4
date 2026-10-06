@@ -19,7 +19,7 @@ export async function retry<T>(
     delay = 500,
     backoff = 2,
     onRetry = (error, attempt) => {
-      Logger.warn(`Retry attempt ${attempt} failed:`, error, 'retry');
+      Logger.warn(`Retry attempt ${attempt} failed: ${error?.message || error}`, 'retry');
     },
   } = options;
 
