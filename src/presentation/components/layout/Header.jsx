@@ -11,13 +11,15 @@ import {
   ChevronDown,
   Layers,
   Boxes,
-  Truck
+  Truck,
+  Clock
 } from 'lucide-react';
 import PWAInstallButton from '../common/PWAInstallButton';
 import LanguageSwitcher from '../common/LanguageSwitcher';
 import { analytics } from '../../../services/AnalyticsService';
 import { notificationService } from '../../../services/NotificationService';
 import { getParentModuleForTab } from './navConfig';
+import { storageService } from '../../../utils/storageService';
 
 export default function Header({
   currentTab,
@@ -39,6 +41,41 @@ export default function Header({
 }) {
   const [topologyMenuOpen, setTopologyMenuOpen] = useState(false);
   const topologyMenuRef = useRef(null);
+  const [sidebarStyle, setSidebarStyle] = useState(() => {
+    return storageService.getItem('gmao_sidebar_style') || 'floating';
+  });
+
+  const [headerClockEnabled, setHeaderClockEnabled] = useState(() => {
+    return storageService.getItem('gmao_header_clock') !== 'false';
+  });
+
+  const [currentTime, setCurrentTime] = useState(() => {
+    const d = new Date();
+    return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  });
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const d = new Date();
+      setCurrentTime(d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const handleAppearanceChanged = (e) => {
+      if (e?.detail?.headerClockEnabled !== undefined) {
+        setHeaderClockEnabled(e.detail.headerClockEnabled);
+      }
+      if (e?.detail?.sidebarStyle !== undefined) {
+        setSidebarStyle(e.detail.sidebarStyle);
+      }
+    };
+    window.addEventListener('gmao_appearance_changed', handleAppearanceChanged);
+    return () => window.removeEventListener('gmao_appearance_changed', handleAppearanceChanged);
+  }, []);
+
+
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -369,18 +406,26 @@ export default function Header({
     }
   };
 
+  const isStandardFixed = sidebarStyle === 'standard';
+
   return (
     <header
       role="banner"
-      className="sticky top-2 sm:top-3 z-30 w-[calc(100%-0.75rem)] sm:w-[calc(100%-1.25rem)] lg:w-[calc(100%-2rem)] xl:w-[calc(100%-2.5rem)] 2xl:w-[calc(100%-3rem)] max-w-[2200px] mx-auto rounded-[22px] sm:rounded-full bg-white/95 backdrop-blur-xl border border-zinc-200/90 shadow-[0_12px_32px_-6px_rgba(0,0,0,0.12),0_4px_12px_-2px_rgba(0,0,0,0.06)] select-none transition-all my-2 sm:my-3 overflow-hidden"
+      className={`sticky select-none transition-all ${
+        isStandardFixed
+          ? 'top-0 z-30 w-full lg:w-[calc(100%-270px)] lg:ml-[270px] bg-white/95 backdrop-blur-md border-b border-zinc-200/90 shadow-2xs my-0 rounded-none h-16 flex items-center'
+          : 'top-2 sm:top-3 z-30 w-[calc(100%-0.75rem)] sm:w-[calc(100%-1.25rem)] lg:w-[calc(100%-2rem)] xl:w-[calc(100%-2.5rem)] 2xl:w-[calc(100%-3rem)] max-w-[2200px] mx-auto rounded-[22px] sm:rounded-full bg-white/95 backdrop-blur-xl border border-zinc-200/90 shadow-[0_12px_32px_-6px_rgba(0,0,0,0.12),0_4px_12px_-2px_rgba(0,0,0,0.06)] my-2 sm:my-3 overflow-hidden'
+      }`}
     >
-      <div className="px-2.5 sm:px-5 py-2 flex items-center justify-between gap-1.5 sm:gap-3 w-full min-w-0">
-        {/* Left: Desktop Brand Pill Capsule + Mobile Menu Button & Parent Module Title badge */}
+      <div className={`flex items-center justify-between gap-1.5 sm:gap-3 w-full min-w-0 ${isStandardFixed ? 'px-4 sm:px-6 py-0' : 'px-2.5 sm:px-5 py-2'}`}>
+        {/* Left: Brand Capsule & Breadcrumbs (Clean & De-duplicated in Fixed Mode) */}
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 min-w-0">
-          {/* Universal Menu Drawer Button (Accessible on both Desktop & Mobile for complete navigation) */}
+          {/* Menu Drawer Button: visible on mobile always; in floating mode also on desktop */}
           <button
             onClick={() => setMobileMenuOpen(true)}
-            className="w-8 sm:w-9 h-8 sm:h-9 rounded-full bg-white border border-zinc-200/90 flex items-center justify-center text-zinc-700 hover:text-black hover:border-zinc-300 shadow-xs hover:shadow-md cursor-pointer transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-hidden"
+            className={`w-8 sm:w-9 h-8 sm:h-9 rounded-full bg-white border border-zinc-200/90 items-center justify-center text-zinc-700 hover:text-black hover:border-zinc-300 shadow-xs hover:shadow-md cursor-pointer transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-hidden ${
+              isStandardFixed ? 'flex lg:hidden' : 'flex'
+            }`}
             aria-label="Ouvrir le menu de navigation complet"
             title="Menu complet des modules et sections (Toutes les pages)"
             aria-haspopup="dialog"
@@ -388,93 +433,99 @@ export default function Header({
             <Menu size={16} />
           </button>
 
-          {/* Brand Capsule Pill (Matching Header Pills Style + Exact Mobile Sidebar Branding) */}
-          <button
-            onClick={() => setCurrentTab('dashboard')}
-            className="flex items-center gap-2 sm:gap-2.5 px-2 sm:px-3 py-1.5 rounded-full bg-white border border-zinc-200/90 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:border-emerald-300 hover:shadow-[0_4px_14px_rgba(16,185,129,0.12)] transition-all cursor-pointer shrink-0 group focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-hidden"
-            title="CIOB GMAO Light - Dashboard"
-            aria-label="Tableau de bord CIOB GMAO Light"
-          >
-            {/* Dedicated 3D-styled green Excel workbook SVG Icon */}
-            <div className="relative w-7 sm:w-8 h-7 sm:h-8 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center text-white shadow-xs shrink-0 ring-2 ring-emerald-500/20 overflow-hidden group-hover:scale-105 transition-transform">
-              <div className="absolute inset-0 opacity-20 bg-[linear-gradient(to_right,#ffffff_1px,transparent_1px),linear-gradient(to_bottom,#ffffff_1px,transparent_1px)] bg-[size:4px_4px]" />
-              <svg
-                className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-white relative z-10"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <rect
-                  x="3"
-                  y="3"
-                  width="18"
-                  height="18"
-                  rx="3.5"
-                  fill="currentColor"
-                  fillOpacity="0.15"
-                  stroke="currentColor"
-                  strokeWidth="1.75"
-                />
-                <line
-                  x1="9.5"
-                  y1="3"
-                  x2="9.5"
-                  y2="21"
-                  stroke="currentColor"
-                  strokeWidth="1.2"
-                  strokeOpacity="0.6"
-                  strokeDasharray="1.5 1.5"
-                />
-                <line
-                  x1="3"
-                  y1="9.5"
-                  x2="21"
-                  y2="9.5"
-                  stroke="currentColor"
-                  strokeWidth="1.2"
-                  strokeOpacity="0.6"
-                  strokeDasharray="1.5 1.5"
-                />
-                <line
-                  x1="3"
-                  y1="15.5"
-                  x2="21"
-                  y2="15.5"
-                  stroke="currentColor"
-                  strokeWidth="1.2"
-                  strokeOpacity="0.6"
-                  strokeDasharray="1.5 1.5"
-                />
-                <path
-                  d="M12.5 7.5L18 16.5M18 7.5L12.5 16.5"
-                  stroke="currentColor"
-                  strokeWidth="2.25"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <rect x="5" y="6" width="3" height="1.8" rx="0.5" fill="currentColor" />
-                <rect x="5" y="11" width="3" height="1.8" rx="0.5" fill="currentColor" />
-                <rect x="5" y="16" width="3" height="1.8" rx="0.5" fill="currentColor" />
-              </svg>
-            </div>
+          {/* Brand Capsule Pill: Only shown in Floating Mode (In Fixed mode, sidebar already has the brand logo & title) */}
+          {!isStandardFixed && (
+            <button
+              onClick={() => setCurrentTab('dashboard')}
+              className="flex items-center gap-2 sm:gap-2.5 px-2 sm:px-3 py-1.5 rounded-full bg-white border border-zinc-200/90 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:border-emerald-300 hover:shadow-[0_4px_14px_rgba(16,185,129,0.12)] transition-all cursor-pointer shrink-0 group focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-hidden"
+              title="CIOB GMAO Light - Dashboard"
+              aria-label="Tableau de bord CIOB GMAO Light"
+            >
+              {/* Dedicated 3D-styled green Excel workbook SVG Icon */}
+              <div className="relative w-7 sm:w-8 h-7 sm:h-8 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center text-white shadow-xs shrink-0 ring-2 ring-emerald-500/20 overflow-hidden group-hover:scale-105 transition-transform">
+                <div className="absolute inset-0 opacity-20 bg-[linear-gradient(to_right,#ffffff_1px,transparent_1px),linear-gradient(to_bottom,#ffffff_1px,transparent_1px)] bg-[size:4px_4px]" />
+                <svg
+                  className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-white relative z-10"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <rect
+                    x="3"
+                    y="3"
+                    width="18"
+                    height="18"
+                    rx="3.5"
+                    fill="currentColor"
+                    fillOpacity="0.15"
+                    stroke="currentColor"
+                    strokeWidth="1.75"
+                  />
+                  <line
+                    x1="9.5"
+                    y1="3"
+                    x2="9.5"
+                    y2="21"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    strokeOpacity="0.6"
+                    strokeDasharray="1.5 1.5"
+                  />
+                  <line
+                    x1="3"
+                    y1="9.5"
+                    x2="21"
+                    y2="9.5"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    strokeOpacity="0.6"
+                    strokeDasharray="1.5 1.5"
+                  />
+                  <line
+                    x1="3"
+                    y1="15.5"
+                    x2="21"
+                    y2="15.5"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    strokeOpacity="0.6"
+                    strokeDasharray="1.5 1.5"
+                  />
+                  <path
+                    d="M12.5 7.5L18 16.5M18 7.5L12.5 16.5"
+                    stroke="currentColor"
+                    strokeWidth="2.25"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <rect x="5" y="6" width="3" height="1.8" rx="0.5" fill="currentColor" />
+                  <rect x="5" y="11" width="3" height="1.8" rx="0.5" fill="currentColor" />
+                  <rect x="5" y="16" width="3" height="1.8" rx="0.5" fill="currentColor" />
+                </svg>
+              </div>
 
-            {/* Brand Title & Subtitle */}
-            <div className="text-left leading-tight pr-0.5 hidden sm:block">
-              <div className="font-bold text-[12.5px] tracking-tight text-zinc-900 flex items-center gap-1">
-                <span>Ciob PDR</span>
-                <span className="text-[8.5px] font-extrabold uppercase px-1 py-0.1 rounded-md bg-emerald-500/15 text-emerald-700 border border-emerald-500/25">
-                  XLS
-                </span>
+              {/* Brand Title & Subtitle */}
+              <div className="text-left leading-tight pr-0.5 hidden sm:block">
+                <div className="font-bold text-[12.5px] tracking-tight text-zinc-900 flex items-center gap-1">
+                  <span>Ciob PDR</span>
+                  <span className="text-[8.5px] font-extrabold uppercase px-1 py-0.1 rounded-md bg-emerald-500/15 text-emerald-700 border border-emerald-500/25">
+                    XLS
+                  </span>
+                </div>
+                <div className="text-[9.5px] font-semibold text-emerald-700 tracking-tight truncate max-w-[120px]">
+                  Pièces de Rechange
+                </div>
               </div>
-              <div className="text-[9.5px] font-semibold text-emerald-700 tracking-tight truncate max-w-[120px]">
-                Pièces de Rechange
-              </div>
-            </div>
-          </button>
+            </button>
+          )}
 
           {/* Smart Breadcrumb Navigation Capsule */}
           <div
-            className="hidden md:flex items-center gap-2 px-3 sm:px-3.5 py-1.5 rounded-full bg-white border border-zinc-200/90 shadow-[0_2px_8px_rgba(0,0,0,0.04)] max-w-[280px] lg:max-w-[460px] shrink-0"
+            className={`flex items-center gap-2 max-w-[280px] lg:max-w-[460px] shrink-0 ${
+              isStandardFixed
+                ? 'px-3 py-1.5 rounded-lg bg-zinc-100/80 border border-zinc-200/70 text-xs shadow-none'
+                : 'hidden md:flex px-3 sm:px-3.5 py-1.5 rounded-full bg-white border border-zinc-200/90 shadow-[0_2px_8px_rgba(0,0,0,0.04)]'
+            }`}
             role="navigation"
             aria-label="Fil d'Ariane intelligent (Breadcrumbs)"
           >
@@ -555,7 +606,7 @@ export default function Header({
           )}
         </nav>
 
-        {/* Right: Actions, Excel Integration, Search, Notification & Profile */}
+        {/* Right: Actions & Tools (De-duplicated in fixed mode) */}
         <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
           <input
             type="file"
@@ -565,6 +616,7 @@ export default function Header({
             className="hidden"
             aria-label="Importer un fichier JSON ou Excel"
           />
+
           {/* Direct Link / Direct Save Button - Icon-Only in Emerald Theme */}
           {linkedFileName ? (
             <div className="flex items-center gap-1 shrink-0">
@@ -598,126 +650,142 @@ export default function Header({
 
           <PWAInstallButton variant="header" />
 
+          {/* Live Industrial Shift Clock (Configurable via Appearance) */}
+          {headerClockEnabled && (
+            <div
+              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100/90 border border-slate-200/90 text-slate-700 text-[11px] font-mono font-bold tabular-nums shadow-2xs select-none shrink-0"
+              title="Horloge de poste industrielle (Temps Réel)"
+              aria-label={`Heure locale de poste : ${currentTime}`}
+            >
+              <Clock className="w-3.5 h-3.5 text-emerald-600 animate-pulse shrink-0" aria-hidden="true" />
+              <span>{currentTime}</span>
+            </div>
+          )}
+
           {/* Offline Language Switcher (Expands on hover) */}
           <LanguageSwitcher className="inline-flex" />
 
-          {/* Export Excel & 3-Workbook Topology Quick Hub Dropdown */}
-          <div className="relative hidden sm:block" ref={topologyMenuRef}>
-            <button
-              onClick={() => setTopologyMenuOpen((prev) => !prev)}
-              className="flex items-center gap-1 pl-2.5 pr-2 py-1.5 rounded-full bg-slate-900 hover:bg-black text-white text-xs font-bold transition shadow-[0_2px_8px_rgba(0,0,0,0.18)] hover:shadow-md cursor-pointer shrink-0 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-hidden group"
-              title="Exporter Excel & المصنفات الثلاثة (3-Workbook Topology)"
-              aria-label="Menu d'exportation Excel et topologie industrielle"
-              aria-expanded={topologyMenuOpen}
-            >
-              <Download size={14} className="text-emerald-400 group-hover:scale-110 transition-transform" aria-hidden="true" />
-              <span className="text-[11px] font-mono tracking-tight text-slate-100 hidden md:inline">Export</span>
-              <ChevronDown size={12} className={`text-slate-400 transition-transform duration-200 ${topologyMenuOpen ? 'rotate-180' : ''}`} />
-            </button>
+          {/* Export Excel Dropdown Menu - Only in Floating Mode (Fixed sidebar already has Export button) */}
+          {!isStandardFixed && (
+            <div className="relative hidden sm:block" ref={topologyMenuRef}>
+              <button
+                onClick={() => setTopologyMenuOpen((prev) => !prev)}
+                className="flex items-center gap-1 pl-2.5 pr-2 py-1.5 rounded-full bg-slate-900 hover:bg-black text-white text-xs font-bold transition shadow-[0_2px_8px_rgba(0,0,0,0.18)] hover:shadow-md cursor-pointer shrink-0 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-hidden group"
+                title="Exporter Excel & المصنفات الثلاثة (3-Workbook Topology)"
+                aria-label="Menu d'exportation Excel et topologie industrielle"
+                aria-expanded={topologyMenuOpen}
+              >
+                <Download size={14} className="text-emerald-400 group-hover:scale-110 transition-transform" aria-hidden="true" />
+                <span className="text-[11px] font-mono tracking-tight text-slate-100 hidden md:inline">Export</span>
+                <ChevronDown size={12} className={`text-slate-400 transition-transform duration-200 ${topologyMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
 
-            {topologyMenuOpen && (
-              <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200/90 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                <div className="px-3.5 py-1.5 border-b border-slate-100 mb-1">
-                  <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 font-mono">
-                    3-Workbook Topology Hub
+              {topologyMenuOpen && (
+                <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200/90 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="px-3.5 py-1.5 border-b border-slate-100 mb-1">
+                    <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 font-mono">
+                      3-Workbook Topology Hub
+                    </div>
+                    <div className="text-xs font-bold text-slate-800">
+                      Exportation des données industrielles
+                    </div>
                   </div>
-                  <div className="text-xs font-bold text-slate-800">
-                    Exportation des données industrielles
-                  </div>
+
+                  <button
+                    onClick={() => {
+                      setTopologyMenuOpen(false);
+                      onExportWithTracking();
+                    }}
+                    className="w-full px-3.5 py-2 text-left hover:bg-emerald-50/70 flex items-start gap-2.5 transition group cursor-pointer"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition">
+                      <FileSpreadsheet size={15} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-slate-900 group-hover:text-emerald-800">
+                        Modèle Complet GMAO (.xlsx)
+                      </div>
+                      <div className="text-[10px] text-slate-500 font-medium">
+                        Classeur maître avec formules vivantes et KPIs
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setTopologyMenuOpen(false);
+                      exportMasterTopologyWorkbook?.();
+                    }}
+                    className="w-full px-3.5 py-2 text-left hover:bg-blue-50/70 flex items-start gap-2.5 transition group cursor-pointer"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition">
+                      <Layers size={15} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-slate-900 group-hover:text-blue-800">
+                        Classeur 1 : GMAO_Topology_Master
+                      </div>
+                      <div className="text-[10px] text-slate-500 font-medium">
+                        6 feuilles (Zones, Machines, Staff, BOM...)
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setTopologyMenuOpen(false);
+                      exportInventoryMaterialsWorkbook?.();
+                    }}
+                    className="w-full px-3.5 py-2 text-left hover:bg-amber-50/70 flex items-start gap-2.5 transition group cursor-pointer"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition">
+                      <Boxes size={15} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-slate-900 group-hover:text-amber-800">
+                        Classeur 2 : GMAO_Inventory_Materials
+                      </div>
+                      <div className="text-[10px] text-slate-500 font-medium">
+                        3 feuilles (PDR, Warehouse, Part Types)
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setTopologyMenuOpen(false);
+                      exportMovementsUnifiedWorkbook?.();
+                    }}
+                    className="w-full px-3.5 py-2 text-left hover:bg-purple-50/70 flex items-start gap-2.5 transition group cursor-pointer"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition">
+                      <Truck size={15} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-slate-900 group-hover:text-purple-800">
+                        Classeur 3 : GMAO_Movements_Unified
+                      </div>
+                      <div className="text-[10px] text-slate-500 font-medium">
+                        2 feuilles (Mouvements, Sortie Externe)
+                      </div>
+                    </div>
+                  </button>
                 </div>
+              )}
+            </div>
+          )}
 
-                <button
-                  onClick={() => {
-                    setTopologyMenuOpen(false);
-                    onExportWithTracking();
-                  }}
-                  className="w-full px-3.5 py-2 text-left hover:bg-emerald-50/70 flex items-start gap-2.5 transition group cursor-pointer"
-                >
-                  <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition">
-                    <FileSpreadsheet size={15} />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-xs font-bold text-slate-900 group-hover:text-emerald-800">
-                      Modèle Complet GMAO (.xlsx)
-                    </div>
-                    <div className="text-[10px] text-slate-500 font-medium">
-                      Classeur maître avec formules vivantes et KPIs
-                    </div>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setTopologyMenuOpen(false);
-                    exportMasterTopologyWorkbook?.();
-                  }}
-                  className="w-full px-3.5 py-2 text-left hover:bg-blue-50/70 flex items-start gap-2.5 transition group cursor-pointer"
-                >
-                  <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition">
-                    <Layers size={15} />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-xs font-bold text-slate-900 group-hover:text-blue-800">
-                      Classeur 1 : GMAO_Topology_Master
-                    </div>
-                    <div className="text-[10px] text-slate-500 font-medium">
-                      6 feuilles (Zones, Machines, Staff, BOM...)
-                    </div>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setTopologyMenuOpen(false);
-                    exportInventoryMaterialsWorkbook?.();
-                  }}
-                  className="w-full px-3.5 py-2 text-left hover:bg-amber-50/70 flex items-start gap-2.5 transition group cursor-pointer"
-                >
-                  <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition">
-                    <Boxes size={15} />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-xs font-bold text-slate-900 group-hover:text-amber-800">
-                      Classeur 2 : GMAO_Inventory_Materials
-                    </div>
-                    <div className="text-[10px] text-slate-500 font-medium">
-                      3 feuilles (PDR, Warehouse, Part Types)
-                    </div>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setTopologyMenuOpen(false);
-                    exportMovementsUnifiedWorkbook?.();
-                  }}
-                  className="w-full px-3.5 py-2 text-left hover:bg-purple-50/70 flex items-start gap-2.5 transition group cursor-pointer"
-                >
-                  <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition">
-                    <Truck size={15} />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-xs font-bold text-slate-900 group-hover:text-purple-800">
-                      Classeur 3 : GMAO_Movements_Unified
-                    </div>
-                    <div className="text-[10px] text-slate-500 font-medium">
-                      2 feuilles (Mouvements, Sortie Externe)
-                    </div>
-                  </div>
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Action Icon Circles */}
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="hidden sm:flex w-8 sm:w-9 h-8 sm:h-9 rounded-full bg-white border border-zinc-200 items-center justify-center text-zinc-600 hover:text-black hover:border-zinc-300 transition shadow-[0_2px_6px_rgba(0,0,0,0.04)] hover:shadow-md cursor-pointer shrink-0 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-hidden"
-            title="Importer JSON / Excel"
-            aria-label="Importer un fichier de données JSON ou Excel"
-          >
-            <Upload size={16} aria-hidden="true" />
-          </button>
+          {/* Import JSON/Excel Button - Only in Floating Mode (Fixed sidebar already has Import button) */}
+          {!isStandardFixed && (
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="hidden sm:flex w-8 sm:w-9 h-8 sm:h-9 rounded-full bg-white border border-zinc-200 items-center justify-center text-zinc-600 hover:text-black hover:border-zinc-300 transition shadow-[0_2px_6px_rgba(0,0,0,0.04)] hover:shadow-md cursor-pointer shrink-0 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-hidden"
+              title="Importer JSON / Excel"
+              aria-label="Importer un fichier de données JSON ou Excel"
+            >
+              <Upload size={16} aria-hidden="true" />
+            </button>
+          )}
 
           <button
             onClick={onOpenShortcuts}
@@ -738,27 +806,29 @@ export default function Header({
             <span className="absolute top-1 right-1 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-white" aria-hidden="true" />
           </button>
 
-          {/* User Profile Account Card Pill */}
-          <button
-            onClick={() => setCurrentTab('settings')}
-            className="flex items-center gap-2 px-2 sm:px-2.5 py-1 rounded-full bg-white border border-zinc-200/90 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:border-emerald-300 hover:shadow-[0_4px_14px_rgba(16,185,129,0.12)] transition-all cursor-pointer shrink-0 group focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-hidden"
-            title="Mon Compte / Paramètres"
-            aria-label={`Compte utilisateur de ${currentUser?.name || 'Achraf'} - Accéder aux paramètres`}
-          >
-            {/* Rounded Emerald Avatar Icon matching sidebar */}
-            <div className="w-7 h-7 rounded-lg bg-emerald-700 text-white font-extrabold text-[10.5px] flex items-center justify-center shadow-2xs shrink-0 group-hover:scale-105 transition-transform" aria-hidden="true">
-              {currentUser?.avatar || 'RM'}
-            </div>
-            {/* User Name & Role matching sidebar typography */}
-            <div className="hidden xl:block text-left leading-tight min-w-0 pr-0.5">
-              <div className="text-[11.5px] font-bold text-slate-900 truncate">
-                {currentUser?.name || 'Achraf'}
+          {/* User Profile Account Card Pill - Only in Floating Mode (Fixed sidebar already has User Card at bottom) */}
+          {!isStandardFixed && (
+            <button
+              onClick={() => setCurrentTab('settings')}
+              className="flex items-center gap-2 px-2 sm:px-2.5 py-1 rounded-full bg-white border border-zinc-200/90 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:border-emerald-300 hover:shadow-[0_4px_14px_rgba(16,185,129,0.12)] transition-all cursor-pointer shrink-0 group focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-hidden"
+              title="Mon Compte / Paramètres"
+              aria-label={`Compte utilisateur de ${currentUser?.name || 'Achraf'} - Accéder aux paramètres`}
+            >
+              {/* Rounded Emerald Avatar Icon matching sidebar */}
+              <div className="w-7 h-7 rounded-lg bg-emerald-700 text-white font-extrabold text-[10.5px] flex items-center justify-center shadow-2xs shrink-0 group-hover:scale-105 transition-transform" aria-hidden="true">
+                {currentUser?.avatar || 'RM'}
               </div>
-              <div className="text-[9.5px] font-semibold text-emerald-700 truncate">
-                {currentUser?.titleFr || currentUser?.role || 'Administrateur'}
+              {/* User Name & Role matching sidebar typography */}
+              <div className="hidden xl:block text-left leading-tight min-w-0 pr-0.5">
+                <div className="text-[11.5px] font-bold text-slate-900 truncate">
+                  {currentUser?.name || 'Achraf'}
+                </div>
+                <div className="text-[9.5px] font-semibold text-emerald-700 truncate">
+                  {currentUser?.titleFr || currentUser?.role || 'Administrateur'}
+                </div>
               </div>
-            </div>
-          </button>
+            </button>
+          )}
         </div>
       </div>
     </header>

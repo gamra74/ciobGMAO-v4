@@ -171,28 +171,40 @@ export default function FloatingSidebar({
   const [sidebarTheme, setSidebarTheme] = useState(() => {
     return storageService.getItem('gmao_sidebar_theme') || 'light';
   });
+  const [sidebarBehavior, setSidebarBehavior] = useState(() => {
+    return storageService.getItem('gmao_sidebar_behavior') || 'push';
+  });
   const [isExpanded, setIsExpanded] = useState(false);
   const [isTranslucent, setIsTranslucent] = useState(false);
   const hoverTimeoutRef = useRef(null);
   const translucencyTimerRef = useRef(null);
+
+  const isAlwaysOpen = sidebarBehavior === 'push';
+  const effectiveExpanded = isAlwaysOpen ? true : isExpanded;
 
   useEffect(() => {
     storageService.setItem('gmao_sidebar_theme', sidebarTheme);
   }, [sidebarTheme]);
 
   useEffect(() => {
-    const handleAppearanceChanged = () => {
-      const savedTheme = storageService.getItem('gmao_sidebar_theme') || storageService.getItem('gmao_theme') || 'light';
+    const handleAppearanceChanged = (e) => {
+      const savedTheme = e?.detail?.theme || storageService.getItem('gmao_sidebar_theme') || storageService.getItem('gmao_theme') || 'light';
       setSidebarTheme(savedTheme);
+      if (e?.detail?.sidebarBehavior !== undefined) {
+        setSidebarBehavior(e.detail.sidebarBehavior);
+      } else {
+        const savedBehavior = storageService.getItem('gmao_sidebar_behavior') || 'push';
+        setSidebarBehavior(savedBehavior);
+      }
     };
 
     window.addEventListener('gmao_appearance_changed', handleAppearanceChanged);
     return () => window.removeEventListener('gmao_appearance_changed', handleAppearanceChanged);
   }, []);
 
-  // Delayed translucency effect: when sidebar is collapsed, remain solid for 2 seconds before slowly fading to translucent
+  // Delayed translucency effect: when sidebar is collapsed in overlay mode, remain solid for 2 seconds before slowly fading to translucent
   useEffect(() => {
-    if (!isExpanded) {
+    if (!effectiveExpanded) {
       if (translucencyTimerRef.current) clearTimeout(translucencyTimerRef.current);
       translucencyTimerRef.current = setTimeout(() => {
         setIsTranslucent(true);
@@ -204,7 +216,7 @@ export default function FloatingSidebar({
     return () => {
       if (translucencyTimerRef.current) clearTimeout(translucencyTimerRef.current);
     };
-  }, [isExpanded]);
+  }, [effectiveExpanded]);
 
   const toggleSidebarTheme = () => {
     setSidebarTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
@@ -214,10 +226,13 @@ export default function FloatingSidebar({
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
     if (translucencyTimerRef.current) clearTimeout(translucencyTimerRef.current);
     setIsTranslucent(false);
-    setIsExpanded(true);
+    if (!isAlwaysOpen) {
+      setIsExpanded(true);
+    }
   };
 
   const handleMouseLeave = () => {
+    if (isAlwaysOpen) return;
     hoverTimeoutRef.current = setTimeout(() => {
       setIsExpanded(false);
     }, 380);
@@ -253,7 +268,11 @@ export default function FloatingSidebar({
       moduleId: module.id,
     });
     setCurrentTab(firstChild);
+    if (!isAlwaysOpen) {
+      setIsExpanded(false);
+    }
   };
+
 
   const handleModuleKeyDown = (e, index) => {
     if (e.key === 'ArrowDown') {
@@ -274,7 +293,7 @@ export default function FloatingSidebar({
       className="hidden lg:block select-none"
     >
       {/* Hover bridge when expanded: provides a seamless path between center dock and bottom capsule */}
-      {isExpanded && (
+      {effectiveExpanded && (
         <div
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
@@ -289,7 +308,7 @@ export default function FloatingSidebar({
         onMouseLeave={handleMouseLeave}
         className="fixed left-3.5 top-1/2 -translate-y-1/2 z-40 flex flex-col items-center"
       >
-        {!isExpanded ? (
+        {!effectiveExpanded ? (
           /* Messenger-Style Floating Dock Active Bubble (With 2s delayed smooth translucency) */
           <div
             role="button"
@@ -312,6 +331,7 @@ export default function FloatingSidebar({
                 : 'bg-white/95 hover:bg-white border-slate-200/90 hover:border-slate-300 backdrop-blur-md hover:backdrop-blur-xl'
             }`}
           >
+
             {/* Glass magnifying convex light reflection */}
             <span
               className={`absolute inset-0 rounded-[22px] pointer-events-none transition-opacity duration-500 ${
@@ -378,7 +398,6 @@ export default function FloatingSidebar({
                   onKeyDown={(e) => handleModuleKeyDown(e, index)}
                   onClick={() => {
                     handleSelectParent(module);
-                    setIsExpanded(false);
                   }}
                   className={`group relative w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 ease-out cursor-pointer focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-hidden ${
                     isActive
@@ -439,8 +458,8 @@ export default function FloatingSidebar({
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         className={`fixed left-3.5 bottom-5 z-40 w-[60px] rounded-[24px] border px-1.5 py-2 flex flex-col items-center gap-1.5 transition-all ${
-          isExpanded
-            ? 'opacity-100 translate-y-0 pointer-events-auto delay-300 duration-500 ease-out'
+          effectiveExpanded
+            ? 'opacity-100 translate-y-0 pointer-events-auto delay-150 duration-300 ease-out'
             : 'opacity-0 translate-y-3 pointer-events-none delay-0 duration-200 ease-in'
         } ${
           isDark
@@ -452,7 +471,9 @@ export default function FloatingSidebar({
         <button
           onClick={() => {
             setCurrentTab('settings');
-            setIsExpanded(false);
+            if (!isAlwaysOpen) {
+              setIsExpanded(false);
+            }
           }}
           className={`group relative w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 cursor-pointer focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-hidden ${
             isSettings

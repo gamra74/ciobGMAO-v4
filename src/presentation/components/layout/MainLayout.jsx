@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { FileSpreadsheet, UploadCloud } from 'lucide-react';
 import Sidebar from './Sidebar';
 import Header from './Header';
@@ -11,6 +11,8 @@ import MobileContainer from '../../../mobile/views/MobileContainer';
 import { useMobileDetect } from '../../../mobile/hooks/useMobileDetect';
 import { keyboardShortcuts } from '../../../services/KeyboardShortcutsService';
 import { useAuth } from '../../../context/AuthContext';
+import { storageService } from '../../../utils/storageService';
+import { STORAGE_KEYS } from '../../../infrastructure/persistence/storageKeys';
 
 export default function MainLayout({
   children,
@@ -41,10 +43,42 @@ export default function MainLayout({
   operationProgress,
 }) {
   const { user, logout } = useAuth();
-  const { isMobile } = useMobileDetect(1024);
+  const { isMobile: autoIsMobile } = useMobileDetect(1024);
   const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const dragCounter = useRef(0);
+
+  // Appearance & Layout States
+  const [deviceMode, setDeviceMode] = useState(() => {
+    return storageService.getItem(STORAGE_KEYS.DEVICE_MODE) || 'auto';
+  });
+
+  const [sidebarStyle, setSidebarStyle] = useState(() => {
+    return storageService.getItem(STORAGE_KEYS.SIDEBAR_STYLE) || 'floating';
+  });
+
+  const [sidebarBehavior, setSidebarBehavior] = useState(() => {
+    return storageService.getItem(STORAGE_KEYS.SIDEBAR_BEHAVIOR) || 'push';
+  });
+
+  useEffect(() => {
+    const handleAppearanceChanged = (e) => {
+      if (e?.detail?.deviceMode !== undefined) {
+        setDeviceMode(e.detail.deviceMode);
+      }
+      if (e?.detail?.sidebarStyle !== undefined) {
+        setSidebarStyle(e.detail.sidebarStyle);
+      }
+      if (e?.detail?.sidebarBehavior !== undefined) {
+        setSidebarBehavior(e.detail.sidebarBehavior);
+      }
+    };
+    window.addEventListener('gmao_appearance_changed', handleAppearanceChanged);
+    return () => window.removeEventListener('gmao_appearance_changed', handleAppearanceChanged);
+  }, []);
+
+  // Effective Mobile detection: 'desktop' forces full PC suite, 'mobile' forces companion mode, 'auto' detects viewport
+  const isMobile = deviceMode === 'desktop' ? false : (deviceMode === 'mobile' ? true : autoIsMobile);
 
   // Mobile View Mode: 'compact' (focused industrial field companion) vs 'full' (desktop back-office on mobile)
   const [mobileViewMode, setMobileViewMode] = useState(() => {
@@ -54,6 +88,7 @@ export default function MainLayout({
       return 'compact';
     }
   });
+
 
   const handleSetMobileViewMode = (valOrFn) => {
     setMobileViewMode((prev) => {
@@ -236,8 +271,25 @@ export default function MainLayout({
     };
   }, [setCurrentTab, onDirectSave, setMobileMenuOpen]);
 
+  const mainContentSpacingClass = useMemo(() => {
+    if (isMobile) return 'p-2.5 sm:p-4 pb-24';
+    if (sidebarStyle === 'standard') {
+      return 'lg:ml-[270px] p-2.5 sm:p-4 lg:p-6 pb-24 lg:pb-6';
+    }
+    if (sidebarStyle === 'floating') {
+      if (sidebarBehavior === 'push') {
+        return 'lg:pl-20 p-2.5 sm:p-4 lg:p-6 pb-24 lg:pb-6';
+      }
+      // overlay mode: floating icon sits inside the page comfortably
+      return 'p-2.5 sm:p-4 lg:p-6 pb-24 lg:pb-6';
+    }
+    return 'p-2.5 sm:p-4 lg:p-6 pb-24 lg:pb-6';
+  }, [isMobile, sidebarStyle, sidebarBehavior]);
+
+
   return (
     <div
+
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
@@ -374,7 +426,7 @@ export default function MainLayout({
           role="main"
           tabIndex={-1}
           aria-label="Contenu principal"
-          className="flex-1 p-2.5 sm:p-4 lg:p-6 w-full min-w-0 pb-24 lg:pb-6 focus:outline-hidden overflow-x-hidden"
+          className={`flex-1 w-full min-w-0 focus:outline-hidden overflow-x-hidden ${mainContentSpacingClass}`}
         >
           {isMobile && mobileViewMode === 'compact' ? (
             <MobileContainer

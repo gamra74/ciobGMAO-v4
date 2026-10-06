@@ -53,6 +53,18 @@ export const STORAGE_KEYS = {
   START_MODE: 'gmao_start_mode',
   STORAGE_MIGRATED: 'gmao_storage_migrated_v1',
   FULL_STATE_SNAPSHOT: 'gmao_full_state_v1',
+
+  // 9. Appearance & Ergonomics Preferences
+  DEVICE_MODE: 'gmao_device_mode',
+  SIDEBAR_STYLE: 'gmao_sidebar_style',
+  SIDEBAR_BEHAVIOR: 'gmao_sidebar_behavior',
+  SIDEBAR_THEME: 'gmao_sidebar_theme',
+  THEME: 'gmao_theme',
+  DENSITY: 'gmao_density',
+  ACCENT_COLOR: 'gmao_accent_color',
+  ANIMATIONS: 'gmao_animations',
+  HEADER_CLOCK: 'gmao_header_clock',
+  ACTIVE_TAB: 'gmao_active_tab',
 };
 
 /**

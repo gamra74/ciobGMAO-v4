@@ -36,6 +36,7 @@ import { CubeIcon } from '../common/icons/CubeIcon';
 import { LayersIcon } from '../common/icons/LayersIcon';
 
 export default function MobileSidebarDrawer({
+  isFixedDesktop = false,
   currentTab,
   setCurrentTab,
   mobileMenuOpen,
@@ -51,6 +52,16 @@ export default function MobileSidebarDrawer({
   const [sidebarTheme, setSidebarTheme] = useState(() => {
     return storageService.getItem('gmao_sidebar_theme') || 'dark';
   });
+
+  useEffect(() => {
+    const handleAppearanceChanged = (e) => {
+      if (e?.detail?.theme) {
+        setSidebarTheme(e.detail.theme);
+      }
+    };
+    window.addEventListener('gmao_appearance_changed', handleAppearanceChanged);
+    return () => window.removeEventListener('gmao_appearance_changed', handleAppearanceChanged);
+  }, []);
 
   useEffect(() => {
     storageService.setItem('gmao_sidebar_theme', sidebarTheme);
@@ -125,24 +136,27 @@ export default function MobileSidebarDrawer({
         />
       )}
 
-      {/* Mobile Sidebar Container - 100% Exact Original Design */}
+      {/* Sidebar Container - Exact Rich Original Design (Fixed on Desktop if isFixedDesktop, Drawer on Mobile) */}
       <aside
-        role="dialog"
-        aria-modal="true"
+        role={isFixedDesktop ? 'navigation' : 'dialog'}
+        aria-modal={isFixedDesktop ? undefined : 'true'}
         aria-label="Menu principal de navigation"
-        className={`fixed top-0 bottom-0 left-0 z-50 w-[270px] flex flex-col transition-all duration-200 ease-in-out lg:hidden ${
-          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+        className={`fixed top-0 bottom-0 left-0 z-40 w-[270px] flex flex-col transition-all duration-200 ease-in-out select-none ${
+          isFixedDesktop
+            ? (mobileMenuOpen ? 'translate-x-0' : 'max-lg:-translate-x-full lg:translate-x-0')
+            : (mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:hidden')
         } ${
           isDark
             ? 'bg-slate-900 text-white border-r border-slate-800 shadow-xl'
             : 'bg-white text-slate-800 border-r border-slate-200 shadow-xs'
         }`}
       >
+
         {/* Brand Header with Dedicated Offline SVG Excel GMAO Icon */}
         <div
           id="sidebar-header-brand"
-          className={`h-[68px] px-4 flex items-center justify-between border-b shrink-0 ${
-            isDark ? 'border-slate-800 bg-slate-950/60' : 'border-slate-200 bg-slate-50/50'
+          className={`h-16 px-4 flex items-center justify-between border-b shrink-0 ${
+            isDark ? 'border-slate-800 bg-slate-950/60' : 'border-zinc-200/90 bg-white'
           }`}
         >
           <div className="flex items-center gap-3">
