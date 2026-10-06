@@ -200,9 +200,18 @@ export function createEmptyVault() {
   };
 }
 
+function resolveSymmetricKey(password) {
+  if (password) return password;
+  if (import.meta.env.VITE_CRYPTO_KEY) return import.meta.env.VITE_CRYPTO_KEY;
+  if (import.meta.env.PROD || (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production')) {
+    return getOrCreateSalt();
+  }
+  return 'GMAO-SECURE-VAULT-2026';
+}
+
 export function encrypt(text, password) {
   try {
-    const key = password || 'GMAO-SECURE-VAULT-2026';
+    const key = resolveSymmetricKey(password);
     return CryptoJS.AES.encrypt(String(text), key).toString();
   } catch {
     return text;
@@ -217,7 +226,7 @@ export function decrypt(cipher, password) {
       const parts = cipher.split(':');
       return decodeURIComponent(atob(parts[1]));
     }
-    const key = password || 'GMAO-SECURE-VAULT-2026';
+    const key = resolveSymmetricKey(password);
     const bytes = CryptoJS.AES.decrypt(cipher, key);
     const decrypted = bytes.toString(CryptoJS.enc.Utf8);
     return decrypted || cipher;

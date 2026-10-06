@@ -205,10 +205,10 @@ export default function ReferentielPannesTravauxTab({
         const res = onForceSyncSeed();
         showToast?.(
           t('corrective.catalogue.toast_sync_success_detailed', `Données réelles synchronisées avec succès : {{interventions}} Interventions, {{travaux}} Travaux, {{pannes}} Pannes, {{actions}} Actions !`, {
-            interventions: res?.interventionsCount || 1705,
-            travaux: res?.travauxCount || 114,
-            pannes: res?.pannesCount || 282,
-            actions: res?.actionsCount || 71
+            interventions: res?.interventionsCount ?? 0,
+            travaux: res?.travauxCount ?? (travauxAFaire || []).length,
+            pannes: res?.pannesCount ?? flatPannes.length,
+            actions: res?.actionsCount ?? Object.keys(actionsByPanne || {}).length
           }),
           'success'
         );

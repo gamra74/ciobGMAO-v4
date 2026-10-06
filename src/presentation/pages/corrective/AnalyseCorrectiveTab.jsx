@@ -225,7 +225,7 @@ export default function AnalyseCorrectiveTab({
     const mttrFormatted = AvailabilityCalculationService.formatMTTR(filteredInterventions);
 
     // 2. MTBF via AvailabilityCalculationService
-    const numMachines = Math.max(1, registeredMachines.length || 412);
+    const numMachines = Math.max(1, registeredMachines.length);
     const totalScheduledHours = numMachines * 160; // 160h standard industrial monthly operating time
     const mtbfCalculatedHours = AvailabilityCalculationService.calculateMTBF(filteredInterventions, totalScheduledHours);
 
@@ -307,7 +307,7 @@ export default function AnalyseCorrectiveTab({
             </div>
             <div className="mt-2 text-[10.5px] text-slate-500 flex items-center gap-1 flex-wrap">
               <span className="text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 font-mono">
-                {registeredMachines.length || 412} Machines
+                {registeredMachines.length} Machines
               </span>
             </div>
           </div>

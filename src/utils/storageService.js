@@ -77,14 +77,22 @@ if (typeof window !== 'undefined' && (typeof process === 'undefined' || process.
 }
 
 // Legacy keys for migration only (secure salt via environment variables)
-const OLD_SECURE_STORAGE_KEY = import.meta.env.VITE_CRYPTO_KEY || 'CIOB_GMAO_CLIENT_PERSISTENCE_SALT_KEY_987654321!';
-if (!import.meta.env.VITE_CRYPTO_KEY) {
-  if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production') {
-    console.error('❌ CRITICAL SECURITY ERROR: VITE_CRYPTO_KEY is not defined in production environment variables.');
-  } else {
-    console.warn('⚠️ VITE_CRYPTO_KEY is not defined in environment. Using fallback salt.');
+const ENV_CRYPTO_KEY = import.meta.env.VITE_CRYPTO_KEY;
+
+function getLegacyPersistenceSecret() {
+  if (ENV_CRYPTO_KEY) return ENV_CRYPTO_KEY;
+  if (import.meta.env.PROD || (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production')) {
+    console.error(
+      '[storageService] VITE_CRYPTO_KEY is required in production. Refusing hardcoded fallback.'
+    );
+    return null;
   }
+  console.warn(
+    '[storageService] VITE_CRYPTO_KEY missing — dev-only insecure fallback.'
+  );
+  return 'CIOB_GMAO_CLIENT_PERSISTENCE_SALT_KEY_987654321!';
 }
+
 const KEY_STORE_NAME = 'gmao_crypto_keys';
 const KEY_ID = 'main_aes_gcm_key';
 
@@ -310,12 +318,21 @@ export const storageService = {
               Logger.warn(`WC migration skipped for ${k}:`, e, 'storageService');
             }
           } else if (item.startsWith('U2FsdGVkX1')) {
-            try {
-              const bytes = CryptoJS.AES.decrypt(item, OLD_SECURE_STORAGE_KEY);
-              const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
-              if (decryptedText) decryptedObj = JSON.parse(decryptedText);
-            } catch (e) {
-              Logger.warn(`Legacy AES migration skipped for ${k}:`, e, 'storageService');
+            const legacySecret = getLegacyPersistenceSecret();
+            if (legacySecret) {
+              try {
+                const bytes = CryptoJS.AES.decrypt(item, legacySecret);
+                const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
+                if (decryptedText) decryptedObj = JSON.parse(decryptedText);
+              } catch (e) {
+                Logger.warn(`Legacy AES migration skipped for ${k}:`, e, 'storageService');
+              }
+            } else {
+              Logger.warn(
+                `Legacy AES migration skipped for ${k}: VITE_CRYPTO_KEY missing in production.`,
+                null,
+                'storageService'
+              );
             }
           }
 

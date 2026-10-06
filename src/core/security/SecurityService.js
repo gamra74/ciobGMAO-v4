@@ -15,6 +15,8 @@ import { Logger } from '../logger/LoggerService.js';
  * - 🆔 استخراج بصمة رقمية فريدة للجهاز (Device Fingerprint).
  */
 export class SecurityService {
+  static _volatileInstanceKey = null;
+
   /**
    * المفتاح السري الديناميكي للتشفير والتوقيع الرقمي
    * @returns {string}
@@ -23,7 +25,7 @@ export class SecurityService {
     if (import.meta.env.VITE_SECRET_KEY) {
       return import.meta.env.VITE_SECRET_KEY;
     }
-    
+
     try {
       let instanceKey = localStorage.getItem('_gmao_sec_instance_key');
       if (!instanceKey) {
@@ -32,6 +34,13 @@ export class SecurityService {
       }
       return instanceKey;
     } catch {
+      if (import.meta.env.PROD || (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production')) {
+        if (!this._volatileInstanceKey) {
+          this._volatileInstanceKey = CryptoJS.lib.WordArray.random(32).toString(CryptoJS.enc.Hex);
+        }
+        return this._volatileInstanceKey;
+      }
+      console.warn('[SecurityService] VITE_SECRET_KEY and localStorage unavailable — dev-only insecure fallback.');
       return 'gmao_vault_fallback_key_99018231';
     }
   }
