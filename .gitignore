@@ -24,4 +24,6 @@ desktop.ini
 
 # Local environment configs
 .env.local
+.env.production.local
+.env*.local
 .env.*.local

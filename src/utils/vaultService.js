@@ -204,9 +204,11 @@ function resolveSymmetricKey(password) {
   if (password) return password;
   if (import.meta.env.VITE_CRYPTO_KEY) return import.meta.env.VITE_CRYPTO_KEY;
   if (import.meta.env.PROD || (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production')) {
+    console.error('[vaultService] VITE_CRYPTO_KEY is missing in production — using generated salt.');
     return getOrCreateSalt();
   }
-  return 'GMAO-SECURE-VAULT-2026';
+  console.warn('[vaultService] VITE_CRYPTO_KEY missing in development — using locally generated salt.');
+  return getOrCreateSalt();
 }
 
 export function encrypt(text, password) {

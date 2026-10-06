@@ -16,14 +16,33 @@ import { Logger } from '../logger/LoggerService.js';
  */
 export class SecurityService {
   static _volatileInstanceKey = null;
+  static _warnedMissingKey = false;
 
   /**
    * المفتاح السري الديناميكي للتشفير والتوقيع الرقمي
    * @returns {string}
    */
   static get SECRET_KEY() {
-    if (import.meta.env.VITE_SECRET_KEY) {
-      return import.meta.env.VITE_SECRET_KEY;
+    const envSecret = import.meta.env.VITE_SECRET_KEY;
+    if (envSecret && String(envSecret).trim().length > 0) {
+      return String(envSecret).trim();
+    }
+
+    const isProd =
+      import.meta.env.PROD ||
+      (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production');
+
+    if (!this._warnedMissingKey) {
+      this._warnedMissingKey = true;
+      if (isProd) {
+        console.error(
+          '[SecurityService] VITE_SECRET_KEY is missing in production environment (.env.local). Falling back to generated instance key.'
+        );
+      } else {
+        console.warn(
+          '[SecurityService] VITE_SECRET_KEY missing in development — using locally generated random key.'
+        );
+      }
     }
 
     try {
@@ -34,14 +53,10 @@ export class SecurityService {
       }
       return instanceKey;
     } catch {
-      if (import.meta.env.PROD || (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production')) {
-        if (!this._volatileInstanceKey) {
-          this._volatileInstanceKey = CryptoJS.lib.WordArray.random(32).toString(CryptoJS.enc.Hex);
-        }
-        return this._volatileInstanceKey;
+      if (!this._volatileInstanceKey) {
+        this._volatileInstanceKey = CryptoJS.lib.WordArray.random(32).toString(CryptoJS.enc.Hex);
       }
-      console.warn('[SecurityService] VITE_SECRET_KEY and localStorage unavailable — dev-only insecure fallback.');
-      return 'gmao_vault_fallback_key_99018231';
+      return this._volatileInstanceKey;
     }
   }
 
