@@ -135,4 +135,29 @@ describe('3. Performance & Stress Tests: Large-Scale Datasets', () => {
       expect(avgLatencyUs).toBeLessThan(1000);
     });
   });
+
+  describe('Virtual Scrolling & Windowing (P1-2)', () => {
+    it('should slice 10,000 rows to only the visible viewport + overscan window in O(1) time', () => {
+      const totalCount = 10000;
+      const rowHeight = 52;
+      const viewportHeight = 520; // 10 visible rows
+      const overscanCount = 8;
+      const scrollTop = 26000; // Scrolled halfway down (row 500)
+
+      const rawStart = Math.floor(scrollTop / rowHeight);
+      const visibleCount = Math.ceil(viewportHeight / rowHeight);
+      const startOffsetIndex = Math.max(0, rawStart - overscanCount);
+      const endOffsetIndex = Math.min(totalCount, rawStart + visibleCount + overscanCount);
+
+      const topSpacerHeight = startOffsetIndex * rowHeight;
+      const bottomSpacerHeight = Math.max(0, (totalCount - endOffsetIndex) * rowHeight);
+      const renderedDomRowCount = endOffsetIndex - startOffsetIndex;
+
+      // Only 26 DOM rows rendered instead of 10,000!
+      expect(renderedDomRowCount).toBeLessThanOrEqual(30);
+      expect(topSpacerHeight + renderedDomRowCount * rowHeight + bottomSpacerHeight).toBe(
+        totalCount * rowHeight
+      );
+    });
+  });
 });

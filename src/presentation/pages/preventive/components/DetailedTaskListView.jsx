@@ -1,4 +1,4 @@
-import { useState, useMemo, Fragment } from 'react';
+import { useState, useMemo, useRef, useEffect, Fragment } from 'react';
 import {
   List,
   Factory,
@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   SlidersHorizontal,
+  Zap,
 } from 'lucide-react';
 import ViewSwitchButtonGroup from './ViewSwitchButtonGroup';
 import TablePaginationCard from '../../../components/common/TablePaginationCard';
@@ -97,6 +98,51 @@ export default function DetailedTaskListView({
     return sortedTasks.slice(startIndex, startIndex + effectivePageSize);
   }, [sortedTasks, pageSize, startIndex, effectivePageSize]);
 
+  // Virtual Scrolling for flat continuous view when displaying > 50 rows
+  const scrollContainerRef = useRef(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(500);
+  const rowHeight = 54;
+  const overscanCount = 8;
+
+  const isFlatVirtualized = !groupByMachine && rawDisplayedTasks.length > 50;
+
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el || !isFlatVirtualized) return;
+    const updateHeight = () => {
+      if (el.clientHeight > 0) setViewportHeight(el.clientHeight);
+    };
+    updateHeight();
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(updateHeight);
+      observer.observe(el);
+      return () => observer.disconnect();
+    }
+  }, [isFlatVirtualized, rawDisplayedTasks.length]);
+
+  const virtualTaskWindow = useMemo(() => {
+    const count = rawDisplayedTasks.length;
+    if (!isFlatVirtualized || count === 0) {
+      return {
+        visibleTasks: rawDisplayedTasks,
+        startOffsetIndex: 0,
+        topSpacerHeight: 0,
+        bottomSpacerHeight: 0,
+      };
+    }
+    const rawStart = Math.floor(scrollTop / rowHeight);
+    const visibleCount = Math.ceil(viewportHeight / rowHeight);
+    const startOffsetIndex = Math.max(0, rawStart - overscanCount);
+    const endOffsetIndex = Math.min(count, rawStart + visibleCount + overscanCount);
+    return {
+      visibleTasks: rawDisplayedTasks.slice(startOffsetIndex, endOffsetIndex),
+      startOffsetIndex,
+      topSpacerHeight: startOffsetIndex * rowHeight,
+      bottomSpacerHeight: Math.max(0, (count - endOffsetIndex) * rowHeight),
+    };
+  }, [isFlatVirtualized, rawDisplayedTasks, scrollTop, viewportHeight]);
+
   // Group displayed tasks into consecutive machine sections with dynamic relational lookup
   const machineGroups = useMemo(() => {
     const groups = [];
@@ -141,6 +187,12 @@ export default function DetailedTaskListView({
             <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-indigo-50 text-indigo-800 border border-indigo-200">
               {totalItems} {t('preventive.table.ordered_tasks_count', '{{count}} tâche(s) ordonnée(s)', { count: totalItems })}
             </span>
+            {isFlatVirtualized && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <Zap className="w-2.5 h-2.5 text-emerald-600" />
+                <span>Virtual 60fps</span>
+              </span>
+            )}
           </div>
 
           {/* Right Controls: Grouping Toggle + 3D Circular Switch Button */}
@@ -169,7 +221,11 @@ export default function DetailedTaskListView({
         </div>
 
         {/* Detailed Operational Table */}
-        <div className="overflow-x-auto max-h-[64vh] overflow-y-auto">
+        <div
+          ref={scrollContainerRef}
+          onScroll={(e) => isFlatVirtualized && setScrollTop(e.currentTarget.scrollTop)}
+          className="overflow-x-auto max-h-[64vh] overflow-y-auto"
+        >
           <table className="w-full text-left border-collapse text-xs">
             <thead className="sticky top-0 bg-slate-100 text-slate-700 uppercase font-black text-[10px] tracking-wider border-b border-slate-200 z-20 shadow-2xs select-none">
               <tr>
@@ -445,141 +501,154 @@ export default function DetailedTaskListView({
                   );
                 })
               ) : (
-                // Flat sorted list without headers
-                rawDisplayedTasks.map((tItem, idx) => {
-                  const rowNumber = startIndex + idx + 1;
-                  const actionMeta = ACTION_PILL_MAP[tItem.action_code] || {
-                    bg: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-                    dot: 'bg-indigo-600',
-                    label: tItem.action_code,
-                  };
-                  const localizedStatus = tItem.etat === 'Fait'
-                    ? t('preventive.table.status.done', 'Fait')
-                    : tItem.etat === 'En retard'
-                    ? t('preventive.table.status.late', 'En retard')
-                    : t('preventive.table.status.todo', 'À faire');
+                // Flat sorted list without headers (Virtualized when > 50 rows)
+                <>
+                  {isFlatVirtualized && virtualTaskWindow.topSpacerHeight > 0 && (
+                    <tr aria-hidden="true" className="border-0 p-0 m-0">
+                      <td colSpan={10} style={{ height: virtualTaskWindow.topSpacerHeight, padding: 0, border: 0 }} />
+                    </tr>
+                  )}
+                  {virtualTaskWindow.visibleTasks.map((tItem, localIdx) => {
+                    const idx = virtualTaskWindow.startOffsetIndex + localIdx;
+                    const rowNumber = startIndex + idx + 1;
+                    const actionMeta = ACTION_PILL_MAP[tItem.action_code] || {
+                      bg: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+                      dot: 'bg-indigo-600',
+                      label: tItem.action_code,
+                    };
+                    const localizedStatus = tItem.etat === 'Fait'
+                      ? t('preventive.table.status.done', 'Fait')
+                      : tItem.etat === 'En retard'
+                      ? t('preventive.table.status.late', 'En retard')
+                      : t('preventive.table.status.todo', 'À faire');
 
-                  return (
-                    <tr
-                      key={tItem.id || `task-row-${idx}`}
-                      className={`even:bg-slate-50/50 odd:bg-white hover:bg-indigo-50/40 border-b border-slate-200/70 transition-colors group ${
-                        tItem.etat === 'En retard' ? 'bg-rose-50/20' : ''
-                      }`}
-                    >
-                      <td className="py-2.5 px-3 text-center font-mono text-[11px] font-bold text-slate-400 border-r border-slate-200/70">
-                        <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
-                          #{rowNumber}
-                        </span>
-                      </td>
+                    return (
+                      <tr
+                        key={tItem.id || `task-row-${idx}`}
+                        className={`even:bg-slate-50/50 odd:bg-white hover:bg-indigo-50/40 border-b border-slate-200/70 transition-colors group ${
+                          tItem.etat === 'En retard' ? 'bg-rose-50/20' : ''
+                        }`}
+                      >
+                        <td className="py-2.5 px-3 text-center font-mono text-[11px] font-bold text-slate-400 border-r border-slate-200/70">
+                          <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
+                            #{rowNumber}
+                          </span>
+                        </td>
 
-                      <td className="py-2.5 px-3.5 border-r border-slate-200/70">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-md bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-700 shrink-0">
-                            <Factory className="w-3.5 h-3.5" />
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-mono font-black text-slate-900 block text-xs truncate">
-                                {tItem.id_machine}
-                              </span>
-                              {tItem._isOrphan && (
-                                <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-amber-100 text-amber-800 border border-amber-200 inline-flex items-center gap-0.5 shrink-0">
-                                  <AlertTriangle className="w-2.5 h-2.5" /> Orphelin
-                                </span>
-                              )}
+                        <td className="py-2.5 px-3.5 border-r border-slate-200/70">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-md bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-700 shrink-0">
+                              <Factory className="w-3.5 h-3.5" />
                             </div>
-                            <span className="text-[11px] text-slate-500 truncate block">
-                              {tItem.nom_machine || tItem.id_machine}
-                            </span>
-                          </div>
-                          {(tItem.id_zone || tItem.zone) && (
-                            <span className="px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 text-[9.5px] font-bold shrink-0 ml-auto">
-                              {tItem.id_zone || tItem.zone}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      <td className="py-2.5 px-3.5 border-r border-slate-200/70">
-                        <div className="flex items-start gap-1.5">
-                          <Layers className="w-3.5 h-3.5 text-indigo-500 shrink-0 mt-0.5" />
-                          <div className="min-w-0">
-                            <span className="font-bold text-slate-900 block text-xs">{tItem.composant}</span>
-                            {tItem.consigne && (
-                              <span className="text-[11px] text-slate-500 block max-w-xs truncate">{tItem.consigne}</span>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-mono font-black text-slate-900 block text-xs truncate">
+                                  {tItem.id_machine}
+                                </span>
+                                {tItem._isOrphan && (
+                                  <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-amber-100 text-amber-800 border border-amber-200 inline-flex items-center gap-0.5 shrink-0">
+                                    <AlertTriangle className="w-2.5 h-2.5" /> Orphelin
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[11px] text-slate-500 truncate block">
+                                {tItem.nom_machine || tItem.id_machine}
+                              </span>
+                            </div>
+                            {(tItem.id_zone || tItem.zone) && (
+                              <span className="px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 text-[9.5px] font-bold shrink-0 ml-auto">
+                                {tItem.id_zone || tItem.zone}
+                              </span>
                             )}
                           </div>
-                        </div>
-                      </td>
+                        </td>
 
-                      <td className="py-2.5 px-3 text-center border-r border-slate-200/70 whitespace-nowrap">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-mono font-bold text-[10.5px] border ${actionMeta.bg}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${actionMeta.dot || 'bg-indigo-600'}`} />
-                          {tItem.action_code}
-                        </span>
-                      </td>
+                        <td className="py-2.5 px-3.5 border-r border-slate-200/70">
+                          <div className="flex items-start gap-1.5">
+                            <Layers className="w-3.5 h-3.5 text-indigo-500 shrink-0 mt-0.5" />
+                            <div className="min-w-0">
+                              <span className="font-bold text-slate-900 block text-xs">{tItem.composant}</span>
+                              {tItem.consigne && (
+                                <span className="text-[11px] text-slate-500 block max-w-xs truncate">{tItem.consigne}</span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
 
-                      <td className="py-2.5 px-3 font-semibold text-slate-700 border-r border-slate-200/70 whitespace-nowrap">
-                        <div className="flex items-center gap-1 text-[11px]">
-                          <Clock className="w-3 h-3 text-slate-400" />
-                          <span>{tItem.frequence || 'Périodique'}</span>
-                        </div>
-                      </td>
+                        <td className="py-2.5 px-3 text-center border-r border-slate-200/70 whitespace-nowrap">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-mono font-bold text-[10.5px] border ${actionMeta.bg}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${actionMeta.dot || 'bg-indigo-600'}`} />
+                            {tItem.action_code}
+                          </span>
+                        </td>
 
-                      <td className="py-2.5 px-3 font-mono text-slate-700 font-semibold border-r border-slate-200/70 whitespace-nowrap">
-                        <div className="flex items-center gap-1 text-[11px]">
-                          <Calendar className="w-3 h-3 text-slate-400" />
-                          <span>{tItem.prochaine_echeance || tItem.semaine_cible || 'S1'}</span>
-                        </div>
-                      </td>
+                        <td className="py-2.5 px-3 font-semibold text-slate-700 border-r border-slate-200/70 whitespace-nowrap">
+                          <div className="flex items-center gap-1 text-[11px]">
+                            <Clock className="w-3 h-3 text-slate-400" />
+                            <span>{tItem.frequence || 'Périodique'}</span>
+                          </div>
+                        </td>
 
-                      <td className="py-2.5 px-3 font-semibold text-slate-800 border-r border-slate-200/70 whitespace-nowrap">
-                        <div className="flex items-center gap-1 text-[11px]">
-                          <User className="w-3.5 h-3.5 text-slate-400" />
-                          <span>{tItem.responsable || t('common.technician', 'Non assigné')}</span>
-                        </div>
-                      </td>
+                        <td className="py-2.5 px-3 font-mono text-slate-700 font-semibold border-r border-slate-200/70 whitespace-nowrap">
+                          <div className="flex items-center gap-1 text-[11px]">
+                            <Calendar className="w-3 h-3 text-slate-400" />
+                            <span>{tItem.prochaine_echeance || tItem.semaine_cible || 'S1'}</span>
+                          </div>
+                        </td>
 
-                      <td className="py-2.5 px-3 font-mono font-bold text-slate-900 border-r border-slate-200/70 whitespace-nowrap">
-                        {Number(tItem.cout_cumule || 0).toFixed(2)} DT
-                      </td>
+                        <td className="py-2.5 px-3 font-semibold text-slate-800 border-r border-slate-200/70 whitespace-nowrap">
+                          <div className="flex items-center gap-1 text-[11px]">
+                            <User className="w-3.5 h-3.5 text-slate-400" />
+                            <span>{tItem.responsable || t('common.technician', 'Non assigné')}</span>
+                          </div>
+                        </td>
 
-                      <td className="py-2.5 px-3 text-center border-r border-slate-200/70 whitespace-nowrap">
-                        <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10.5px] font-bold border ${STATUT_BADGES[tItem.etat] || ''}`}>
-                          {localizedStatus}
-                        </span>
-                      </td>
+                        <td className="py-2.5 px-3 font-mono font-bold text-slate-900 border-r border-slate-200/70 whitespace-nowrap">
+                          {Number(tItem.cout_cumule || 0).toFixed(2)} DT
+                        </td>
 
-                      <td className="py-2.5 px-3.5 text-center whitespace-nowrap">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => onOpenPrint(tItem)}
-                            className="p-1 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 rounded-lg transition cursor-pointer"
-                            title={t('preventive.buttons.print_wo', "Imprimer l'Ordre de Travail (OT)")}
-                          >
-                            <Printer className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onOpenCorrective(tItem)}
-                            className="px-2.5 py-1 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition cursor-pointer"
-                            title={t('preventive.buttons.create_corrective_bt', "Déclencher un BT Correctif en cas d'anomalie")}
-                          >
-                            BT
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onOpenValidate(tItem)}
-                            className="px-2.5 py-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition cursor-pointer"
-                          >
-                            {t('common.confirm', 'Valider')}
-                          </button>
-                        </div>
-                      </td>
+                        <td className="py-2.5 px-3 text-center border-r border-slate-200/70 whitespace-nowrap">
+                          <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10.5px] font-bold border ${STATUT_BADGES[tItem.etat] || ''}`}>
+                            {localizedStatus}
+                          </span>
+                        </td>
+
+                        <td className="py-2.5 px-3.5 text-center whitespace-nowrap">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => onOpenPrint(tItem)}
+                              className="p-1 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 rounded-lg transition cursor-pointer"
+                              title={t('preventive.buttons.print_wo', "Imprimer l'Ordre de Travail (OT)")}
+                            >
+                              <Printer className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => onOpenCorrective(tItem)}
+                              className="px-2.5 py-1 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition cursor-pointer"
+                              title={t('preventive.buttons.create_corrective_bt', "Déclencher un BT Correctif en cas d'anomalie")}
+                            >
+                              BT
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => onOpenValidate(tItem)}
+                              className="px-2.5 py-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition cursor-pointer"
+                            >
+                              {t('common.confirm', 'Valider')}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {isFlatVirtualized && virtualTaskWindow.bottomSpacerHeight > 0 && (
+                    <tr aria-hidden="true" className="border-0 p-0 m-0">
+                      <td colSpan={10} style={{ height: virtualTaskWindow.bottomSpacerHeight, padding: 0, border: 0 }} />
                     </tr>
-                  );
-                })
+                  )}
+                </>
               )}
             </tbody>
           </table>

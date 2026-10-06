@@ -38,11 +38,19 @@
 
 ---
 
-# 🟠 المشاكل العالية (P1) - خطة المراحل القادمة
+# 🟠 المشاكل العالية (P1)
 
-1. **P1-1**: توحيد مجلدات الاختبارات في مسار قياسي موحد (`src/__tests__/`).
-2. **P1-2**: تعميم الـ Virtual Scrolling للجداول الضخمة عبر `react-window`.
-3. **P1-3**: استكمال التحويل التدريجي إلى TypeScript الصارم.
+## **P1-1: توحيد مجلدات الاختبارات في مسار قياسي موحد (`src/tests/`)**
+- **الحالة**: ✅ مُنفذة ومُحدثة. تم دمج كافة الاختبارات في `src/tests/` (الوحدات `unit/`، التكامل `integration/`، والتسلسل `e2e/`، والأمان `security/` والأداء `performance/`) وحذف المجلدات المتفرقة (`src/__tests__` و `src/test`).
+
+## **P1-2: تعميم الـ Virtual Scrolling للجداول الضخمة عبر `react-window` و `GmaoIndustrialDataGrid`**
+- **الحالة**: ✅ مُنفذة ومُحدثة.
+- **الآلية**:
+  1. توحيد وترقية `src/presentation/components/common/VirtualizedTable.jsx` ليتوافق مع `react-window` v2 (`rowComponent`, `rowCount`, `rowHeight`, `overscanCount`) وحذف النسخة المكررة.
+  2. دمج محرك التمرير الافتراضي (Windowed Virtual Scrolling بسرعة 60fps) مباشرة في الشبكة الموحدة `GmaoIndustrialDataGrid.jsx` و `DetailedTaskListView.jsx` لتفعيل التقطيع التلقائي (Windowing) عند تجاوز عتبة الـ 50 صفاً (مثل اختيار `Tout` أو عرض آلاف الحركات/الأصناف/التدخلات) دون المساس برؤوس الجداول المثبتة (`Sticky thead`) أو القوائم المنبثقة.
+
+## **P1-3: استكمال التحويل التدريجي إلى TypeScript الصارم**
+- **الحالة**: ⏳ قيد التنفيذ للمرحلة التالية.
 
 ---
 

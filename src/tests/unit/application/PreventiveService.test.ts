@@ -16,7 +16,10 @@ describe('PreventiveService', () => {
   });
 
   it('should return initial actions when storage is empty', () => {
-    storageService.getItem.mockReturnValue(null);
+    storageService.getItem.mockImplementation((key) => {
+      if (key === 'gmao_demo_data_loaded_v1') return true;
+      return null;
+    });
     const actions = PreventiveService.getActions();
     expect(actions.length).toBeGreaterThan(0);
   });

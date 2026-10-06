@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { AutoBackupService, MAX_SNAPSHOTS } from '../../core/backup/AutoBackupService.js';
+import { STORAGE_KEYS } from '../../infrastructure/persistence/storageKeys.js';
 
 describe('AutoBackupService', () => {
   beforeEach(() => {
@@ -7,15 +8,15 @@ describe('AutoBackupService', () => {
   });
 
   it('should capture a complete snapshot with counts', () => {
-    localStorage.setItem('gmao_spare_parts', JSON.stringify([{ id: 1, ref: 'ROUL-6204' }]));
-    localStorage.setItem('gmao_movements', JSON.stringify([{ id: 10, quantite: 5 }]));
+    localStorage.setItem(STORAGE_KEYS.RAW_STOCK, JSON.stringify([{ id: 1, ref: 'ROUL-6204' }]));
+    localStorage.setItem(STORAGE_KEYS.MOUVEMENTS, JSON.stringify([{ id: 10, quantite: 5 }]));
 
     const snap = AutoBackupService.createSnapshot('Test Snapshot', true);
     expect(snap).toBeDefined();
     expect(snap.id).toMatch(/^snap-/);
     expect(snap.isManual).toBe(true);
-    expect(snap.counts.spare_parts).toBe(1);
-    expect(snap.counts.movements).toBe(1);
+    expect(snap.counts.raw_stock_v7).toBe(1);
+    expect(snap.counts.mouvements_v2).toBe(1);
 
     const list = AutoBackupService.listSnapshots();
     expect(list.length).toBe(1);
@@ -23,17 +24,17 @@ describe('AutoBackupService', () => {
   });
 
   it('should restore data from snapshot correctly', async () => {
-    localStorage.setItem('gmao_spare_parts', JSON.stringify([{ id: 1, ref: 'OLD-REF' }]));
+    localStorage.setItem(STORAGE_KEYS.RAW_STOCK, JSON.stringify([{ id: 1, ref: 'OLD-REF' }]));
     const snap1 = AutoBackupService.createSnapshot('Initial state', false);
 
     // Modify state
-    localStorage.setItem('gmao_spare_parts', JSON.stringify([{ id: 2, ref: 'MODIFIED-REF' }]));
+    localStorage.setItem(STORAGE_KEYS.RAW_STOCK, JSON.stringify([{ id: 2, ref: 'MODIFIED-REF' }]));
 
     // Restore snap1
     const ok = await AutoBackupService.restoreSnapshot(snap1.id);
     expect(ok).toBe(true);
 
-    const restored = JSON.parse(localStorage.getItem('gmao_spare_parts'));
+    const restored = JSON.parse(localStorage.getItem(STORAGE_KEYS.RAW_STOCK));
     expect(restored[0].ref).toBe('OLD-REF');
   });
 

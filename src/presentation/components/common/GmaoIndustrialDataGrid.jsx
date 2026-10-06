@@ -1,6 +1,6 @@
-import { isValidElement } from 'react';
+import { isValidElement, useState, useRef, useEffect, useMemo } from 'react';
 import PropTypes from 'prop-types';
-import { ArrowUpDown, ArrowUp, ArrowDown, Inbox } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Inbox, Zap } from 'lucide-react';
 import TableSkeletonRows from './TableSkeletonRows.jsx';
 import TablePaginationCard from './TablePaginationCard.jsx';
 import { useI18n } from '../../../i18n/I18nContext';
@@ -16,6 +16,7 @@ import { useI18n } from '../../../i18n/I18nContext';
  * 3. En-tête figé (Sticky thead) avec tri dynamique et numérotation des lignes
  * 4. Gestion automatique du chargement (Skeletons) et de l'état vide
  * 5. Intégration transparente de la carte de pagination (TablePaginationCard)
+ * 6. Virtual Scrolling (Windowing) haute performance (60fps) pour les grands ensembles de données
  */
 export default function GmaoIndustrialDataGrid({
   title = '',
@@ -42,8 +43,81 @@ export default function GmaoIndustrialDataGrid({
   pagination = null,
   tableClassName = '',
   containerClassName = '',
+  virtualized,
+  virtualThreshold = 50,
+  rowHeight = 52,
+  overscanCount = 8,
 }) {
   const { t } = useI18n();
+  const scrollContainerRef = useRef(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(500);
+
+  // Automatic or explicit virtualization activation for large datasets (> virtualThreshold rows)
+  const isVirtualized = useMemo(() => {
+    if (typeof virtualized === 'boolean') return virtualized;
+    return Array.isArray(data) && data.length > virtualThreshold;
+  }, [virtualized, data, virtualThreshold]);
+
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el || !isVirtualized) return;
+
+    const updateHeight = () => {
+      if (el.clientHeight > 0) {
+        setViewportHeight(el.clientHeight);
+      }
+    };
+    updateHeight();
+
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(updateHeight);
+      observer.observe(el);
+      return () => observer.disconnect();
+    }
+  }, [isVirtualized, data?.length]);
+
+  // Reset scroll offset on page or sort change
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+      setScrollTop(0);
+    }
+  }, [startIndex, sortField, sortOrder]);
+
+  const handleScroll = (e) => {
+    if (isVirtualized) {
+      setScrollTop(e.currentTarget.scrollTop);
+    }
+  };
+
+  // Calculate visible window slice + top/bottom spacer heights
+  const virtualWindow = useMemo(() => {
+    const totalCount = Array.isArray(data) ? data.length : 0;
+    if (!isVirtualized || totalCount === 0) {
+      return {
+        visibleData: data || [],
+        startOffsetIndex: 0,
+        topSpacerHeight: 0,
+        bottomSpacerHeight: 0,
+      };
+    }
+
+    const rawStart = Math.floor(scrollTop / rowHeight);
+    const visibleCount = Math.ceil(viewportHeight / rowHeight);
+    const startOffsetIndex = Math.max(0, rawStart - overscanCount);
+    const endOffsetIndex = Math.min(totalCount, rawStart + visibleCount + overscanCount);
+
+    const topSpacerHeight = startOffsetIndex * rowHeight;
+    const bottomSpacerHeight = Math.max(0, (totalCount - endOffsetIndex) * rowHeight);
+
+    return {
+      visibleData: data.slice(startOffsetIndex, endOffsetIndex),
+      startOffsetIndex,
+      topSpacerHeight,
+      bottomSpacerHeight,
+    };
+  }, [isVirtualized, data, scrollTop, viewportHeight, rowHeight, overscanCount]);
 
   const bannerColorStyles = {
     indigo: 'bg-indigo-50/40 text-indigo-950 text-slate-500 border-indigo-100/60',
@@ -89,11 +163,20 @@ export default function GmaoIndustrialDataGrid({
       {/* 3D Tactile Card Container */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-[0_12px_32px_-6px_rgba(0,0,0,0.12),0_4px_12px_-2px_rgba(0,0,0,0.06)] hover:shadow-[0_16px_40px_-8px_rgba(0,0,0,0.16),0_6px_16px_-3px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-300 ease-out overflow-hidden">
         {/* Top Info Header Bar inside Card */}
-        {(title || excelMapping || headerRight) && (
+        {(title || excelMapping || headerRight || isVirtualized) && (
           <div className={`px-5 py-3 border-b flex flex-wrap items-center justify-between text-xs gap-2 ${bannerColorStyles[bannerColor] || bannerColorStyles.slate}`}>
             <div className="font-bold text-[13px] flex items-center gap-2">
               {renderBannerIcon(icon)}
               <span>{title}</span>
+              {isVirtualized && (
+                <span
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"
+                  title="Virtual Scrolling 60fps actif"
+                >
+                  <Zap className="w-2.5 h-2.5 text-emerald-600" />
+                  <span>Virtual 60fps ({data.length})</span>
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-3">
               {excelMapping && (
@@ -107,7 +190,11 @@ export default function GmaoIndustrialDataGrid({
         )}
 
         {/* Scrollable Table Viewport */}
-        <div className={`${maxHeight} overflow-y-auto overflow-x-auto`}>
+        <div
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          className={`${maxHeight} overflow-y-auto overflow-x-auto`}
+        >
           <table className={`w-full text-left text-xs border-collapse ${minWidth} ${tableClassName}`}>
             {/* Sticky Table Header */}
             <thead className="sticky top-0 bg-slate-100 text-[11px] font-bold text-slate-700 uppercase tracking-wider border-b border-slate-200 z-10 shadow-2xs select-none">
@@ -176,43 +263,56 @@ export default function GmaoIndustrialDataGrid({
                   </td>
                 </tr>
               ) : (
-                data.map((item, index) => {
-                  const rowNumber = startIndex + index + 1;
-                  if (typeof renderRow === 'function') {
-                    return renderRow(item, index, rowNumber);
-                  }
-
-                  const rowKey = item.id || item.ref || item.id_warehouse_item || item.code || index;
-
-                  return (
-                    <tr
-                      key={rowKey}
-                      className="hover:bg-slate-50/80 transition-colors duration-150 group"
-                    >
-                      {showRowNumber && (
-                        <td className="py-3 px-3 text-center text-slate-400 font-mono text-[10px] bg-slate-50/40 border-r border-slate-100 shrink-0 select-none">
-                          {rowNumber}
-                        </td>
-                      )}
-                      {columns.map((col) => (
-                        <td
-                          key={col.key}
-                          className={`py-3 px-3.5 ${
-                            col.align === 'center'
-                              ? 'text-center'
-                              : col.align === 'right'
-                              ? 'text-right'
-                              : 'text-left'
-                          } ${col.cellClassName || ''}`}
-                        >
-                          {typeof col.render === 'function'
-                            ? col.render(item, index, rowNumber)
-                            : item[col.key]}
-                        </td>
-                      ))}
+                <>
+                  {isVirtualized && virtualWindow.topSpacerHeight > 0 && (
+                    <tr aria-hidden="true" className="border-0 p-0 m-0">
+                      <td colSpan={totalCols} style={{ height: virtualWindow.topSpacerHeight, padding: 0, border: 0 }} />
                     </tr>
-                  );
-                })
+                  )}
+                  {virtualWindow.visibleData.map((item, localIdx) => {
+                    const index = virtualWindow.startOffsetIndex + localIdx;
+                    const rowNumber = startIndex + index + 1;
+                    if (typeof renderRow === 'function') {
+                      return renderRow(item, index, rowNumber);
+                    }
+
+                    const rowKey = item.id || item.ref || item.id_warehouse_item || item.code || index;
+
+                    return (
+                      <tr
+                        key={rowKey}
+                        className="hover:bg-slate-50/80 transition-colors duration-150 group"
+                      >
+                        {showRowNumber && (
+                          <td className="py-3 px-3 text-center text-slate-400 font-mono text-[10px] bg-slate-50/40 border-r border-slate-100 shrink-0 select-none">
+                            {rowNumber}
+                          </td>
+                        )}
+                        {columns.map((col) => (
+                          <td
+                            key={col.key}
+                            className={`py-3 px-3.5 ${
+                              col.align === 'center'
+                                ? 'text-center'
+                                : col.align === 'right'
+                                ? 'text-right'
+                                : 'text-left'
+                            } ${col.cellClassName || ''}`}
+                          >
+                            {typeof col.render === 'function'
+                              ? col.render(item, index, rowNumber)
+                              : item[col.key]}
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
+                  {isVirtualized && virtualWindow.bottomSpacerHeight > 0 && (
+                    <tr aria-hidden="true" className="border-0 p-0 m-0">
+                      <td colSpan={totalCols} style={{ height: virtualWindow.bottomSpacerHeight, padding: 0, border: 0 }} />
+                    </tr>
+                  )}
+                </>
               )}
             </tbody>
           </table>
@@ -282,4 +382,8 @@ GmaoIndustrialDataGrid.propTypes = {
   }),
   tableClassName: PropTypes.string,
   containerClassName: PropTypes.string,
+  virtualized: PropTypes.bool,
+  virtualThreshold: PropTypes.number,
+  rowHeight: PropTypes.number,
+  overscanCount: PropTypes.number,
 };
