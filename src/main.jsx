@@ -9,6 +9,7 @@ import { Logger } from './core/logger/LoggerService';
 import { errorTracker } from './services/ErrorTrackingService';
 import { analytics } from './services/AnalyticsService';
 import { migrateStorageOnce } from './infrastructure/persistence/migrateStorage';
+import { vaultService } from './utils/vaultService';
 
 // 1. Run one-time SSOT storage migration before any hook reads storage
 migrateStorageOnce();
@@ -17,8 +18,8 @@ migrateStorageOnce();
 ServiceProvider.register();
 errorTracker.init();
 
-// Migration: If no Master PIN is set, ensure default users are using predictable passwords
-if (!localStorage.getItem('gmao_admin_pin') && !localStorage.getItem('gmao_migration_auth_v1')) {
+// Migration: If no Master PIN / Vault is set, ensure default users are using predictable passwords
+if (!vaultService.isVaultExists() && !localStorage.getItem('gmao_migration_auth_v1')) {
   localStorage.removeItem('gmao_auth_accounts_v2'); // Force AuthService to re-init with 'admin'/'admin'
   localStorage.setItem('gmao_migration_auth_v1', 'true');
 }

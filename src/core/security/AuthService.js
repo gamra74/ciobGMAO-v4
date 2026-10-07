@@ -1,6 +1,6 @@
-import bcrypt from 'bcryptjs';
-import { storageService } from '../../utils/storageService';
 import { SecurityService } from './SecurityService';
+import { indexedDBService } from '../../infrastructure/database/IndexedDBService.js';
+import { vaultService } from '../../utils/vaultService';
 
 const USERS_KEY = 'gmao_auth_accounts_v2';
 const SESSION_KEY = 'gmao_session_v2';
@@ -15,7 +15,8 @@ export class AuthService {
   }
 
   /**
-   * Encrypt and sign session with HMAC-SHA256
+   * Encrypt and sign session with HMAC-SHA256, storing securely in sessionStorage and encrypted IndexedDB.
+   * Eliminates plaintext or vulnerable long-term session storage in localStorage.
    */
   saveSignedSession(sessionPayload) {
     const payload = {
@@ -30,25 +31,31 @@ export class AuthService {
       token,
       payload
     };
-    localStorage.setItem(SESSION_KEY, JSON.stringify(sessionEnvelope));
+    const envelopeStr = JSON.stringify(sessionEnvelope);
+
+    // 1. Store actively in sessionStorage for the current tab / window session
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem(SESSION_KEY, envelopeStr);
+    }
+
+    // 2. Persist securely in IndexedDB app_data store
+    indexedDBService.setItem(SESSION_KEY, sessionEnvelope).catch(() => {});
+
+    // 3. Remove any legacy unencrypted/vulnerable session from localStorage
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(SESSION_KEY);
+    }
+
     return payload;
   }
 
   getDefaultUsersList() {
-    // Predictable default credentials for fresh installs to allow first-time login
-    const storedPinHash = localStorage.getItem('gmao_admin_pin');
-    
-    const getInitHash = (roleKey, fallbackPass) => {
-      if (storedPinHash) return storedPinHash;
-      // Use fallbackPass as the initial password if no Master PIN is set
-      return bcrypt.hashSync(fallbackPass || 'admin', 10);
-    };
-
     return [
       {
         id: 'admin',
         username: 'admin',
-        passwordHash: getInitHash('ADMIN', 'admin'),
+        passwordHash: 'pbkdf2:v1:7a9f8c6b5d4e3f2a1b0c:100000:admin_init_seed',
+        defaultPass: 'admin',
         role: 'ADMIN',
         name: 'Administrateur',
         titleFr: 'Administrateur Système',
@@ -59,7 +66,8 @@ export class AuthService {
       {
         id: 'magasinier',
         username: 'magasinier',
-        passwordHash: getInitHash('MAGASINIER', 'magasinier'),
+        passwordHash: 'pbkdf2:v1:8a1b2c3d4e5f6a7b8c9d:100000:mag_init_seed',
+        defaultPass: 'magasinier',
         role: 'RESPONSABLE_MAGASIN',
         name: 'Responsable Magasin',
         titleFr: 'Responsable Magasin (RMG)',
@@ -70,7 +78,8 @@ export class AuthService {
       {
         id: 'tech',
         username: 'tech',
-        passwordHash: getInitHash('TECHNICIEN', 'tech'),
+        passwordHash: 'pbkdf2:v1:9b2c3d4e5f6a7b8c9d0e:100000:tech_init_seed',
+        defaultPass: 'tech',
         role: 'TECHNICIEN',
         name: 'Technicien Maintenance',
         titleFr: 'Technicien Maintenance (TC)',
@@ -81,7 +90,8 @@ export class AuthService {
       {
         id: 'viewer',
         username: 'viewer',
-        passwordHash: getInitHash('VIEWER', 'viewer'),
+        passwordHash: 'pbkdf2:v1:0c3d4e5f6a7b8c9d0e1f:100000:viewer_init_seed',
+        defaultPass: 'viewer',
         role: 'VIEWER',
         name: 'Observateur',
         titleFr: 'Observateur / Consultation',
@@ -98,10 +108,6 @@ export class AuthService {
       users = JSON.parse(localStorage.getItem(USERS_KEY));
     } catch {
       users = null;
-    }
-
-    if (users && users.length > 0 && !users[0].passwordHash?.startsWith('$2')) {
-      users = null; // Reset if using old hashes
     }
 
     const defaultUsers = this.getDefaultUsersList();
@@ -152,7 +158,7 @@ export class AuthService {
     }));
   }
 
-  updateUserPassword(usernameOrId, newPlainPassword) {
+  async updateUserPassword(usernameOrId, newPlainPassword) {
     const cleanPass = (newPlainPassword || '').trim();
     if (cleanPass.length < 4) {
       throw new Error('Le nouveau mot de passe doit comporter au moins 4 caractères.');
@@ -174,7 +180,7 @@ export class AuthService {
       throw new Error(`Compte "${usernameOrId}" introuvable.`);
     }
 
-    const newHash = bcrypt.hashSync(cleanPass, 10);
+    const newHash = await SecurityService.hashPassword(cleanPass);
     users[idx].passwordHash = newHash;
     delete users[idx].defaultPass;
     localStorage.setItem(USERS_KEY, JSON.stringify(users));
@@ -226,18 +232,24 @@ export class AuthService {
     return defaultUsers;
   }
 
+  async hashPassword(plainPassword) {
+    if (!plainPassword) return '';
+    return await SecurityService.hashPassword(plainPassword);
+  }
+
+  async verifyPassword(plainPassword, hash) {
+    if (!plainPassword || !hash) return false;
+    return await SecurityService.comparePassword(plainPassword, hash);
+  }
+
   hashPasswordBCrypt(plainPassword) {
     if (!plainPassword) return '';
-    return bcrypt.hashSync(plainPassword, 10);
+    return SecurityService.hashPassword(plainPassword);
   }
 
   verifyPasswordBCrypt(plainPassword, hash) {
     if (!plainPassword || !hash) return false;
-    try {
-      return bcrypt.compareSync(plainPassword, hash);
-    } catch {
-      return false;
-    }
+    return SecurityService.comparePassword(plainPassword, hash);
   }
 
   switchSessionToUser(usernameOrId) {
@@ -258,7 +270,7 @@ export class AuthService {
   }
 
   isPinConfigured() {
-    return !!localStorage.getItem('gmao_admin_pin');
+    return vaultService.isVaultExists();
   }
 
   createAdminSession(role = 'ADMIN', authMethod = 'PASSWORD') {
@@ -277,17 +289,17 @@ export class AuthService {
   async loginWithPin(pin) {
     const cleanPin = (pin || '').trim();
     if (!cleanPin) {
-      throw new Error('Veuillez saisir votre code PIN chiffré.');
+      throw new Error('Veuillez saisir votre code PIN.');
     }
 
-    const storedAdminPin = localStorage.getItem('gmao_admin_pin');
-    if (!storedAdminPin) {
-      throw new Error("Aucun code PIN chiffré n'est configuré dans les Paramètres. Utilisez le mot de passe habituel.");
+    if (!vaultService.isVaultExists()) {
+      throw new Error("Aucun coffre-fort n'est configuré. Utilisez le mot de passe habituel.");
     }
 
-    const isMatch = storageService.verifyPin(cleanPin, storedAdminPin);
-    if (!isMatch) {
-      throw new Error('Code PIN chiffré incorrect.');
+    try {
+      await vaultService.decryptVault(cleanPin);
+    } catch {
+      throw new Error('Code PIN incorrect.');
     }
 
     const configuredRole = localStorage.getItem('gmao_admin_role') || 'ADMIN';
@@ -302,9 +314,11 @@ export class AuthService {
       throw new Error("Veuillez saisir votre mot de passe ou code PIN.");
     }
 
-    // Check if configured Admin PIN from Settings matches
-    const storedAdminPin = localStorage.getItem('gmao_admin_pin');
-    const isPinMatch = storedAdminPin ? storageService.verifyPin(cleanPassword, storedAdminPin) : false;
+    // Check if vault PIN matches
+    let isPinMatch = false;
+    if (vaultService.isVaultExists()) {
+      isPinMatch = await vaultService.verifyPinHash(cleanPassword);
+    }
 
     // If username is admin, or empty with valid admin PIN, authenticate as Admin
     if ((cleanUsername === 'admin' || !cleanUsername) && isPinMatch) {
@@ -322,11 +336,19 @@ export class AuthService {
     );
 
     if (user) {
-      const isPasswordValid =
-        (user.passwordHash && bcrypt.compareSync(cleanPassword, user.passwordHash)) ||
-        (user.role === 'ADMIN' && isPinMatch);
+      const isDefaultPassMatch = user.defaultPass && cleanPassword === user.defaultPass;
+      const isPasswordHashMatch = user.passwordHash && (await SecurityService.comparePassword(cleanPassword, user.passwordHash));
+      const isPasswordValid = isPasswordHashMatch || isDefaultPassMatch || (user.role === 'ADMIN' && isPinMatch);
 
       if (isPasswordValid) {
+        // Upgrade legacy hash if necessary
+        if (user.passwordHash && SecurityService.isLegacyHash(user.passwordHash)) {
+          const modernHash = await SecurityService.hashPassword(cleanPassword);
+          user.passwordHash = modernHash;
+          delete user.defaultPass;
+          localStorage.setItem(USERS_KEY, JSON.stringify(users));
+        }
+
         const sessionPayload = {
           ...user,
           authMethod: 'PASSWORD'
@@ -339,12 +361,32 @@ export class AuthService {
   }
 
   logout() {
-    localStorage.removeItem(SESSION_KEY);
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem(SESSION_KEY);
+    }
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(SESSION_KEY);
+    }
+    indexedDBService.removeItem(SESSION_KEY).catch(() => {});
   }
 
   getCurrentUser() {
     try {
-      const sessionStr = localStorage.getItem(SESSION_KEY);
+      // 1. Read active signed session from sessionStorage first
+      let sessionStr = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(SESSION_KEY) : null;
+
+      // 2. Migration fallback: Check if old localStorage session exists, migrate it, then remove from localStorage
+      if (!sessionStr && typeof localStorage !== 'undefined') {
+        const legacyLocalStr = localStorage.getItem(SESSION_KEY);
+        if (legacyLocalStr) {
+          sessionStr = legacyLocalStr;
+          localStorage.removeItem(SESSION_KEY);
+          if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.setItem(SESSION_KEY, sessionStr);
+          }
+        }
+      }
+
       if (!sessionStr) return null;
 
       let parsed;

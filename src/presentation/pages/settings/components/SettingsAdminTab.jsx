@@ -208,7 +208,7 @@ export default function SettingsAdminTab({
                     return;
                   }
                   const res = await vaultService.changeMasterPin(currentMasterPin, tempPin);
-                  storageService.setItem('gmao_admin_pin', storageService.hashPin(tempPin));
+                  storageService.removeItem('gmao_admin_pin');
                   storageService.setItem('gmao_admin_role', tempRole.trim());
                   showToast(res.message || 'Master PIN modifié — Coffre-fort re-chiffré avec la nouvelle clé !', 'success');
                   setCurrentMasterPin('');

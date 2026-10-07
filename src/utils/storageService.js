@@ -1,5 +1,4 @@
 import CryptoJS from 'crypto-js';
-import bcrypt from 'bcryptjs';
 import { Logger } from '../core/logger/LoggerService.js';
 import { indexedDBService } from '../infrastructure/database/IndexedDBService.js';
 import { STORAGE_KEYS, ALL_LEGACY_KEYS } from '../infrastructure/persistence/storageKeys.js';
@@ -526,37 +525,21 @@ export const storageService = {
   },
 
   /**
-   * Hash PIN code
+   * Hash PIN code using SHA-256 (synchronous helper for legacy callers)
    */
   hashPin(pin) {
-    try {
-      return bcrypt.hashSync(pin.trim(), 10);
-    } catch {
-      return CryptoJS.SHA256(pin.trim()).toString();
-    }
+    return CryptoJS.SHA256(String(pin || '').trim()).toString();
   },
 
   /**
-   * Verify input PIN against stored bcrypt or sha256 hash
+   * Verify input PIN against stored sha256 hash without writing to localStorage
    */
   verifyPin(inputPin, storedValue) {
     if (!storedValue) return false;
-    const cleanInput = inputPin.trim();
-    if (storedValue.startsWith('$2a$') || storedValue.startsWith('$2b$')) {
-      try {
-        return bcrypt.compareSync(cleanInput, storedValue);
-      } catch {
-        return false;
-      }
-    }
+    const cleanInput = String(inputPin || '').trim();
     if (storedValue.length === 64 && /^[0-9a-f]+$/i.test(storedValue)) {
       return CryptoJS.SHA256(cleanInput).toString() === storedValue;
     }
-    const matchedPlain = cleanInput === storedValue.trim();
-    if (matchedPlain) {
-      const newHash = this.hashPin(cleanInput);
-      this.setItem('gmao_admin_pin', newHash);
-    }
-    return matchedPlain;
+    return cleanInput === String(storedValue).trim();
   },
 };

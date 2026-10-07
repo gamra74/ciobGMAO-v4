@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   Package
 } from 'lucide-react';
+import { sanitizeHtml, sanitizeString, sanitizeFilename } from '../../../utils/sanitize';
 
 /**
  * MovementVoucherModal
@@ -42,12 +43,18 @@ export default function MovementVoucherModal({
 
   const handleDownloadHtml = () => {
     if (!printRef.current) return;
-    const content = printRef.current.innerHTML;
+    const content = sanitizeHtml(printRef.current.innerHTML);
+    const safeCodeTitle = sanitizeString(String(movement.code_bon || 'Mouvement'));
+    const safeDateTitle = sanitizeString(String(movement.date || ''));
+    const safeFileCode = sanitizeFilename(movement.code_bon, 'Mouvement');
+    const safeFileDate = sanitizeFilename(movement.date, 'print');
+
     const fullHtml = `<!DOCTYPE html>
 <html lang="fr" dir="ltr">
 <head>
   <meta charset="UTF-8">
-  <title>Bon_${movement.code_bon || 'Mouvement'}_${movement.date || ''}</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src 'self' data:; script-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none';">
+  <title>Bon_${safeCodeTitle}_${safeDateTitle}</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 20px; color: #1e293b; }
     .voucher-card { max-width: 800px; margin: 0 auto; border: 2px solid #cbd5e1; border-radius: 12px; padding: 24px; }
@@ -73,7 +80,7 @@ export default function MovementVoucherModal({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `Bon_${movement.code_bon || 'Mouvement'}_${movement.date || 'print'}.html`);
+    link.setAttribute('download', `Bon_${safeFileCode}_${safeFileDate}.html`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { SecurityService } from '../../utils/securityService.js';
 import { RateLimiter } from '../../utils/rateLimiter.js';
-import { sanitizeString, sanitizeObject } from '../../utils/sanitize.js';
+import { sanitizeString, sanitizeObject, sanitizeHtml, sanitizeFilename } from '../../utils/sanitize.js';
 
 describe('4. Security & Hardening Tests', () => {
   beforeEach(() => {
@@ -106,6 +106,34 @@ describe('4. Security & Hardening Tests', () => {
       expect(sanitized.nested.technician).not.toContain('<a href');
       expect(sanitized.nested.technician).toContain('&lt;a href');
     });
+
+    it('should sanitize HTML markup via DOMPurify (sanitizeHtml) while preserving safe printable voucher tags', () => {
+      const voucherWithXss = `
+        <div class="voucher-card">
+          <h1>CIOB GMAO BON</h1>
+          <script>window.stolen = localStorage.getItem('gmao_session_v2');</script>
+          <img src="x" onerror="alert('XSS')" />
+          <iframe src="javascript:alert(1)"></iframe>
+          <table><tr><td>Moteur</td><td>10 U</td></tr></table>
+        </div>
+      `;
+
+      const cleanHtml = sanitizeHtml(voucherWithXss);
+
+      expect(cleanHtml).toContain('<h1>CIOB GMAO BON</h1>');
+      expect(cleanHtml).toContain('<tr><td>Moteur</td><td>10 U</td></tr>');
+      expect(cleanHtml).not.toContain('<script>');
+      expect(cleanHtml).not.toContain('window.stolen');
+      expect(cleanHtml).not.toContain('onerror');
+      expect(cleanHtml).not.toContain('<iframe');
+      expect(cleanHtml).not.toContain('javascript:');
+    });
+
+    it('should sanitize filenames to prevent path traversal and HTML injection in download attributes', () => {
+      expect(sanitizeFilename('BON-2026/01<script>"test"', 'Mouvement')).toBe('BON-2026_01_script_test');
+      expect(sanitizeFilename('../../../etc/passwd', 'Mouvement')).toBe('.._.._.._etc_passwd');
+      expect(sanitizeFilename('', 'Mouvement')).toBe('Mouvement');
+    });
   });
 
   describe('CSRF Protection & Session Isolation', () => {
@@ -119,6 +147,83 @@ describe('4. Security & Hardening Tests', () => {
       expect(retrievedToken).toBe(token);
 
       // Check browser context: sessionStorage is not accessible by cross-origin frames or requests, mitigating CSRF
+    });
+
+    it('should hash passwords with Web Crypto API PBKDF2 and verify successfully without bcrypt in main loop', async () => {
+      const { SecurityService: CoreSec } = await import('../../core/security/SecurityService.js');
+      const plain = 'P@ssw0rdIndustrial2026!';
+
+      const hashed = await CoreSec.hashPassword(plain);
+      expect(hashed).toBeDefined();
+      expect(hashed).toMatch(/^pbkdf2:v1:[a-f0-9]+:100000:[a-f0-9]+$/);
+      expect(hashed).not.toContain(plain);
+
+      // Verify correct password
+      const isMatch = await CoreSec.comparePassword(plain, hashed);
+      expect(isMatch).toBe(true);
+
+      // Verify wrong password
+      const isWrongMatch = await CoreSec.comparePassword('WrongPassword123', hashed);
+      expect(isWrongMatch).toBe(false);
+
+      // Verify legacy bcrypt compatibility fallback
+      const legacyBcryptHash = '$2a$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ12';
+      expect(CoreSec.isLegacyHash(legacyBcryptHash)).toBe(true);
+      expect(CoreSec.isLegacyHash(hashed)).toBe(false);
+    });
+
+    it('should eradicate plain or vulnerable gmao_admin_pin from localStorage and store Master PIN exclusively in memory + IndexedDB', async () => {
+      const { vaultService, setMasterPin, getMasterPin, clearMasterPin } = await import('../../utils/vaultService.js');
+
+      // 1. Ensure setMasterPin keeps PIN in memory only and cleans localStorage
+      localStorage.setItem('gmao_admin_pin', 'legacy_vulnerable_pin');
+      setMasterPin('4826');
+      expect(getMasterPin()).toBe('4826');
+      expect(localStorage.getItem('gmao_admin_pin')).toBeNull();
+
+      // 2. Ensure setPinHash stores in IndexedDB and removes from localStorage
+      await vaultService.setPinHash('4826');
+      expect(localStorage.getItem('gmao_vault_pin_hash_v2')).toBeNull();
+      expect(localStorage.getItem('gmao_admin_pin')).toBeNull();
+      expect(await vaultService.verifyPinHash('4826')).toBe(true);
+      expect(await vaultService.verifyPinHash('0000')).toBe(false);
+
+      // 3. Ensure clearMasterPin wipes memory and getMasterPin throws as expected
+      clearMasterPin();
+      expect(() => getMasterPin()).toThrow('Master PIN not set in memory');
+    });
+
+    it('should isolate user session in sessionStorage and not store raw session in localStorage', async () => {
+      const { AuthService } = await import('../../core/security/AuthService.js');
+      const auth = new AuthService();
+      
+      const sampleSession = {
+        id: 'admin',
+        username: 'admin',
+        role: 'ADMIN',
+        name: 'Administrateur'
+      };
+
+      auth.saveSignedSession(sampleSession);
+
+      // Verify that session is in sessionStorage
+      const sessionInSessionStorage = sessionStorage.getItem('gmao_session_v2');
+      expect(sessionInSessionStorage).toBeDefined();
+      expect(JSON.parse(sessionInSessionStorage).payload.username).toBe('admin');
+
+      // Verify that localStorage does NOT have gmao_session_v2
+      const sessionInLocalStorage = localStorage.getItem('gmao_session_v2');
+      expect(sessionInLocalStorage).toBeNull();
+
+      // Verify getCurrentUser successfully reads from sessionStorage
+      const currentUser = auth.getCurrentUser();
+      expect(currentUser).toBeDefined();
+      expect(currentUser.username).toBe('admin');
+
+      // Test logout removes session from sessionStorage
+      auth.logout();
+      expect(sessionStorage.getItem('gmao_session_v2')).toBeNull();
+      expect(auth.getCurrentUser()).toBeNull();
     });
 
     it('should reject requests with missing or mismatching authorization tokens', () => {
@@ -136,6 +241,22 @@ describe('4. Security & Hardening Tests', () => {
       // Valid Auth request
       const res2 = checkAuthorizationHeader({ 'Authorization': 'Bearer 12345' });
       expect(res2.status).toBe(200);
+    });
+
+    it('should enforce Content-Security-Policy (CSP) headers configuration in Vite and index.html', async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+
+      const viteConfigContent = fs.readFileSync(path.resolve(process.cwd(), 'vite.config.ts'), 'utf-8');
+      expect(viteConfigContent).toContain('Content-Security-Policy');
+      expect(viteConfigContent).toContain('X-Frame-Options');
+      expect(viteConfigContent).toContain('X-Content-Type-Options');
+      expect(viteConfigContent).toContain("object-src 'none'");
+      expect(viteConfigContent).toContain("base-uri 'self'");
+
+      const indexHtmlContent = fs.readFileSync(path.resolve(process.cwd(), 'index.html'), 'utf-8');
+      expect(indexHtmlContent).toContain('http-equiv="Content-Security-Policy"');
+      expect(indexHtmlContent).toContain("object-src 'none'");
     });
   });
 

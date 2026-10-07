@@ -1,13 +1,11 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import * as bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { Container } from '../core/di/Container.js';
 import { accessLogService } from '../utils/AccessLogService';
 import { vaultService } from '../utils/vaultService';
-import { storageService } from '../utils/storageService';
+import { SecurityService } from '../core/security/SecurityService';
 
 const AuthContext = createContext(null);
-const BCRYPT_ROUNDS = 10;
 
 const LoginSchema = z.object({
   username: z.string().min(3, "Nom d'utilisateur d'au moins 3 caractères requis").max(50, "Nom d'utilisateur trop long (max 50)").regex(/^[a-zA-Z0-9_-]+$/, "Le nom d'utilisateur contient des caractères invalides"),
@@ -69,6 +67,13 @@ export const AuthProvider = ({ children }) => {
       throw new Error('Le Master PIN doit comporter au moins 4 chiffres.');
     }
 
+    const [adminHash, magHash, techHash, viewHash] = await Promise.all([
+      SecurityService.hashPassword(cleanPin),
+      SecurityService.hashPassword(`${cleanPin}#mag`),
+      SecurityService.hashPassword(`${cleanPin}#tech`),
+      SecurityService.hashPassword(`${cleanPin}#view`),
+    ]);
+
     const defaultAccounts = [
       {
         id: 'ID-ADMIN-001',
@@ -80,7 +85,7 @@ export const AuthProvider = ({ children }) => {
         titleFr: 'Administrateur Système',
         avatar: 'AD',
         badgeColor: 'emerald',
-        passwordHash: bcrypt.hashSync(cleanPin, BCRYPT_ROUNDS),
+        passwordHash: adminHash,
         description: 'Supervision complète, paramétrage & sécurité'
       },
       {
@@ -93,7 +98,7 @@ export const AuthProvider = ({ children }) => {
         titleFr: 'Responsable Magasin (RMG)',
         avatar: 'RM',
         badgeColor: 'amber',
-        passwordHash: bcrypt.hashSync(`${cleanPin}#mag`, BCRYPT_ROUNDS),
+        passwordHash: magHash,
         description: 'Gestion du stock, réapprovisionnement & PDR'
       },
       {
@@ -106,7 +111,7 @@ export const AuthProvider = ({ children }) => {
         titleFr: 'Technicien Maintenance (TC)',
         avatar: 'TC',
         badgeColor: 'blue',
-        passwordHash: bcrypt.hashSync(`${cleanPin}#tech`, BCRYPT_ROUNDS),
+        passwordHash: techHash,
         description: 'Bons de sortie, pannes & interventions'
       },
       {
@@ -119,7 +124,7 @@ export const AuthProvider = ({ children }) => {
         titleFr: 'Observateur / Consultation',
         avatar: 'OB',
         badgeColor: 'slate',
-        passwordHash: bcrypt.hashSync(`${cleanPin}#view`, BCRYPT_ROUNDS),
+        passwordHash: viewHash,
         description: 'Accès lecture seule aux KPIs et tables'
       },
     ];
@@ -133,12 +138,14 @@ export const AuthProvider = ({ children }) => {
     await vaultService.encryptVault(newVault, cleanPin);
     await vaultService.setPinHash(cleanPin);
 
+    // Clean up any legacy unencrypted pin from localStorage
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('gmao_admin_pin');
+    }
+
     setIsVaultExists(true);
     setIsVaultUnlocked(true);
     setAccounts(defaultAccounts.map(({ passwordHash: _passwordHash, ...rest }) => rest));
-
-    // Also sync admin PIN hash with storage
-    localStorage.setItem('gmao_admin_pin', storageService.hashPin(cleanPin));
 
     return true;
   }, []);
@@ -159,6 +166,7 @@ export const AuthProvider = ({ children }) => {
 
   // Verrouillage du coffre-fort
   const lockVault = useCallback(() => {
+    vaultService.clearMasterPin?.();
     setIsVaultUnlocked(false);
     setAccounts([]);
     authService?.logout();
@@ -255,11 +263,22 @@ export const AuthProvider = ({ children }) => {
             throw new Error(`Le compte "${username}" est introuvable dans le coffre-fort.`);
           }
 
-          // Verify password with BCrypt
-          const isOk = acc.passwordHash && bcrypt.compareSync(password, acc.passwordHash);
+          // Verify password with modern Web Crypto PBKDF2 (and legacy fallback)
+          const isOk = acc.passwordHash && (await SecurityService.comparePassword(password, acc.passwordHash));
           if (!isOk) {
             recordFailedAttempt(username);
             throw new Error('Mot de passe incorrect.');
+          }
+
+          // Automatic seamless background upgrade if password was stored with legacy hash
+          if (acc.passwordHash && SecurityService.isLegacyHash(acc.passwordHash) && pin) {
+            try {
+              const modernHash = await SecurityService.hashPassword(password);
+              acc.passwordHash = modernHash;
+              await vaultService.encryptVault(vault, pin);
+            } catch {
+              // Non-blocking background upgrade
+            }
           }
 
           resetFailedAttempts(username);
@@ -284,7 +303,7 @@ export const AuthProvider = ({ children }) => {
           if (authService?.saveSignedSession) {
             authService.saveSignedSession(sessionUser);
           } else {
-            localStorage.setItem('gmao_session_v2', JSON.stringify(sessionUser));
+            sessionStorage.setItem('gmao_session_v2', JSON.stringify(sessionUser));
           }
           await accessLogService.recordLogin(sessionUser);
           return sessionUser;
@@ -335,7 +354,7 @@ export const AuthProvider = ({ children }) => {
         if (authService?.saveSignedSession) {
           authService.saveSignedSession(sessionUser);
         } else {
-          localStorage.setItem('gmao_session_v2', JSON.stringify(sessionUser));
+          sessionStorage.setItem('gmao_session_v2', JSON.stringify(sessionUser));
         }
         await accessLogService.recordLogin(sessionUser);
         resetFailedAttempts(rateLimitKey);
@@ -385,7 +404,7 @@ export const AuthProvider = ({ children }) => {
       if (idx === -1) {
         throw new Error(`Le compte "${username}" est introuvable dans le coffre-fort.`);
       }
-      vault.accounts[idx].passwordHash = bcrypt.hashSync(cleanPass, BCRYPT_ROUNDS);
+      vault.accounts[idx].passwordHash = await SecurityService.hashPassword(cleanPass);
       await vaultService.encryptVault(vault, masterPin);
       setAccounts(vault.accounts.map(({ passwordHash: _passwordHash, ...rest }) => rest));
       return vault.accounts[idx];
@@ -425,7 +444,7 @@ export const AuthProvider = ({ children }) => {
       if (authService?.saveSignedSession) {
         authService.saveSignedSession(session);
       } else {
-        localStorage.setItem('gmao_session_v2', JSON.stringify(session));
+        sessionStorage.setItem('gmao_session_v2', JSON.stringify(session));
       }
       return session;
     }
@@ -444,6 +463,7 @@ export const AuthProvider = ({ children }) => {
       await vaultService.decryptVault(masterPin);
     }
     // Re-setup master pin or reset vault
+    vaultService.clearMasterPin?.();
     localStorage.removeItem('gmao_vault_cipher_v2');
     localStorage.removeItem('gmao_vault_iv_v2');
     localStorage.removeItem('gmao_vault_pin_hash_v2');
@@ -477,14 +497,10 @@ export const AuthProvider = ({ children }) => {
         updateUserProfile: (username, updates) => authService?.updateUserProfile(username, updates),
         resetAllAccountsToDefaults,
         switchSessionToUser,
-        hashPasswordBCrypt: (pass) => bcrypt.hashSync(pass || '', BCRYPT_ROUNDS),
-        verifyPasswordBCrypt: (pass, hash) => {
-          try {
-            return bcrypt.compareSync(pass || '', hash || '');
-          } catch {
-            return false;
-          }
-        },
+        hashPassword: (pass) => SecurityService.hashPassword(pass || ''),
+        verifyPassword: (pass, hash) => SecurityService.comparePassword(pass || '', hash || ''),
+        hashPasswordBCrypt: (pass) => SecurityService.hashPassword(pass || ''),
+        verifyPasswordBCrypt: (pass, hash) => SecurityService.comparePassword(pass || '', hash || ''),
       }}
     >
       {children}

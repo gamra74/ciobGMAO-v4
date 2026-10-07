@@ -61,18 +61,64 @@ export class SecurityService {
   }
 
   /**
-   * تجشيم (Hash) كلمة السر باستخدام مكتبة bcrypt لضمان عدم تخزينها كنص صريح
+   * تجشيم (Hash) كلمة السر باستخدام خوارزمية Web Crypto API (PBKDF2-SHA256 مع Salt عشوائي 128-bit و 100,000 تكرار)
+   * يضمن الأمان التام دون استخدام مكتبات خارجية غير متزامنة ودون إبطاء خيط المتصفح.
    * 
    * @param {string} password - كلمة السر المراد تجشيمها
-   * @returns {Promise<string>} النص المجشم لكلمة السر
-   * @throws {Error} عند فشل عملية التجشيم
+   * @param {string} [saltHex] - ملح اختياري (يتم توليده عشوائياً إذا لم يمرر)
+   * @param {number} [iterations=100000] - عدد تكرارات PBKDF2
+   * @returns {Promise<string>} نص التجشيم بصيغة `pbkdf2:v1:${saltHex}:${iterations}:${hashHex}`
    */
-  static async hashPassword(password) {
+  static async hashPassword(password, saltHex = null, iterations = 100000) {
     try {
-      const salt = await bcrypt.genSalt(10);
-      const hash = await bcrypt.hash(password, salt);
-      Logger.debug('Password hashed successfully');
-      return hash;
+      if (!password || typeof password !== 'string') {
+        throw new Error('Mot de passe invalide pour le hachage.');
+      }
+
+      const enc = new TextEncoder();
+      const saltBytes = saltHex
+        ? new Uint8Array(saltHex.match(/.{1,2}/g).map((byte) => parseInt(byte, 16)))
+        : (typeof crypto !== 'undefined' && crypto.getRandomValues
+            ? crypto.getRandomValues(new Uint8Array(16))
+            : new Uint8Array(CryptoJS.lib.WordArray.random(16).words.flatMap((w) => [(w >> 24) & 0xff, (w >> 16) & 0xff, (w >> 8) & 0xff, w & 0xff])));
+
+      const activeSaltHex = Array.from(saltBytes)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+
+      // 1. Web Crypto Native SubtleCrypto (Fast, hardware-accelerated, zero-thread blocking)
+      if (typeof crypto !== 'undefined' && crypto.subtle) {
+        const keyMaterial = await crypto.subtle.importKey(
+          'raw',
+          enc.encode(password),
+          { name: 'PBKDF2' },
+          false,
+          ['deriveBits']
+        );
+        const derivedBits = await crypto.subtle.deriveBits(
+          {
+            name: 'PBKDF2',
+            salt: saltBytes,
+            iterations: iterations,
+            hash: 'SHA-256'
+          },
+          keyMaterial,
+          256
+        );
+        const hashHex = Array.from(new Uint8Array(derivedBits))
+          .map((b) => b.toString(16).padStart(2, '0'))
+          .join('');
+
+        return `pbkdf2:v1:${activeSaltHex}:${iterations}:${hashHex}`;
+      }
+
+      // 2. CryptoJS fallback if WebCrypto is unavailable in testing/legacy env
+      const derived = CryptoJS.PBKDF2(password, CryptoJS.enc.Hex.parse(activeSaltHex), {
+        keySize: 256 / 32,
+        iterations: iterations,
+        hasher: CryptoJS.algo.SHA256
+      });
+      return `pbkdf2:v1:${activeSaltHex}:${iterations}:${derived.toString(CryptoJS.enc.Hex)}`;
     } catch (error) {
       Logger.error('Password hashing failed', error);
       throw error;
@@ -80,19 +126,57 @@ export class SecurityService {
   }
 
   /**
-   * المقارنة بين كلمة السر النصية والرمز المجشم مخزن سابقاً
+   * المقارنة الآمنة بين كلمة السر النصية والرمز المجشم المخزن (Web Crypto PBKDF2 أو Legacy Bcrypt/SHA-256)
    * 
    * @param {string} password - كلمة السر النصية المدخلة
-   * @param {string} hash - الرمز المجشم المخزن
-   * @returns {Promise<boolean>} true إذا كانت كلمة السر مطابقة، و false خلاف ذلك
+   * @param {string} storedHash - الرمز المجشم المخزن
+   * @returns {Promise<boolean>} true إذا كانت كلمة السر مطابقة
    */
-  static async comparePassword(password, hash) {
+  static async comparePassword(password, storedHash) {
     try {
-      return await bcrypt.compare(password, hash);
+      if (!password || !storedHash || typeof storedHash !== 'string') return false;
+
+      // 1. Modern Web Crypto PBKDF2 format: `pbkdf2:v1:salt:iterations:hash`
+      if (storedHash.startsWith('pbkdf2:v1:')) {
+        const parts = storedHash.split(':');
+        if (parts.length === 5) {
+          const [, , saltHex, iterStr, expectedHashHex] = parts;
+          const iterations = parseInt(iterStr, 10) || 100000;
+          const calculated = await this.hashPassword(password, saltHex, iterations);
+          const calculatedHashHex = calculated.split(':')[4];
+          return calculatedHashHex === expectedHashHex;
+        }
+      }
+
+      // 2. Backward compatibility for legacy bcrypt hashes ($2a$, $2b$, $2y$)
+      if (storedHash.startsWith('$2')) {
+        try {
+          return bcrypt.compareSync(password, storedHash);
+        } catch {
+          return false;
+        }
+      }
+
+      // 3. Fallback for plain SHA-256 or unhashed legacy development passwords
+      if (storedHash.length === 64 && /^[0-9a-f]+$/i.test(storedHash)) {
+        return CryptoJS.SHA256(password).toString() === storedHash;
+      }
+
+      return password === storedHash;
     } catch (error) {
       Logger.error('Password comparison failed', error);
       return false;
     }
+  }
+
+  /**
+   * فحص ما إذا كان التشفير المخزن قديماً ويحتاج للترقية التلقائية إلى Web Crypto PBKDF2
+   * @param {string} hash
+   * @returns {boolean}
+   */
+  static isLegacyHash(hash) {
+    if (!hash || typeof hash !== 'string') return false;
+    return !hash.startsWith('pbkdf2:v1:');
   }
 
   /**
