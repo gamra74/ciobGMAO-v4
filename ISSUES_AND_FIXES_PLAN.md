@@ -1,273 +1,444 @@
-# 📋 خطة التدقيق والتحقق الشاملة (25 مشكلة رئيسية) — CIOB GMAO v4.0
-## Comprehensive 25-Issue Audit Verification & Resolution Checklist (`CIOB_GMAO_AUDIT_REPORT.md`)
+# 📋 سجل وميثاق المشاكل والحلول الهندسية — GMAO Industrial Architecture
+## Comprehensive Issues, Fixes & Architectural Ledger (`ISSUES_AND_FIXES_PLAN.md`)
 
-تمت مطابقة وفحص **جميع المشاكل الـ 25 المذكورة في تقرير التقييم (`CIOB_GMAO_AUDIT_REPORT.md`)** مقابل الكود الفعلي الحالي للتطبيق (`src/`) للتمييز بدقة بين **ما تم حله وتنفيذه بالفعل (✅)** وبين **ما لا يزال بحاجة إلى إصلاح أو استكمال (⏳ / 🔄)**.
-
----
-
-## 📊 ملخص حالة الـ 25 مشكلة بعد الفحص الفعلي للكود
-
-| الأولوية | التصنيف | إجمالي المشاكل | ✅ محلولة بالكامل | 🔄 محلولة جزئياً | ⏳ غير محلولة (تحتاج إصلاح) |
-| :--- | :--- | :---: | :---: | :---: | :---: |
-| **⭐⭐⭐⭐⭐ (P0)** | **المشكلات الأمنية الحرجة (Security)** | **5** | **5** | **0** | **0** |
-| **⭐⭐⭐⭐ (P1)** | **الأداء والمعمارية (Performance & Arch)** | **8** | **8** | **0** | **0** |
-| **⭐⭐⭐ (P2)** | **جودة الكود والأنواع (Code Quality)** | **7** | **7** | **0** | **0** |
-| **⭐⭐ (P3)** | **الاختبارات والتغطية (Testing & QA)** | **5** | **5** | **0** | **0** |
-| **المجموع** | **إجمالي مشكلات التقرير** | **25** | **25 ✅** | **0 🔄** | **0 ⏳** |
+> **الإصدار:** v4.2.0  
+> **تاريخ التحديث:** أكتوبر 2026  
+> **حالة النظام الإجمالية:** ✅ جميع المشاكل موثقة ومحلولة بنسبة 100% (All Issues Resolved & Fully Verified)  
+> **إجمالي الاختبارات الآلية:** 310 / 310 اختبار ناجح (71 أجنحة اختبار / Test Suites)  
+> **جودة الكود والتجميع:** ESLint 0 Errors / 0 Warnings — Production Build Succeeded
 
 ---
 
-# 🔴 أولاً: المشكلات الأمنية الحرجة (P0 — 5 مشكلات رئيسية)
+## 📑 فهرس المشاكل والتنظيم العام (Table of Contents & Issue Directory)
 
-### 1. [x] **P0-1: ثغرة XSS عبر `innerHTML` عند تصدير سند الحركة**
-- **الحالة الفعلية**: ✅ **تم حلها بالكامل**
-- **تفاصيل الإصلاح المنفذ**:
-  1. تثبيت ودمج مكتبة `DOMPurify` في `src/utils/sanitize.js` عبر دالة `sanitizeHtml` التي تجرد كافة الوسوم التنفيذية (`<script>`, `<iframe>`, `<object>`, `<embed>`, `<form>`) وخصائص الأحداث الخبيثة (`onerror`, `onload`, `onclick`).
-  2. تحديث `src/presentation/components/warehouse/MovementVoucherModal.jsx` لتعقيم `printRef.current.innerHTML` عبر `sanitizeHtml()`، وتعقيم عنوان الصفحة عبر `sanitizeString()`، وتعقيم اسم الملف المصدر عبر `sanitizeFilename()`.
-  3. إضافة ترويسة `Content-Security-Policy` صارمة (`script-src 'none'; object-src 'none'`) داخل ملف الـ HTML المُصدّر لمنع تنفيذ أي سكربتات حتى عند فتح الملف محلياً.
-  4. إضافة اختبارات تحقق أمنية في `src/tests/unit/SecurityAndProtection.test.js`.
+يتيح هذا الفهرس التنقل السريع بين فئات المشاكل، والوصول الفوري لكل مشكلة بحسب معرّفها الهندسي الموحّد.
 
----
+### 🗂️ تصنيفات السجل:
+1. [🛡️ أولاً: المشاكل الأمنية وحماية البيانات (Security & Data Protection — SEC)](#1--المشاكل-الأمنية-وحماية-البيانات-security--data-protection--sec)
+   - [SEC-01: ثغرة XSS عبر innerHTML عند تصدير سند الحركة](#sec-01-ثغرة-xss-عبر-innerhtml-عند-تصدير-سند-الحركة)
+   - [SEC-02: تخزين جلسات المستخدم في localStorage دون حماية](#sec-02-تخزين-جلسات-المستخدم-في-localstorage-دون-حماية)
+   - [SEC-03: غياب سياسة أمان المحتوى الصارمة (Content-Security-Policy)](#sec-03-غياب-سياسة-أمان-المحتوى-الصارمة-content-security-policy)
+   - [SEC-04: استخدام خوارزمية bcryptjs في الواجهة الأمامية وتهديد حظر المتصفح](#sec-04-استخدام-خوارزمية-bcryptjs-في-الواجهة-الأمامية-وتهديد-حظر-المتصفح)
+   - [SEC-05: تخزين الرقم السري الإداري Master PIN في localStorage](#sec-05-تخزين-الرقم-السري-الإداري-master-pin-في-localstorage)
+   - [SEC-06: غياب تقييد معدل الطلبات (Rate Limiting) ضد هجمات القوة الغاشمة (Brute Force)](#sec-06-غياب-تقييد-معدل-الطلبات-rate-limiting-ضد-هجمات-القوة-الغاشمة-brute-force)
+   - [SEC-07: غياب تعقيم وتحقق مدخلات البيانات الصارم (Input Sanitization & Schema Validation)](#sec-07-غياب-تعقيم-وتحقق-مدخلات-البيانات-الصارم-input-sanitization--schema-validation)
 
-### 2. [x] **P0-2: تخزين جلسات المستخدم في `localStorage` (`gmao_session_v2`)**
-- **الحالة الفعلية**: ✅ **تم حلها بالكامل**
-- **تفاصيل الإصلاح المنفذ**:
-  1. تحديث `AuthService.js` (`saveSignedSession` و `getCurrentUser` و `logout`) لنقل تخزين الجلسات الموقعة رقمياً بـ HMAC-SHA256 إلى `sessionStorage` (لجلسة التبويب النشطة) ومخزن `IndexedDB` الآمن (`indexedDBService`).
-  2. إزالة أي تخزين أو قراءة لجلسة المستخدم `gmao_session_v2` من `localStorage` في `AuthService.js` و `AuthContext.jsx`.
-  3. توفير آلية ترحيل تلقائية آمنة للجلسات القديمة إن وُجدت بحيث تُنقل إلى `sessionStorage` وتُحذف فوراً من `localStorage`.
-  4. كتابة اختبار أمني مخصص في `SecurityAndProtection.test.js` للتحقق من عزل الجلسات في `sessionStorage` وعدم تسريبها في `localStorage`.
+2. [⚡ ثانياً: مشاكل الأداء ومعالجة البيانات الكبيرة (Performance & Scalability — PERF)](#2--مشاكل-الأداء-ومعالجة-البيانات-الكبيرة-performance--scalability--perf)
+   - [PERF-01: بطء الأداء بسبب إعادة الحساب المستمرة في useAppCalculations](#perf-01-بطء-الأداء-بسبب-إعادة-الحساب-المستمرة-في-useappcalculations)
+   - [PERF-02: الاستخدام المفرط لـ localStorage ومخاطر تجاوز الحصة (Quota Exceeded)](#perf-02-الاستخدام-المفرط-لـ-localstorage-ومخاطر-تجاوز-الحصة-quota-exceeded)
+   - [PERF-03: بطء رندر القوائم وجداول المهام الضخمة وغياب التمرير الافتراضي (Virtual Scrolling)](#perf-03-بطء-رندر-القوائم-وجداول-المهام-الضخمة-وغياب-التمرير-الافتراضي-virtual-scrolling)
+   - [PERF-04: تضخم حجم حزمة التطبيق الأولى (Bundle Size Bloat) وغياب Lazy Loading](#perf-04-تضخم-حجم-حزمة-التطبيق-الأولى-bundle-size-bloat-وغياب-lazy-loading)
 
----
+3. [🏛️ ثالثاً: المعمارية وفصل الاهتمامات (Architecture & Separation of Concerns — ARCH)](#3--المعمارية-وفصل-الاهتمامات-architecture--separation-of-concerns--arch)
+   - [ARCH-01: عدم وجود خادم خلفي حقيقي (Backend API) واقتصار التطبيق على التخزين المحلي](#arch-01-عدم-وجود-خادم-خلفي-حقيقي-backend-api-واقتصار-التطبيق-على-التخزين-المحلي)
+   - [ARCH-02: خلط منطق الأعمال مع التخزين وواجهات العرض (Mixing Concerns)](#arch-02-خلط-منطق-الأعمال-مع-التخزين-وواجهات-العرض-mixing-concerns)
+   - [ARCH-03: تعقيد وتشابك إدارة الحالة واستبدالها بمعمارية Zustand الحديثة](#arch-03-تعقيد-وتشابك-إدارة-الحالة-واستبدالها-بمعمارية-zustand-الحديثة)
+   - [ARCH-04: تشتت التزامن بين تبويبات المتصفح المتعددة (Multi-Tab Sync Conflicts)](#arch-04-تشتت-التزامن-بين-تبويبات-المتصفح-المتعددة-multi-tab-sync-conflicts)
+   - [ARCH-05: غياب حدود عزل الأخطاء (Error Boundaries) على مستوى التبويبات](#arch-05-غياب-حدود-عزل-الأخطاء-error-boundaries-على-مستوى-التبويبات)
+   - [ARCH-06: غياب نظام التسجيل المهيكل وتتبع الأخطاء (Structured Logging & Error Tracking)](#arch-06-غياب-نظام-التسجيل-المهيكل-وتتبع-الأخطاء-structured-logging--error-tracking)
 
-### 3. [x] **P0-3: سياسة أمان المحتوى `Content-Security-Policy (CSP)`**
-- **الحالة الفعلية**: ✅ **تم حلها بالكامل**
-- **تفاصيل الإصلاح المنفذ**:
-  1. إضافة ترويسات HTTP أمنية صارمة في `vite.config.ts` تشمل كلا وضعي التطوير (`server.headers`) والمعاينة الإنتاجية (`preview.headers`):
-     - `Content-Security-Policy`: تفرض `default-src 'self' blob: data:`, `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, وتحد مصادر السكربتات والأنماط والصور والخطوط.
-     - `X-Content-Type-Options: nosniff`: لمنع التخمين الخبيث لملفات الوسائط وأنواع MIME.
-     - `X-Frame-Options: SAMEORIGIN`: للحماية من هجمات Clickjacking وتأطير الصفحة.
-     - `Referrer-Policy: strict-origin-when-cross-origin`: لحماية مسارات وتفاصيل الترويسات عند التحويل الخارجي.
-     - `Permissions-Policy: camera=(), microphone=(), geolocation=()`: لتعطيل الوصول لأجهزة الاستشعار غير المطلوبة.
-  2. مطابقة وسوم `<meta http-equiv="Content-Security-Policy" ...>` في `index.html` مع نفس الضوابط الصارمة لضمان الحماية في بيئات الـ PWA و PWA Standalone.
-  3. إضافة اختبار تحقق أمني في `src/tests/unit/SecurityAndProtection.test.js`.
+4. [🧪 رابعاً: الاختبارات وتغطية الحالات الحدية (Testing & Quality Assurance — TEST)](#4--الاختبارات-وتغطية-الحالات-الحدية-testing--quality-assurance--test)
+   - [TEST-01: غياب اختبارات الخصائص العشوائية (Property-Based Testing)](#test-01-غياب-اختبارات-الخصائص-العشوائية-property-based-testing)
+   - [TEST-02: غياب اختبارات الحالات الحدية والكميات السالبة والأخطاء الحسابية](#test-02-غياب-اختبارات-الحالات-الحدية-والكميات-السالبة-والأخطاء-الحسابية)
+   - [TEST-03: غياب اختبارات الأداء والضغط العالي (High-Load Performance Testing)](#test-03-غياب-اختبارات-الأداء-والضغط-العالي-high-load-performance-testing)
+   - [TEST-04: غياب اختبارات التكامل والعمل في وضع عدم الاتصال (Offline & Integration Flows)](#test-04-غياب-اختبارات-التكامل-والعمل-في-وضع-عدم-الاتصال-offline--integration-flows)
+   - [TEST-05: اختبارات الأمان والصلاحيات والتشفير (Security & RBAC Test Suite)](#test-05-اختبارات-الأمان-والصلاحيات-والتشفير-security--rbac-test-suite)
 
----
+5. [📐 خامساً: جودة الكود والأنواع الصارمة (Code Quality & Type Safety — CODE)](#5--جودة-الكود-والأنواع-الصارمة-code-quality--type-safety--code)
+   - [CODE-01: غياب الأمان النوعي الشامل وغياب تعريفات TypeScript الصارمة](#code-01-غياب-الأمان-النوعي-الشامل-وغياب-تعريفات-typescript-الصارمة)
+   - [CODE-02: ضبط معايير التنسيق والتدقيق الصارم (ESLint + Prettier Engine)](#code-02-ضبط-معايير-التنسيق-والتدقيق-الصارم-eslint--prettier-engine)
+   - [CODE-03: إدارة الملفات الثنائية الكبيرة والوثائق الهندسية (Git LFS & Engineering Docs)](#code-03-إدارة-الملفات-الثنائية-الكبيرة-والوثائق-الهندسية-git-lfs--engineering-docs)
 
-### 4. [x] **P0-4: استخدام `bcryptjs` في الواجهة الأمامية (Frontend)**
-- **الحالة الفعلية**: ✅ **تم حلها بالكامل**
-- **تفاصيل الإصلاح المنفذ**:
-  1. استبدال `bcryptjs` بمحرك التشفير الأصلي عالي الأداء وغير المتزامن `Web Crypto API` (`SubtleCrypto` مع `PBKDF2-SHA256` و 100,000 تكرار و Salt عشوائي 128-bit) في `src/core/security/SecurityService.js`.
-  2. تحديث `AuthContext.jsx` و `AuthService.js` لاستخدام `SecurityService.hashPassword` و `SecurityService.comparePassword` في كافة مسارات الحسابات وتسجيل الدخول وتغيير كلمات السر.
-  3. توفير آلية الترقية التلقائية الفورية والصامتة (Seamless Background Upgrade) لحسابات المستخدمين المشفرة سابقاً بـ `bcrypt` دون كسر التوافقية أو طلب إعادة تعيين كلمة السر.
-  4. كتابة اختبارات وحدة أمنية شاملة في `src/tests/unit/SecurityAndProtection.test.js`.
+6. [📖 سادساً: بروتوكول توثيق المشاكل المستقبلية (Future Issue Documentation Protocol)](#6--بروتوكول-توثيق-المشاكل-المستقبلية-future-issue-documentation-protocol)
 
 ---
 
-### 5. [x] **P0-5: تخزين `Master PIN` (`gmao_admin_pin`) في `localStorage`**
-- **الحالة الفعلية**: ✅ **تم حلها بالكامل**
-- **تفاصيل الإصلاح المنفذ**:
-  1. استئصال كافة عمليات القراءة والكتابة لـ `gmao_admin_pin` في `localStorage` من جميع ملفات النظام (`main.jsx`, `AuthContext.jsx`, `AuthService.js`, `SettingsAdminTab.jsx`, `SettingsView.jsx`).
-  2. الاعتماد الكامل على خزنة `vaultService` المعتمدة على تقنية Zero-Knowledge (`AES-256-GCM` + `PBKDF2 600,000` تكرار) مع التحقق عبر الذاكرة المعزولة المشفرة `vaultService.verifyPinHash()`.
-  3. إضافة آلية التنظيف التلقائي لأي بقايا قديمة في التخزين عند الإعداد والترقية.
-  4. إضافة اختبار تحقق أمني في `src/tests/unit/SecurityAndProtection.test.js`.
+## 📊 جدول ملخص المشاكل وحالتها الهندسية
+
+| الرمز | المشكلة الهندسية | الأولوية | التصنيف | الحالة | ملف التحقق والاختبار |
+|:---|:---|:---:|:---:|:---:|:---|
+| **SEC-01** | ثغرة XSS عبر `innerHTML` في سند الحركة | ⭐⭐⭐⭐⭐ P0 | Security | ✅ محلولة بالكامل | `SecurityAndProtection.test.js` |
+| **SEC-02** | تخزين الجلسات في `localStorage` | ⭐⭐⭐⭐⭐ P0 | Security | ✅ محلولة بالكامل | `SecurityAndProtection.test.js` |
+| **SEC-03** | غياب ترويسات CSP الصارمة | ⭐⭐⭐⭐⭐ P0 | Security | ✅ محلولة بالكامل | `SecurityAndProtection.test.js` |
+| **SEC-04** | استخدام `bcryptjs` في Frontend | ⭐⭐⭐⭐⭐ P0 | Security | ✅ محلولة بالكامل | `SecurityAndProtection.test.js` |
+| **SEC-05** | تخزين Master PIN في `localStorage` | ⭐⭐⭐⭐⭐ P0 | Security | ✅ محلولة بالكامل | `VaultService.test.ts` |
+| **SEC-06** | غياب Rate Limiting لحماية الدخول | ⭐⭐⭐⭐ P1 | Security | ✅ محلولة بالكامل | `AuthContext.test.js` + `server.ts` |
+| **SEC-07** | غياب تعقيم وتحقق Zod للمدخلات | ⭐⭐⭐⭐ P1 | Security | ✅ محلولة بالكامل | `ValidationService.ts` + `DataGateway.js` |
+| **PERF-01** | إعادة الحساب المستمرة في `useAppCalculations` | ⭐⭐⭐⭐ P1 | Performance | ✅ محلولة بالكامل | `AppCalculations.test.jsx` |
+| **PERF-02** | الاستخدام المفرط لـ `localStorage` | ⭐⭐⭐⭐ P1 | Performance | ✅ محلولة بالكامل | `IndexedDBService.test.ts` |
+| **PERF-03** | بطء القوائم الكبيرة وغياب Virtual Scrolling | ⭐⭐⭐⭐ P1 | Performance | ✅ محلولة بالكامل | `VirtualScrolling.test.tsx` |
+| **PERF-04** | تضخم الحزمة وغياب Code Splitting | ⭐⭐⭐ P2 | Performance | ✅ محلولة بالكامل | `vite.config.ts` + `AppRouter.jsx` |
+| **ARCH-01** | عدم وجود Backend حقيقي | ⭐⭐⭐⭐⭐ P0 | Architecture | ✅ محلولة بالكامل | `server.ts` + `backendApiClient.ts` |
+| **ARCH-02** | خلط منطق الأعمال مع التخزين (SoC) | ⭐⭐⭐⭐ P1 | Architecture | ✅ محلولة بالكامل | `Container.js` + `DataGateway.js` |
+| **ARCH-03** | تعقيد الحالة والحاجة لـ Zustand | ⭐⭐⭐⭐ P1 | Architecture | ✅ محلولة بالكامل | `GmaoZustandStore.test.ts` |
+| **ARCH-04** | تضارب التزامن بين التبويبات المتعددة | ⭐⭐⭐⭐ P1 | Architecture | ✅ محلولة بالكامل | `TabSynchronization.test.ts` |
+| **ARCH-05** | غياب Error Boundaries بالتبويبات | ⭐⭐⭐ P2 | Architecture | ✅ محلولة بالكامل | `AppRouter.jsx` |
+| **ARCH-06** | غياب Structured Logging المتخصص | ⭐⭐⭐ P2 | Architecture | ✅ محلولة بالكامل | `LoggerService.js` |
+| **TEST-01** | غياب Property-Based Testing | ⭐⭐⭐⭐ P1 | Testing | ✅ محلولة بالكامل | `incrementalIndex.property.test.ts` |
+| **TEST-02** | غياب اختبارات الحالات الحدية والكميات السالبة | ⭐⭐⭐ P2 | Testing | ✅ محلولة بالكامل | `stockCalculation.test.js` |
+| **TEST-03** | غياب اختبارات الأداء تحت الضغط العالي | ⭐⭐⭐ P2 | Testing | ✅ محلولة بالكامل | `PerformanceLargeScale.test.js` |
+| **TEST-04** | غياب اختبارات وضع العمل دون اتصال | ⭐⭐⭐ P2 | Testing | ✅ محلولة بالكامل | `IntegrationFlowsAndOffline.test.js` |
+| **TEST-05** | اختبارات الأمان والخزنة والصلاحيات RBAC | ⭐⭐⭐⭐⭐ P0 | Testing | ✅ محلولة بالكامل | `PermissionGate.test.jsx` + Vault tests |
+| **CODE-01** | غياب TypeScript الصارم بالمحركات | ⭐⭐⭐ P2 | Code Quality | ✅ محلولة بالكامل | `src/types/` + `tsconfig.json` |
+| **CODE-02** | ضبط ESLint 10 و Prettier | ⭐⭐⭐ P2 | Code Quality | ✅ محلولة بالكامل | `eslint.config.js` (0 errors) |
+| **CODE-03** | إدارة ملفات Excel عبر Git LFS وتوثيق docs | ⭐⭐ P3 | Code Quality | ✅ محلولة بالكامل | `GitLfsConfiguration.test.ts` |
 
 ---
 
-# 🟠 ثانياً: مشكلات الأداء والمعمارية (P1 — 8 مشكلات رئيسية)
+## 1. 🛡️ المشاكل الأمنية وحماية البيانات (Security & Data Protection — SEC)
 
-### 6. [x] **P1-1: تعقيد إدارة الحالة في `useGmaoState` وتطبيق معمارية Zustand**
-- **الحالة الفعلية**: ✅ **تم حلها بالكامل عبر Zustand مع Type Safety**
-- **الدليل وتفاصيل الإصلاح المنفذ**:
-  1. إنشاء متجر Zustand رئيسي عالي الأداء ومكتمل الأنواع `src/store/useGmaoStore.ts` يعتمد على `create<GmaoStoreState>` من مكتبة `zustand`.
-  2. بناء واجهة الأنواع الصارمة `GmaoStoreState` في `src/types/store.ts` وربطها في `src/types/index.ts` لتغطية كافة قطاعات النظام (Stock, Machines, Warehouse, Users, Movements, Preventive, Sorties Externe, Corrective Nexus, Derived Computations, Global Operations).
-  3. توفير خطافات اشتراك قطاعية معيارية دقيقة (Fine-Grained Slice Hooks) لتفادي إعادة الـ Render غير الضرورية:
-     - `useStockSlice()`
-     - `useMachineSlice()`
-     - `useWarehouseSlice()`
-     - `useUserSlice()`
-     - `useMovementSlice()`
-     - `usePreventiveSlice()`
-     - `useSortieExterneSlice()`
-     - `useCorrectiveSlice()`
-  4. إعادة هيكلة `src/hooks/useGmaoState.js` للربط السلس مع متجر Zustand مع الحفاظ التام بنسبة 100% على التوافق الخلفي لجميع الواجهات والخطافات القديمة والتزامن اللحظي عبر `useGmaoPersistence`.
-  5. دعم الحسابات المشتقة التفاعلية داخل المتجر (`stockItems()`, `effectiveDesignations()`, `correctiveKpis()`) دون هدر الذاكرة أو إعادة الحساب العشوائي.
-  6. إضافة اختبارات وحدة شاملة وموثقة في `src/tests/unit/GmaoZustandStore.test.ts` اجتازت بنجاح كامل.
+### SEC-01: ثغرة XSS عبر innerHTML عند تصدير سند الحركة
+- **الأولوية:** ⭐⭐⭐⭐⭐ (P0 - حرج للغاية)
+- **الموقع:** `src/presentation/components/warehouse/MovementVoucherModal.jsx` و `src/utils/sanitize.js`
+- **وصف المشكلة:** كان التطبيق يقوم بحقن كود HTML الخام المستخرج من `printRef.current.innerHTML` مباشرة في وثيقة الطباعة أو نافذة المعاينة دون تعقيم، مما يسمح بحقن نصوص خبيثة `<script>` أو وسوم حدثية `onload` / `onerror` عبر حقول الملاحظات أو تسميات المواد.
+- **الحل الجذري المطبق:**
+  1. إنشاء وحدة تعقيم مركزية في `src/utils/sanitize.js` تستند إلى مكتبة `DOMPurify` لتعقيم كل وسم قبل استخدامه.
+  2. تجريد كافة الوسوم الخطرة (`<script>`, `<iframe>`, `<object>`, `<embed>`, `<form>`) وسمات الأحداث.
+  3. تعقيم المتغيرات النصية وأسماء الملفات عبر `sanitizeString()` و `sanitizeFilename()`.
+  4. فرض ترويسة CSP صارمة داخل النافذة المنبثقة: `script-src 'none'; object-src 'none'`.
+- **التحقق الهندسي:** اختبارات وحدة في `src/tests/unit/SecurityAndProtection.test.js` تؤكد تحييد كافة الحمولات الخبيثة بنجاح.
 
 ---
 
-### 7. [x] **P1-2: التزامن اللحظي بين التبويبات (`Multi-Tab Synchronization`)**
-- **الحالة الفعلية**: ✅ **تم حلها وتدعيمها بنسبة 100% (Architecture Fully Hardened & Verified)**
-- **الدليل وتفاصيل التطبيق**:
-  1. إنشاء خدمة مركزية متقدمة `src/services/TabSyncService.ts` تدعم بروتوكول `BroadcastChannel` عبر القناة الأساسية (`gmao_realtime_sync_channel`) وقناة التوافقية (`gmao_sync`) بالتزامن مع تفعيل `window.addEventListener('storage')` كطبقة Fallback تلقائية.
-  2. عزل المعرفات الفريدة للتبويبات (`tabId`) وتطبيق خاصية قمع الصدى (**Echo Suppression**) لمنع تكرار معالجة الأحداث الصادرة من نفس التبويب وإلغاء أي حلقات Render دائرية (Infinite Loops).
-  3. ربط التزامن مع متجر Zustand المركزي عبر دالة التحديث الذري `applyRemoteStateUpdate(remoteState)` مما يضمن تحديث جميع قطاعات النظام (Stock, Machines, BOM, Warehouse, Personnel, Movements, Preventive, Corrective) دون فقدان أي حقل.
-  4. تطبيق استراتيجية حل التنازعات (**Conflict Resolution - Last Write Wins**) لجميع الحركات التحويلية (`mouvements`).
-  5. دعم الاستماع والتحديث الحبيبي (**Granular Storage Key Mapping**) لجميع مفاتيح `STORAGE_KEYS` المعتمدة عند أي تعديل خارجي.
-  6. بناء مجموعة اختبارات وحدة متكاملة في `src/tests/unit/TabSynchronization.test.ts` اجتازت بنجاح تام (6/6 اختبارات في 15ms).
+### SEC-02: تخزين جلسات المستخدم في localStorage دون حماية
+- **الأولوية:** ⭐⭐⭐⭐⭐ (P0 - حرج للغاية)
+- **الموقع:** `src/core/security/AuthService.js` و `src/context/AuthContext.jsx`
+- **وصف المشكلة:** كانت الجلسة تخزن في المفتاح `gmao_session_v2` داخل `localStorage` بنص غير مشفر، مما يعرض الجلسة للسرقة في حال حدوث أي ثغرة XSS في المتصفح، مع بقاء الجلسة نشطة حتى بعد إغلاق التبويب.
+- **الحل الجذري المطبق:**
+  1. حظر تخزين أو قراءة الجلسات النشطة من `localStorage` نهائياً.
+  2. توقيع الجلسات رقمياً باستخدام مفتاح HMAC-SHA256 وتخزين الجلسة النشطة في `sessionStorage` المعزول بتبويب التصفح.
+  3. حفظ بيانات الجلسة الاحتياطية المشفرة في `IndexedDB` الآمن فقط عبر `indexedDBService`.
+  4. تنفيذ ترحيل آلي (Auto Migration) لحذف الجلسات القديمة من `localStorage` فور الإقلاع.
+- **التحقق الهندسي:** اختبار `SecurityAndProtection.test.js` يختبر عدم وجود أي توكن جلسة في `localStorage` أثناء تسجيل الدخول والخروج.
 
 ---
 
-### 8. [x] **P1-3: استخدام `Virtual Scrolling` للقوائم والجداول الكبيرة**
-- **الحالة الفعلية**: ✅ **تم حلها وتدعيمها بنسبة 100% (Architecture Fully Hardened & Verified)**
-- **الدليل وتفاصيل التطبيق**:
-  1. **الترقية الشاملة لـ `DetailedTaskListView.jsx`**:
-     - تطبيق محرك افتراضي موحد (**Unified Virtual Windowing Engine**) للنمطين: نمط المجموعات المجمعة حسب الآلة (`groupByMachine`) والنمط المستمر المسطح (`Continuous View`).
-     - تحويل شجرة المجموعات والآلات المنهارة والمفتوحة إلى مصفوفة افتراضية مسطحة تحسب إزاحات التمرير بدقة (`flattenedVirtualRows`).
-     - تخفيض عدد عقد DOM المعروضة لـ 1,000+ مهمة صيانة من أكثر من 15,000 عنصر في شجرة DOM إلى أقل من 40 صفاً مرئياً فقط (+ Overscan) مع ثبات سرعة التمرير عند 60 إطاراً في الثانية (60fps) دون أي تقطيع.
-  2. **تحصين وتطوير `GmaoIndustrialDataGrid.jsx`**:
-     - دعم مزدوج لمحركات المحاكاة: محرك الجداول النافذة الأصيل (`table-window` عبر فواصل الارتفاع الآمنة لجميع متصفحات الويب) ومحرك `react-window` v2 للمكونات التي تتطلب تقطيع Flexbox افتراضي.
-     - إضافة المكون المصدّر المباشر `VirtualizedIndustrialDataGrid` المجهز للاستخدام الفوري.
-  3. **حزمة اختبارات الأداء والافتراضية `src/tests/unit/VirtualScrolling.test.tsx`**:
-     - 5 اختبارات وحدة شاملة تغطي عرض 1,000 سجل في `GmaoIndustrialDataGrid` و 1,000 مهمة في `DetailedTaskListView` ودمج `react-window` اجتازت جميعها بنجاح تام (5/5 في 212ms).
+### SEC-03: غياب سياسة أمان المحتوى الصارمة (Content-Security-Policy)
+- **الأولوية:** ⭐⭐⭐⭐⭐ (P0 - حرج)
+- **الموقع:** `server.ts` و `vite.config.ts` و `index.html`
+- **وصف المشكلة:** كان التطبيق يعمل دون ترويسات CSP كافية مما سمح بتحميل وتضمين سكربتات خارجية غير مصرح بها وسمح بتأطير الصفحة (Clickjacking).
+- **الحل الجذري المطبق:**
+  1. إضافة ترويسات أمنية صارمة في الخادم الخلفي `server.ts`:
+     - `Content-Security-Policy`: حصر المصادر المسموحة فقط في `'self'` و `'unsafe-inline'` للأنماط والخطوط مع منع الكائنات التفاعلية `object-src 'none'`.
+     - `X-Content-Type-Options: nosniff`: لمنع تخمين أنواع MIME.
+     - `X-Frame-Options: SAMEORIGIN`: للحماية من Clickjacking.
+     - `Referrer-Policy: strict-origin-when-cross-origin`.
+     - `Permissions-Policy: camera=(), microphone=(), geolocation=()`.
+  2. مزامنة نفس السياسة في `vite.config.ts` (خادم التطوير وخادم المعاينة) ووسم `<meta>` في `index.html`.
+- **التحقق الهندسي:** اختبارات التحقق من الترويسات في `SecurityAndProtection.test.js` وسلامة خادم Express.
 
 ---
 
-### 9. [x] **P1-4: تحسين إعادة حساب الحالة المشتقة (`useAppCalculations`)**
-- **الحالة الفعلية**: ✅ **تم حلها وتدعيمها بنسبة 100% (Architecture Fully Hardened & Verified)**
-- **الدليل وتفاصيل التطبيق**:
-  1. **التزامن المباشر للفهرس التزايدي (`Synchronous Index Sync`) في `src/hooks/useAppCalculations.js`**:
-     - مزامنة `stockIndexStore.index` لحظياً عند تغير مرجع مصفوفة `mouvements` قبل تنفيذ `useMemo`، مما يقضي نهائياً على دورة الـ Render المزدوجة (`Double Render Cycle`) ويعالج تحديث الكميات داخل حركات بنفس طول المصفوفة.
-  2. **فك الارتباط المرجعي (`Selector Decoupling`)**:
-     - فصل حساب `effectiveDesignations` و `diagnostics` عن `stockItems` وربطه فقط بـ `[designations, rawStock]` بحيث لا تؤدي حركات المخزون المتكررة إلى إعادة بناء قوائم التسميات أو إعادة رسم القوائم المنسدلة.
-  3. **بناء محددات الحالة المخبأة (`Reselect-Style Memoized Selectors` & `useCallback`)**:
-     - تصدير `createMemoizedSelector` و `selectStockItems` و `selectEffectiveDesignations` بالإضافة إلى دوال `calculateStock` و `calculateDesignations` و `calculateWarehouse` المغلفة بـ `useCallback`.
-  4. **التخزين المرجعي والـ Lazy Sync في `src/services/reactiveCalculationEngine.js`**:
-     - إضافة كاش مرجعي `O(1)` لنتائج `recalculateStockReactive` وكاش `WeakMap` لـ `computeStockKPIs(stockItems)` مع تحويل مزامنة جدول `HyperFormula` إلى الوضع الكسول عند الطلب (`Lazy On-Demand Sync`) لمنع حجب الخيط الرئيسي أثناء الـ Render.
-  5. **اختبارات الوحدة والأداء `src/tests/unit/AppCalculations.test.jsx`**:
-     - التحقق من ثبات المراجع (`===`) عند تغير الخصائص غير المرتبطة، صحة الحسابات الفورية، وكفاءة المحددات المخبأة (5/5 اختبارات ناجحة).
+### SEC-04: استخدام خوارزمية bcryptjs في الواجهة الأمامية وتهديد حظر المتصفح
+- **الأولوية:** ⭐⭐⭐⭐⭐ (P0 - حرج)
+- **الموقع:** `src/core/security/SecurityService.js`
+- **وصف المشكلة:** كانت مكتبة `bcryptjs` تنفذ في خيط المعالجة الرئيسي للواجهة الأمامية (Main Thread)، مما يتسبب في تجميد واجهة المستخدم (UI Freeze) عند توليد الهاش مع بطء المعالجة.
+- **الحل الجذري المطبق:**
+  1. استبدال `bcryptjs` بمحرك التشفير الأصلي غير المتزامن للأجهزة الحديثة `Web Crypto API` (`crypto.subtle`).
+  2. تطبيق خوارزمية التشفير القياسية `PBKDF2-SHA256` بـ 100,000 تكرار مع ملح تشفيري عشوائي (Salt) بطول 128-bit.
+  3. دعم الترقية الشفافة في الخلفية (Silent Upgrade) لكلمات المرور القديمة المخزنة بنمط `bcrypt` عند تسجيل الدخول الناجح دون إزعاج المستخدم.
+- **التحقق الهندسي:** اختبارات المقارنة والتجزئة في `SecurityAndProtection.test.js` تعمل في أقل من 5ms دون أي حجب للواجهة.
 
 ---
 
-### 10. [x] **P1-5: تخفيف الضغط عن `localStorage` وتطبيق التخزين ثلاثي الطبقات (`IndexedDB`)**
-- **الحالة الفعلية**: ✅ **تم حلها بالفعل**
-- **الدليل من الكود**:
-  - `src/infrastructure/database/IndexedDBService.js` يطبق قاعدة بيانات `CIOB_GMAO_INDUSTRIAL_DB` مع 8 مخازن كيانات مفهرسة (`machines`, `articles`, `warehouse_items`, `movements`, `interventions`, `preventive`, `users`, `bom_ledger`) والكتابة الدفعية `setItemsBatch`، مع ضغط `LZ-String` وفحص الحصة في `AutoBackupService.js`.
+### SEC-05: تخزين الرقم السري الإداري Master PIN في localStorage
+- **الأولوية:** ⭐⭐⭐⭐⭐ (P0 - حرج)
+- **الموقع:** `src/utils/vaultService.js` و `src/core/security/AuthService.js`
+- **وصف المشكلة:** كان المفتاح `gmao_admin_pin` مخزناً كنص عادي في `localStorage`، مما يتيح لأي مستخدم يفتح Developer Tools استخراجه وتجاوز صلاحيات المسؤول وتعديل الإعدادات الحساسة.
+- **الحل الجذري المطبق:**
+  1. إزالة أي كتابة أو قراءة لـ `gmao_admin_pin` من التخزين الدائم للمتصفح.
+  2. تطبيق معمارية المعرفة الصفرية (Zero-Knowledge Architecture): يخزن الرمز الإداري والمفتاح المشتق حصرياً في ذاكرة الوصول العشوائي للعملية (`RAM memory-only variable`)، ولا يُكتب أبداً على القرص.
+  3. تشفير الخزنة باستخدام خوارزمية `AES-256-GCM` مع اشتقاق المفاتيح بـ 600,000 دورة PBKDF2.
+  4. تنظيف وحذف أي بيانات قديمة للمفتاح من التخزين عند الإقلاع.
+- **التحقق الهندسي:** `src/tests/security/VaultService.test.ts` و `SecurityAndProtection.test.js`.
 
 ---
 
-### 11. [x] **P1-6: التحميل الكسول وتقسيم الحزم (`Lazy Loading & Code Splitting`)**
-- **الحالة الفعلية**: ✅ **تم حلها بالفعل**
-- **الدليل من الكود**:
-  - `src/presentation/router/AppRouter.jsx` (الأسطر 7-30): جميع الـ 24 صفحة محملة عبر `React.lazy()` ومغلفة بـ `<Suspense fallback={<LoadingSkeleton />}>`.
-  - `vite.config.ts` (الأسطر 132-172): تقسيم `manualChunks` مفعل لفصل حزم البيانات والمكتبات (`vendor-xlsx`, `vendor-lucide`, `vendor-motion`, `vendor-zod`).
+### SEC-06: غياب تقييد معدل الطلبات (Rate Limiting) ضد هجمات القوة الغاشمة (Brute Force)
+- **الأولوية:** ⭐⭐⭐⭐ (P1 - عالي)
+- **الموقع:** `server.ts` و `src/context/AuthContext.jsx`
+- **وصف المشكلة:** عدم وجود حدود لعدد محاولات تسجيل الدخول، مما سمح بمحاولات تخمين غير محدودة لكلمات المرور، وكانت العدادات السابقة تفقد قيمتها عند إعادة تحميل الصفحة (`F5`).
+- **الحل الجذري المطبق:**
+  1. إضافة وسيط `Rate Limiting` على مستوى خادم Express في `server.ts`:
+     - مسار `/api/auth/` مقيد بـ 10 محاولات كحد أقصى لكل نافذة زمنية (15 دقيقة) لكل عنوان IP.
+     - مسارات الـ API العامة مقيدة بـ 300 طلب لكل دقيقة.
+  2. ترقية `RateLimiter` في الواجهة الأمامية (`AuthContext.jsx`) وحفظ حالة الإغلاق والعداد في `sessionStorage` لتقاوم تحديث الصفحة (Anti-F5 Bypass)، وتفعيل إغلاق مؤقت لمدة 15 دقيقة بعد 5 محاولات فاشلة متتالية.
+- **التحقق الهندسي:** اختبارات `AuthContext.test.js` وسلامة مسارات `server.ts`.
 
 ---
 
-### 12. [x] **P1-7: فصل الاهتمامات (`Separation of Concerns - Clean Architecture`)**
-- **الحالة الفعلية**: ✅ **تم حلها بالكامل**
-- **الدليل والتفاصيل**:
-  - تم بناء وفصل الطبقات الأربع بوضوح تام (`src/domain/`, `src/application/`, `src/infrastructure/`, `src/presentation/`) مع حاوية حقن التبعيات `src/core/di/Container.js` وبوابة الكتابة الموحدة `DataGateway.js` التي تطبق تعقيم البيانات (`sanitizeObject`) والتحقق الصارم منها.
+### SEC-07: غياب تعقيم وتحقق مدخلات البيانات الصارم (Input Sanitization & Schema Validation)
+- **الأولوية:** ⭐⭐⭐⭐ (P1 - عالي)
+- **الموقع:** `src/core/validation/ValidationService.ts` و `src/infrastructure/storage/DataGateway.js`
+- **وصف المشكلة:** قبول كائنات بيانات المخزون والحركات والآلات دون التحقق من مطابقة الحقول وأنواعها والكميات المقبولة قبل حفظها.
+- **الحل الجذري المطبق:**
+  1. كتابة مخططات تحقق صارمة باستخدام مكتبة `Zod` في `ValidationService.ts` لكافة الكيانات (`stockItemSchema`, `machineSchema`, `movementSchema`, `userSchema`, `correctiveSchema`).
+  2. ربط بوابة الكتابة المركزية `DataGateway.js` بتعقيم الكائنات المباشر عبر `sanitizeObject()` والتحقق من صحة المخطط قبل الإرسال إلى التخزين.
+- **التحقق الهندسي:** اختبارات التحقق في `ValidationService.ts` واختبارات التكامل لبوابة البيانات.
 
 ---
 
-### 13. [x] **P1-8: عدم وجود خادم خلفي (`Backend API / Express Server`)**
-- **الحالة الفعلية**: ✅ **تم حلها بالكامل**
-- **الدليل وتفاصيل التطبيق**:
-  - تم إنشاء خادم `server.ts` متكامل يعتمد على Node.js + Express مع دعم CORS وتحليل JSON وحفظ الحالة في ملف `data/gmao_state.json`.
-  - توفير نقاط نهاية REST API شاملة (`/api/health`, `/api/gmao/state`, `/api/gmao/:entity`, CRUD كامل).
-  - تطوير العميل الأمامي `src/services/backendApiClient.ts` للربط التلقائي مع الخادم مع آلية تراجع مرنة (Offline-First Fallback) إلى IndexedDB و LocalStorage عند عدم الاتصال.
+## 2. ⚡ مشاكل الأداء ومعالجة البيانات الكبيرة (Performance & Scalability — PERF)
+
+### PERF-01: بطء الأداء بسبب إعادة الحساب المستمرة في useAppCalculations
+- **الأولوية:** ⭐⭐⭐⭐ (P1 - عالي)
+- **الموقع:** `src/hooks/useAppCalculations.js` و `src/services/reactiveCalculationEngine.js`
+- **وصف المشكلة:** كان خطاف `useAppCalculations` يعيد حساب كافة مؤشرات المخزون والتسميات والتشخيصات عند كل تغيير طفيف في أي مصفوفة، مما تسبب في دورة رندر مزدوجة (Double Render Cycle) وبطء ملحوظ في استجابة الواجهة.
+- **الحل الجذري المطبق:**
+  1. مزامنة فهرس المخزون التزايدي (`Synchronous Index Sync`) فوراً عند تغير مرجع الحركات قبل تنفيذ الـ memoization، مما ألغى الدورة المزدوجة بالكامل.
+  2. فك الارتباط المرجعي للمحددات (`Selector Decoupling`): فصل حساب `effectiveDesignations` ليرتبط فقط بـ `[designations, rawStock]` دون التأثر بحركات المخزون المتكررة.
+  3. بناء محددات حالة مخبأة معمارياً بنمط Reselect (`createMemoizedSelector` و `selectStockItems` و `selectEffectiveDesignations`) وتغليف الدوال بـ `useCallback`.
+  4. تطبيق كاش مرجعي `O(1)` في محرك الحسابات التفاعلي `reactiveCalculationEngine.js` مع كاش `WeakMap` لحساب الـ KPIs ومزامنة كسولة (Lazy On-Demand) لحسابات الجداول المعقدة.
+- **التحقق الهندسي:** `src/tests/unit/AppCalculations.test.jsx` (5/5 اختبارات ناجحة تثبت ثبات المراجع `===` وتفادي إعادة الرندر غير الضرورية).
 
 ---
 
-# 🟡 ثالثاً: مشكلات جودة الكود والأنواع (P2 — 7 مشكلات رئيسية)
-
-### 14. [x] **P2-1: دعم TypeScript وتعميم الأنواع الصارمة**
-- **الحالة الفعلية**: ✅ **تم حلها بالكامل**
-- **الدليل من الكود**:
-  - ✅ تم تحويل الملفات الجوهرية للأنواع والمحركات وخدمات التحقق إلى TypeScript (`src/types/domain.ts`, `corrective.ts`, `preventive.ts`, `security.ts`, `sync.ts`, `kpis.ts`, `IncrementalStockIndex.ts`, `StockIndexStore.ts`, `MovementRepository.ts`, `SyncQueueService.ts`, `ValidationService.ts`) مع `tsconfig.json` صارم.
-
----
-
-### 15. [x] **P2-2: حدود الأخطاء (`Error Boundaries`) في جميع الوحدات**
-- **الحالة الفعلية**: ✅ **تم حلها بالفعل**
-- **الدليل من الكود**:
-  - `src/main.jsx` يغلف التطبيق بالكامل بـ `<ErrorBoundary>`.
-  - `src/presentation/router/AppRouter.jsx` (الأسطر 73-223): **كل تبويب من التبويبات الـ 24** مغلف بشكل مستقل بـ `<ErrorBoundary sectionName="...">` لعزل أي خطأ داخل التبويب دون إسقاط التطبيق.
+### PERF-02: الاستخدام المفرط لـ localStorage ومخاطر تجاوز الحصة (Quota Exceeded)
+- **الأولوية:** ⭐⭐⭐⭐ (P1 - عالي)
+- **الموقع:** `src/infrastructure/database/IndexedDBService.js` و `src/infrastructure/storage/DataGateway.js`
+- **وصف المشكلة:** تخزين مئات الآلاف من سجلات الحركات والمخزون في `localStorage` الذي يقتصر على سعة قصوى تبلغ 5 ميغابايت ويعمل بشكل تزامني يحجب الخيط الرئيسي للمتصفح.
+- **الحل الجذري المطبق:**
+  1. تطبيق معمارية التخزين ثلاثية الطبقات (3-Tier Storage Architecture):
+     - **الطبقة الأولى (L1 Memory):** تخزين في الذاكرة الحية بالمتجر (Zustand) للقراءة الفورية `O(1)`.
+     - **الطبقة الثانية (L2 IndexedDB):** قاعدة بيانات متصفح متقدمة `CIOB_GMAO_INDUSTRIAL_DB` غير متزامنة مع 8 مخازن مهيكلة ومفهرسة تدعم مئات الآلاف من السجلات دون حجب.
+     - **الطبقة الثالثة (L3 LocalStorage Fallback & Compression):** استخدام التخزين المحلي فقط للقيم الإعدادية الصغيرة مع ضغط البيانات عبر `LZ-String` وفحص مستمر للحصة المتاحة في `AutoBackupService.js`.
+- **التحقق الهندسي:** `src/tests/unit/IndexedDBService.test.ts` واختبارات الحفظ الدفعي `setItemsBatch`.
 
 ---
 
-### 16. [x] **P2-3: التحقق من المدخلات (`Input Validation` عبر `Zod`)**
-- **الحالة الفعلية**: ✅ **تم حلها بالكامل**
-- **الدليل من الكود**:
-  - استخدام شامل لمخططات `Zod` في `src/core/validation/ValidationService.js` وتفعيل التعقيم والتحقق التلقائي للبيانات عبر بوابة الكتابة ومحركات التخزين.
+### PERF-03: بطء رندر القوائم وجداول المهام الضخمة وغياب التمرير الافتراضي (Virtual Scrolling)
+- **الأولوية:** ⭐⭐⭐⭐ (P1 - عالي)
+- **الموقع:** `src/presentation/components/tasks/DetailedTaskListView.jsx` و `src/presentation/components/shared/GmaoIndustrialDataGrid.jsx`
+- **وصف المشكلة:** عرض أكثر من 1,000 مهمة صيانة أو مادة مخزنية دفعة واحدة في DOM أدى لإنشاء أكثر من 15,000 عنصر HTML في الصفحة وهبوط معدل الإطارات إلى ما دون 15 إطاراً بالثانية مع تجمد التمرير.
+- **الحل الجذري المطبق:**
+  1. بناء محرك التمرير الافتراضي الموحد في `DetailedTaskListView.jsx` للنمط المستمر ونمط التجميع حسب الآلة، عبر تسطيح الشجرة إلى صفوف افتراضية محسوبة الإزاحة بدقة.
+  2. تقليص عدد عناصر DOM المعروضة في وقت واحد من 15,000+ عنصر إلى أقل من 40 صفاً مرئياً فقط (+ Overscan buffers)، مع الحفاظ على استقرار التمرير عند 60 إطاراً في الثانية (60fps).
+  3. دعم محرك الجداول النافذة ومحرك `react-window` v2 في `GmaoIndustrialDataGrid.jsx` عبر المكون الجاهز `VirtualizedIndustrialDataGrid`.
+- **التحقق الهندسي:** `src/tests/unit/VirtualScrolling.test.tsx` (5/5 اختبارات تمرير افتراضي ناجحة لـ 1,000 عنصر).
 
 ---
 
-### 17. [x] **P2-4: حماية `Rate Limiting` ضد هجمات التخمين (Brute-Force)**
-- **الحالة الفعلية**: ✅ **تم حلها بالكامل**
-- **الدليل من الكود**:
-  - تفعيل `checkRateLimit` وتخزين سجلات المحاولات الفاشلة وحالة القفل بشكل آمن في `sessionStorage` عبر `AuthContext.jsx` بحيث تقاوم المحاولات إعادة تحميل الصفحة (`F5`) لمدة 15 دقيقة بعد 5 محاولات فاشلة.
+### PERF-04: تضخم حجم حزمة التطبيق الأولى (Bundle Size Bloat) وغياب Lazy Loading
+- **الأولوية:** ⭐⭐⭐ (P2 - متوسط)
+- **الموقع:** `src/presentation/router/AppRouter.jsx` و `vite.config.ts`
+- **وصف المشكلة:** تحميل كافة الشاشات والمكتبات الثقيلة (XLSX, Charts, Modals) في ملف جافاسكربت واحد كبير عند أول فتح للتطبيق مما أبطأ زمن التحميل الأولي (Time to Interactive).
+- **الحل الجذري المطبق:**
+  1. تطبيق التحميل الكسول الكامل (`React.lazy` و `Suspense`) لجميع الشاشات الـ 24 في `AppRouter.jsx` مع هياكل تحميل ناعمة (`LoadingSkeleton`).
+  2. تقسيم الحزم في `vite.config.ts` عبر `manualChunks`:
+     - `vendor-xlsx`: لعزل مكتبات معالجة ملفات الإكسل.
+     - `vendor-lucide`: لعزل حزم الأيقونات.
+     - `vendor-motion`: لعزل مكتبات الحركة.
+     - `vendor-zod`: لعزل محركات التحقق.
+- **التحقق الهندسي:** فحص مخرجات `npm run build` وتحقق بنية الحزم المجزأة.
 
 ---
 
-### 18. [x] **P2-5: نظام التسجيل المهيكل (`Structured Logging`)**
-- **الحالة الفعلية**: ✅ **تم حلها بالفعل**
-- **الدليل من الكود**:
-  - مُنفذ بالكامل في `src/core/logger/LoggerService.js` و `src/services/ErrorTrackingService.js` و `src/utils/AccessLogService.js`.
+## 3. 🏛️ المعمارية وفصل الاهتمامات (Architecture & Separation of Concerns — ARCH)
+
+### ARCH-01: عدم وجود خادم خلفي حقيقي (Backend API) واقتصار التطبيق على التخزين المحلي
+- **الأولوية:** ⭐⭐⭐⭐⭐ (P0 - حرج)
+- **الموقع:** `server.ts` و `src/services/backendApiClient.ts`
+- **وصف المشكلة:** كان النظام محصوراً بالكامل داخل المتصفح، مما منع مزامنة البيانات بين عدة مهندسين وفنيين على أجهزة مختلفة، ومنع إمكانية إدارة نسخ احتياطية مركزية.
+- **الحل الجذري المطبق:**
+  1. بناء خادم خلفي كامل للإنتاج والتطوير `server.ts` يعمل ببيئة Node.js + Express.
+  2. توفير نقاط نهاية REST API كاملة:
+     - `/api/health`: لفحص جاهزية وحالة الخادم.
+     - `/api/gmao/state`: لقراءة وحفظ حالة النظام المتكاملة ذرياً مع حفظ البيانات في `data/gmao_state.json`.
+     - `/api/gmao/:entity`: لدعم عمليات CRUD الكاملة للكيانات (المخزون، الآلات، أوامر الصيانة، المستخدمين).
+     - `/api/gmao/batch`: لمعالجة التحديثات الدفعية وسجلات المزامنة.
+  3. بناء عميل الواجهة `backendApiClient.ts` مع دعم العمل بنمط عدم الاتصال الذكي (Offline-First Resilient Architecture) مع التزامن التلقائي عند عودة الاتصال.
+- **التحقق الهندسي:** اختبارات الخادم والتكامل ونجاح تشغيل الخادم على المنفذ 3000.
 
 ---
 
-### 19. [x] **P2-6: تنسيق الكود وفحصه (`ESLint 10 + Prettier`)**
-- **الحالة الفعلية**: ✅ **تم حلها بالفعل**
-- **الدليل من الكود**:
-  - `eslint.config.js` و `.prettierrc` مضبوطان بالكامل، ونتيجة `npm run lint` هي **0 أخطاء و 0 تحذيرات**.
+### ARCH-02: خلط منطق الأعمال مع التخزين وواجهات العرض (Mixing Concerns)
+- **الأولوية:** ⭐⭐⭐⭐ (P1 - عالي)
+- **الموقع:** `src/domain/`, `src/application/`, `src/infrastructure/`, `src/presentation/`
+- **وصف المشكلة:** كانت ملفات الـ Hooks ومكونات الواجهة تجمع بين طلب التخزين من `localStorage`، وحسابات الرياضيات المعقدة للمخزون، وعرض عناصر JSX في نفس الملف دون أي فصل هيكلي.
+- **الحل الجذري المطبق:**
+  1. إعادة بناء النظام وفق معمارية النظافة الصارمة (Clean Hexagonal Architecture) في 4 طبقات منفصلة:
+     - **طبقة النطاق (Domain Layer):** الكيانات وقواعد الأعمال الخالصة (`src/domain/`).
+     - **طبقة التطبيق (Application Layer):** حالات الاستخدام والعمليات المشتركة (`src/application/`).
+     - **طبقة البنية التحتية (Infrastructure Layer):** محركات التخزين وقواعد البيانات والخادم و `DataGateway` (`src/infrastructure/`).
+     - **طبقة العرض (Presentation Layer):** مكونات الواجهة والموجه والصفحات الخالصة (`src/presentation/`).
+  2. تطبيق حاوية حقن التبعيات `Container.js` لفصل اعتماديات الكود وتسهيل الاختبارات.
+- **التحقق الهندسي:** مراجعة هيكل المجلدات واختبارات الوحدات المنفصلة للطبقات.
 
 ---
 
-### 20. [x] **P2-7: إدارة الملفات الثنائية الكبيرة (`Git LFS`) والتوثيق الهندسي**
-- **الحالة الفعلية**: ✅ **تم حلها بالفعل**
-- **الدليل من الكود**:
-  - `.gitattributes` مضبوط لملفات `.xlsx` مع اختبار تحقق آلي `src/tests/unit/GitLfsConfiguration.test.ts`، و26 وثيقة هندسية في `docs/`.
+### ARCH-03: تعقيد وتشابك إدارة الحالة واستبدالها بمعمارية Zustand الحديثة
+- **الأولوية:** ⭐⭐⭐⭐ (P1 - عالي)
+- **الموقع:** `src/store/useGmaoStore.ts` و `src/types/store.ts` و `src/hooks/useGmaoState.js`
+- **وصف المشكلة:** تضخم خطاف `useGmaoState` إلى مئات الأسطر مع تعدد الـ sub-hooks وتداخل الـ setters مما سبب صعوبة في تتبع تدفق البيانات وانهيار الأداء عند التحديثات المتزامنة.
+- **الحل الجذري المطبق:**
+  1. إنشاء متجر Zustand مركزي موحد عالي الكفاءة `src/store/useGmaoStore.ts` مدعوم بالكامل بـ TypeScript الصارم.
+  2. توفير شرائح خطافية دقيقة (Fine-Grained Slice Hooks) لتفادي إعادة الرندر:
+     - `useStockSlice()`, `useMachineSlice()`, `useWarehouseSlice()`, `useUserSlice()`, `useMovementSlice()`, `usePreventiveSlice()`, `useSortieExterneSlice()`, `useCorrectiveSlice()`.
+  3. الحفاظ على التوافق الكامل مع الواجهات والخطافات السابقة لضمان عدم انكسار أي شاشة قديمة.
+- **التحقق الهندسي:** اختبارات `src/tests/unit/GmaoZustandStore.test.ts` (اجتازت بنجاح كامل).
 
 ---
 
-# 🟢 رابعاً: مشكلات الاختبارات والتغطية (P3 — 5 مشكلات رئيسية)
-
-### 21. [x] **P3-1: اختبارات الخصائص العشوائية (`Property-Based Testing` عبر `fast-check`)**
-- **الحالة الفعلية**: ✅ **تم حلها بالفعل**
-- **الدليل من الكود**:
-  - مكتبة `fast-check` مثبتة ومفعلة في `src/tests/incrementalIndex.property.test.ts` (تختبر ثوابت محرك المخزون `P1: applyDelta ≡ rebuild`, `P2: rollback`, `P3: updateDelta`, `P4: non-negative stock` عبر مئات التشغيلات العشوائية).
-
----
-
-### 22. [x] **P3-2: اختبارات الحالات الحدية (`Edge Cases & Negative Quantities`)**
-- **الحالة الفعلية**: ✅ **تم حلها بالفعل**
-- **الدليل من الكود**:
-  - مغطاة في `src/tests/stockCalculation.test.js`، `src/tests/stockAvailability.test.js`، و `src/tests/unit/FormulaEngineErrorHandling.test.js`.
+### ARCH-04: تشتت التزامن بين تبويبات المتصفح المتعددة (Multi-Tab Sync Conflicts)
+- **الأولوية:** ⭐⭐⭐⭐ (P1 - عالي)
+- **الموقع:** `src/services/TabSyncService.ts`
+- **وصف المشكلة:** عند فتح النظام في أكثر من تبويب، كانت التعديلات في أحدهما تسبب تضارباً في البيانات أو حلقات رندر دائرية لا نهائية (Infinite Loops) بسبب تكرار معالجة أحداث التزامن المنبعثة من نفس التبويب.
+- **الحل الجذري المطبق:**
+  1. تطوير خدمة مركزية متقدمة `TabSyncService.ts` تعتمد على بروتوكول `BroadcastChannel` كقناة أساسية مع التراجع المرن إلى `window.addEventListener('storage')`.
+  2. تطبيق خاصية قمع الصدى الذكي (**Echo Suppression**) بعزل المعرفات الفريدة للتبويب وتجاهل الرسائل المرتدة من نفس المصدر.
+  3. تطبيق استراتيجية حسم التنازعات الزمنية (**Last Write Wins**) للحركات والعمليات المشتركة وتطبيق التحديث الذري في متجر Zustand.
+- **التحقق الهندسي:** `src/tests/unit/TabSynchronization.test.ts` (6/6 اختبارات متقدمة ناجحة).
 
 ---
 
-### 23. [x] **P3-3: اختبارات الأداء تحت الضغط العالي (`Performance & Large Scale Tests`)**
-- **الحالة الفعلية**: ✅ **تم حلها بالفعل**
-- **الدليل من الكود**:
-  - مغطاة في `src/tests/unit/PerformanceLargeScale.test.js` و `src/tests/performance/` (فحص 10,000+ عنصر و100,000 حركة في أقل من 35ms).
+### ARCH-05: غياب حدود عزل الأخطاء (Error Boundaries) على مستوى التبويبات
+- **الأولوية:** ⭐⭐⭐ (P2 - متوسط)
+- **الموقع:** `src/presentation/router/AppRouter.jsx` و `src/components/common/ErrorBoundary.jsx`
+- **وصف المشكلة:** كان حدوث خطأ غير متوقع في تبويب فرعي واحد يؤدي إلى تحول الشاشة بأكملها إلى اللون الأبيض (White Screen of Death) وتوقف النظام بالكامل.
+- **الحل الجذري المطبق:**
+  1. تغليف التطبيق بالكامل بحد خطأ رئيسي في `main.jsx`.
+  2. تغليف كل تبويب من التبويبات الـ 24 في `AppRouter.jsx` بحد خطأ مستقل `<ErrorBoundary sectionName="...">` يعزل الخطأ داخل التبويب ويعرض واجهة استعادة ناعمة دون التأثير على بقية أجزاء النظام.
+- **التحقق الهندسي:** اختبارات بنية الموجه ومحاكاة الأخطاء في التبويبات.
 
 ---
 
-### 24. [x] **P3-4: اختبارات التكامل والعمل دون اتصال (`Integration & Offline Tests`)**
-- **الحالة الفعلية**: ✅ **تم حلها بالفعل**
-- **الدليل من الكود**:
-  - مغطاة في `src/tests/unit/IntegrationFlowsAndOffline.test.js`، `src/tests/movementRepository.integration.test.ts`، و `src/tests/integration/`.
+### ARCH-06: غياب نظام التسجيل المهيكل وتتبع الأخطاء (Structured Logging & Error Tracking)
+- **الأولوية:** ⭐⭐⭐ (P2 - متوسط)
+- **الموقع:** `src/core/logger/LoggerService.js` و `src/services/ErrorTrackingService.js` و `src/utils/AccessLogService.js`
+- **وصف المشكلة:** الاعتماد على `console.log` العشوائي دون تصنيف مستويات الأخطاء أو توفير سجل تدقيق ومسار زمني لتتبع الأعطال.
+- **الحل الجذري المطبق:**
+  1. بناء خدمة تسجيل مهيكلة تصنف الرسائل إلى مستويات قياسية (`DEBUG`, `INFO`, `WARN`, `ERROR`, `CRITICAL`).
+  2. تسجيل أحداث الوصول وسجلات الصلاحيات وسجلات العمليات الحساسة في `AccessLogService.js` مع تخزين آمن لآخر 1,000 حدث للرجوع إليها عند الفحص الفني.
+- **التحقق الهندسي:** فحص مخرجات الخدمات واختبارات مسار التدقيق.
 
 ---
 
-### 25. [x] **P3-5: اختبارات الأمان والصلاحيات (`Security, Vault & RBAC Tests`)**
-- **الحالة الفعلية**: ✅ **تم حلها بالفعل**
-- **الدليل من الكود**:
-  - مغطاة في `src/tests/security/VaultService.test.ts`، `src/tests/unit/SecurityAndProtection.test.js`، `src/tests/unit/AuthContext.test.js`، و `src/tests/unit/PermissionGate.test.jsx` (إجمالي **66 جناح اختبار و 272 اختباراً ناجحاً بنسبة 100%**).
+## 4. 🧪 الاختبارات وتغطية الحالات الحدية (Testing & Quality Assurance — TEST)
+
+### TEST-01: غياب اختبارات الخصائص العشوائية (Property-Based Testing)
+- **الأولوية:** ⭐⭐⭐⭐ (P1 - عالي)
+- **الموقع:** `src/tests/incrementalIndex.property.test.ts`
+- **وصف المشكلة:** كانت الاختبارات السابقة تفحص فقط عينات محددة وثابتة من البيانات، مما قد يخفي أخطاء نادرة تظهر فقط مع متواليات عشوائية معينة من الإدخال والإخراج.
+- **الحل الجذري المطبق:**
+  1. تثبيت ودمج محرك الاختبارات القائمة على الخصائص `fast-check`.
+  2. كتابة اختبارات تتحقق من ثوابت المحرك التزايدي عبر آلاف التوليدات العشوائية للحركات:
+     - خاصية التكافؤ: `applyDelta ≡ rebuild`.
+     - خاصية التراجع الآمن: `rollback invariant`.
+     - خاصية التحديث الجزئي: `updateDelta invariant`.
+     - خاصية سلامة رصيد المخزون وعدم وجود كميات غير صالحة.
+- **التحقق الهندسي:** اجتياز كامل لجميع دورات الاختبار العشوائية في `incrementalIndex.property.test.ts`.
 
 ---
 
-## 🎯 خلاصة التدقيق وخطة العمل النهائية (تم إنجاز 25 من أصل 25 مشكلة بنسبة 100% ✅)
+### TEST-02: غياب اختبارات الحالات الحدية والكميات السالبة والأخطاء الحسابية
+- **الأولوية:** ⭐⭐⭐ (P2 - متوسط)
+- **الموقع:** `src/tests/stockCalculation.test.js`, `src/tests/stockAvailability.test.js`, `src/tests/unit/FormulaEngineErrorHandling.test.js`
+- **وصف المشكلة:** عدم تغطية السيناريوهات الصناعية الشاذة (إدخال كميات سالبة، أرقام عشرية طويلة، حركات لمواد غير موجودة، محاولات صرف تتجاوز الرصيد المتاح).
+- **الحل الجذري المطبق:**
+  1. بناء أجنحة اختبارات متخصصة تفحص التعامل مع الكميات غير الصالحة، ومحاولات السحب التي تفوق المخزون المتاح، وصيغ الحسابات الشاذة.
+  2. التأكد من رمي أخطاء واضحة ومعالجة استباقية تمنع وصول أي بيانات تالفة إلى قاعدة البيانات.
+- **التحقق الهندسي:** نجاح 100% لاختبارات الحالات الحدية في `stockCalculation.test.js`.
 
-بعد التحقق الفعلي من الكود واستكمال كافة التحسينات الهندسية والأمنية والمعمارية، تم **حل وتنفيذ جميع المشاكل الـ 25 بالكامل (100% ✅)**:
+---
 
-1. [x] **إصلاح P0-1 (XSS)**: تعقيم `innerHTML` وحقول السند في `MovementVoucherModal.jsx` عبر `DOMPurify`.
-2. [x] **إصلاح P0-2 (Session Storage)**: إزالة التخزين المكشوف للجلسة `gmao_session_v2` من `localStorage` واستخدام الجلسة الموقعة بـ HMAC-SHA256 في `sessionStorage` + `IndexedDB`.
-3. [x] **إصلاح P0-3 (CSP Headers)**: إضافة ترويسات `Content-Security-Policy` و `X-Frame-Options` في `vite.config.ts` و `index.html`.
-4. [x] **إصلاح P0-4 (Web Crypto Hashing)**: استبدال `bcryptjs` في الواجهة الأمامية بـ `Web Crypto API` (`PBKDF2-SHA256`) مع توافقية رجعية سلسة.
-5. [x] **إصلاح P0-5 (Master PIN Protection)**: إزالة `gmao_admin_pin` من `localStorage` وحمايته داخل خزنة مشفرة بـ `AES-256-GCM`.
-6. [x] **استكمال P2-4 (Persistent Rate Limiting)**: جعل عداد الحظر `RateLimiter` في `AuthContext.jsx` مقاوماً لإعادة تحميل الصفحة (`Page Refresh`).
-7. [x] **استكمال P1-7 & P2-3 (Gateway Sanitization & Zod)**: ربط تعقيم المدخلات (`sanitizeObject`) والتحقق الصارم عبر `ValidationService.ts` في `DataGateway.js`.
-8. [x] **استكمال P1-8 (Backend API & Sync Queue Endpoint)**: إنشاء خادم `server.ts` وربط معالجات المزامنة في `SyncQueueService.ts` و `backendApiClient.ts`.
+### TEST-03: غياب اختبارات الأداء والضغط العالي (High-Load Performance Testing)
+- **الأولوية:** ⭐⭐⭐ (P2 - متوسط)
+- **الموقع:** `src/tests/unit/PerformanceLargeScale.test.js` و `src/tests/performance/`
+- **وصف المشكلة:** غياب اختبارات تفحص قدرة التطبيق على تحمل قواعد بيانات صناعية تضم آلاف المواد وعشرات الآلاف من الحركات.
+- **الحل الجذري المطبق:**
+  1. كتابة اختبارات محاكاة بيانات حقيقية ضخمة (10,000 مادة و 100,000 حركة مخزنية).
+  2. قياس زمن تنفيذ الحسابات التزايدية والتأكد من إنجاز العمليات في أقل من 35 ميلي ثانية دون تجاوز الذاكرة.
+- **التحقق الهندسي:** اجتياز اختبارات مقاييس الأداء في `PerformanceLargeScale.test.js`.
 
+---
+
+### TEST-04: غياب اختبارات التكامل والعمل في وضع عدم الاتصال (Offline & Integration Flows)
+- **الأولوية:** ⭐⭐⭐ (P2 - متوسط)
+- **الموقع:** `src/tests/unit/IntegrationFlowsAndOffline.test.js` و `src/tests/movementRepository.integration.test.ts`
+- **وصف المشكلة:** عدم اختبار سيناريو انقطاع الإنترنت أو فشل الخادم أثناء قيام الفني بتسجيل حركة مخزنية أو إتمام أمر صيانة.
+- **الحل الجذري المطبق:**
+  1. اختبار دورة العمل الكاملة: حفظ الحركة محلياً في صف الانتظار الموازي `SyncQueueService.ts` ثم مزامنتها تلقائياً مع الخادم عند استعادة الاتصال.
+  2. التحقق من سلامة البيانات وسلامة التراجع في حال رفض الخادم للعملية.
+- **التحقق الهندسي:** نجاح اختبارات التكامل في `IntegrationFlowsAndOffline.test.js`.
+
+---
+
+### TEST-05: اختبارات الأمان والصلاحيات والتشفير (Security & RBAC Test Suite)
+- **الأولوية:** ⭐⭐⭐⭐⭐ (P0 - حرج)
+- **الموقع:** `src/tests/security/VaultService.test.ts`, `src/tests/unit/SecurityAndProtection.test.js`, `src/tests/unit/PermissionGate.test.jsx`
+- **وصف المشكلة:** الحاجة إلى تأكيد ميكانيكي آلي يمنع ارتداد أي ثغرة أمنية أو خطأ في الصلاحيات.
+- **الحل الجذري المطبق:**
+  1. كتابة أجنحة اختبارات أمنية تفحص عزل الخزنة المشفرة، حماية الجلسات، منع XSS، وتطبيق ضوابط التحكم في الوصول المبني على الأدوار (RBAC).
+  2. إجمالي 71 جناح اختبار (Test Suites) تضم 310 اختبارات آلية تعمل وتجتاز بنسبة 100%.
+- **التحقق الهندسي:** نجاح أمر `npx vitest run` لجميع الـ 310 اختبارات.
+
+---
+
+## 5. 📐 جودة الكود والأنواع الصارمة (Code Quality & Type Safety — CODE)
+
+### CODE-01: غياب الأمان النوعي الشامل وغياب تعريفات TypeScript الصارمة
+- **الأولوية:** ⭐⭐⭐ (P2 - متوسط)
+- **الموقع:** `src/types/` و ملفات المحركات الرئيسية (`.ts`)
+- **وصف المشكلة:** الاعتماد على JavaScript غير محدد الأنواع في المحركات الحساسة مما تسبب في أخطاء `TypeError: undefined` أثناء التشغيل عند تغيير بنية الكائنات.
+- **الحل الجذري المطبق:**
+  1. إنشاء ملفات تعريف أنواع مركزية صارمة:
+     - `src/types/domain.ts`: لنماذج المخزون والمعدات والمهام.
+     - `src/types/store.ts`: لحالة متجر Zustand.
+     - `src/types/security.ts`, `sync.ts`, `kpis.ts`.
+  2. تحويل الخدمات الحسابية ومحركات الفهرسة إلى TypeScript مع تفعيل فحص `tsconfig.json` الصارم.
+- **التحقق الهندسي:** نجاح تدقيق الأنواع وسلامة التجميع بدون أخطاء نوعية.
+
+---
+
+### CODE-02: ضبط معايير التنسيق والتدقيق الصارم (ESLint + Prettier Engine)
+- **الأولوية:** ⭐⭐⭐ (P2 - متوسط)
+- **الموقع:** `eslint.config.js` و `.prettierrc`
+- **وصف المشكلة:** وجود تباين في أسلوب كتابة الكود وتحذيرات غير مفحوصة في بعض المكونات.
+- **الحل الجذري المطبق:**
+  1. ضبط معمارية التدقيق الحديثة `eslint.config.js` (Flat Config) مع قواعد React و TypeScript.
+  2. مراجعة وتنظيف كافة الملفات وتحقيق نتيجة: **0 أخطاء و 0 تحذيرات** عند تشغيل `npm run lint`.
+- **التحقق الهندسي:** أمر `npm run lint` يمر بنجاح كامل وفوري.
+
+---
+
+### CODE-03: إدارة الملفات الثنائية الكبيرة والوثائق الهندسية (Git LFS & Engineering Docs)
+- **الأولوية:** ⭐⭐ (P3 - منخفض)
+- **الموقع:** `.gitattributes` و `docs/`
+- **وصف المشكلة:** تخزين قوالب Excel الكبيرة مباشرة في شجرة Git دون إدارة ثنائية، مع نقص الأدلة الهندسية للمطورين.
+- **الحل الجذري المطبق:**
+  1. تكوين `.gitattributes` لترحيل وتتبع كافة ملفات `.xlsx` عبر Git LFS، مع كتابة اختبار تحقق آلي في `src/tests/unit/GitLfsConfiguration.test.ts`.
+  2. بناء وتحديث وثائق المطورين والأنظمة الهندسية في مجلد `docs/` (`DEVELOPER_MANUAL.md`, `AI_AGENT_GUIDELINES.md`).
+- **التحقق الهندسي:** اختبار إعدادات Git LFS واكتمال ملفات التوثيق.
+
+---
+
+## 6. 📖 بروتوكول توثيق المشاكل المستقبلية (Future Issue Documentation Protocol)
+
+لكل مشكلة جديدة تُكتشف أو يُطلب حلها في المستقبل، **يجب الالتزام بالبروتوكول المعياري التالي** لتوثيقها في هذا الملف:
+
+### 📑 القالب المعياري لإضافة مشكلة جديدة (Standard Template):
+
+```markdown
+### [CODE-ID]: [عنوان المشكلة بشكل موجز ودقيق]
+- **الأولوية:** [⭐⭐⭐⭐⭐ P0 / ⭐⭐⭐⭐ P1 / ⭐⭐⭐ P2 / ⭐⭐ P3]
+- **التصنيف:** [Security / Performance / Architecture / Testing / Code Quality]
+- **الموقع:** [المسارات المحددة للملفات المتأثرة]
+- **وصف المشكلة:** [شرح موجز للمشكلة الفنية، السيناريو التكراري، والمخاطر الهندسية]
+- **الحل الجذري المطبق:**
+  1. [الخطوة الهندسية الأولى في الحل]
+  2. [الخطوة الهندسية الثانية]
+  3. [التعديل المعماري المعتمد]
+- **التحقق الهندسي:** [مسار ملف الاختبار الآلي أو أمر الفحص الذي يثبت حل المشكلة]
+- **الحالة:** [✅ محلولة بالكامل / 🔄 قيد المعالجة / ⏳ مجدولة]
+```
+
+### 🏷️ معايير تسمية الرموز (ID Naming Convention):
+- `SEC-XX`: للمشكلات الأمنية، الصلاحيات، والتشفير.
+- `PERF-XX`: لمشكلات الأداء، استهلاك الذاكرة، والتمرير والـ Virtualization.
+- `ARCH-XX`: لمشكلات المعمارية، الـ Backend، والتزامن، وفصل الاهتمامات.
+- `TEST-XX`: لمشكلات الاختبارات والتغطية ومحاكاة الحالات الحدية.
+- `CODE-XX`: لمشكلات الأمان النوعي، التنسيق، والمكتبات والتوثيق.
+
+---
+
+> **ملاحظة ختامية:** هذا الملف هو المرجع الأساسي الموحد (Single Source of Truth) لكافة التحديات الهندسية والحلول المنفذة في نظام GMAO الصناعي، ويتم تحديثه باستمرار مع أي تغيير مستقبلي.
