@@ -39,6 +39,7 @@
    - [ARCH-04: التزامن اللحظي بين تبويبات المتصفح عبر BroadcastChannel وقمع الصدى](#arch-04-التزامن-اللحظي-بين-تبويبات-المتصفح-عبر-broadcastchannel-وقمع-الصدى)
    - [ARCH-05: حدود عزل الأخطاء (Error Boundaries) على مستوى كافة التبويبات الـ 24](#arch-05-حدود-عزل-الأخطاء-error-boundaries-على-مستوى-كافة-التبويبات-الـ-24)
    - [ARCH-06: نظام التسجيل المهيكل ومسار التدقيق الزمني للعمليات](#arch-06-نظام-التسجيل-المهيكل-ومسار-التدقيق-الزمني-للعمليات)
+   - [ARCH-07: إصلاح سباق التهيئة عند الإقلاع والترميم التلقائي للبيانات المفقودة بين الطبقات (Self-Healing Hydration & Race Condition Fix)](#arch-07-إصلاح-سباق-التهيئة-عند-الإقلاع-والترميم-التلقائي-للبيانات-المفقودة-بين-الطبقات-self-healing-hydration--race-condition-fix)
 
 4. [🧪 رابعاً: الاختبارات وتغطية الحالات الحدية (Testing & Quality Assurance — TEST)](#4--الاختبارات-وتغطية-الحالات-الحدية-testing--quality-assurance--test)
    - [TEST-01: اختبارات الخصائص العشوائية (Property-Based Testing) عبر fast-check](#test-01-اختبارات-الخصائص-العشوائية-property-based-testing-عبر-fast-check)
@@ -79,6 +80,7 @@
 | **ARCH-04** | تضارب التزامن بين التبويبات المتعددة | ⭐⭐⭐⭐ P1 | Architecture | ✅ محلولة 100% | `TabSynchronization.test.ts` |
 | **ARCH-05** | غياب Error Boundaries بالتبويبات | ⭐⭐⭐ P2 | Architecture | ✅ محلولة 100% | `AppRouter.jsx` |
 | **ARCH-06** | غياب Structured Logging المتخصص | ⭐⭐⭐ P2 | Architecture | ✅ محلولة 100% | `LoggerService.js` |
+| **ARCH-07** | فقدان جزئي للبيانات وسباق التهيئة قبل الهجرة | ⭐⭐⭐⭐⭐ P0 | Architecture / Persistence | ✅ محلولة 100% | `migrateStorage.js` + `useGmaoStore.ts` + `useGmaoPersistence.js` |
 | **TEST-01** | غياب Property-Based Testing | ⭐⭐⭐⭐ P1 | Testing | ✅ محلولة 100% | `incrementalIndex.property.test.ts` |
 | **TEST-02** | غياب اختبارات الحالات الحدية والكميات السالبة | ⭐⭐⭐ P2 | Testing | ✅ محلولة 100% | `stockCalculation.test.js` |
 | **TEST-03** | غياب اختبارات الأداء تحت الضغط العالي | ⭐⭐⭐ P2 | Testing | ✅ محلولة 100% | `PerformanceLargeScale.test.js` |
@@ -252,6 +254,29 @@
 - **الأولوية:** ⭐⭐⭐ (P2 - متوسط)
 - **الموقع:** `LoggerService.js` و `AccessLogService.js`
 - **الحل المطبق:** سجل تدقيق مهيكل يصنف الأخطاء والعمليات الحساسة.
+
+---
+
+### ARCH-07: إصلاح سباق التهيئة عند الإقلاع والترميم التلقائي للبيانات المفقودة بين الطبقات (Self-Healing Hydration & Race Condition Fix)
+- **الأولوية:** ⭐⭐⭐⭐⭐ (P0 - حرج للغاية)
+- **التصنيف:** Architecture / Persistence / Data Integrity
+- **الموقع:** `src/store/useGmaoStore.ts`, `src/infrastructure/persistence/migrateStorage.js`, `src/hooks/useGmaoPersistence.js`, `src/hooks/useAutoSave.js`
+- **وصف المشكلة:** ظهور بعض الصفحات فارغة تماماً (`Stock Actuel`, `Sortie/Entrée Rapide`, `Families`, `Templates`, `Entrepôt`, `Zones`) بينما بقيت صفحات أخرى مملوءة بالبيانات (`Machines`, `Preventive`, `Corrective`). كشف التحليل الهندسي عن 4 أسباب جذرية مترابطة:
+  1. **سباق التهيئة الزمني (Initialization Race Condition):** كان متجر `useGmaoStore` يُنشأ ويقرأ المفاتيح القياسية (`STORAGE_KEYS`) لحظة استيراد الملف (Module Import Time)، بينما كانت دالة الهجرة `migrateStorageOnce()` تُستدعى متأخرةً داخل `useEffect` في `useGmaoState.js` بعد انتهاء أول Render، مما جعل المتجر يقرأ مفاتيح غير مهاجرة كـ `[]` ثم يقوم `useAutoSave` بعد ثانية واحدة بالكتابة فوق المفاتيح بمصفوفات فارغة.
+  2. **شرط `DEMO_MODE` الحاجب في `loadCollection`:** كانت `loadCollection` ترفض إرجاع البيانات المرجعية (`demoSeed`) إذا لم يكن المفتاح `gmao_demo_data_loaded_v1` مضبوطاً صراحةً على `'true'` أو إذا كُتبت مصفوفة فارغة `[]` بالخطأ نتيجة السباق الزمني.
+  3. **استنزاف حصة `localStorage` بسبب حفظ `FULL_STATE_SNAPSHOT` أولاً:** كان `useAutoSave.js` يحفظ لقطة الحالة الكاملة الضخمة (`gmao_full_state_v1`) قبل المفاتيح الفردية، ولم يكن يحفظ كافة الجداول المرجعية (`families`, `templates`, `zones`, `types`, `designations`) في دفعة `IndexedDB`.
+  4. **تطابق أسماء خصائص القواميس وتطبيع الحركات في `useGmaoStore.ts`:** كان المتجر يستدعي `DataGateway.saveMovements` (بدلاً من `saveMouvements`) بدون تطبيع الحركات عبر `normalizeMovement`، ويخزن قواميس الصيانة التصحيحية بأسماء مختصرة (`actionsByPanne` بدلاً من `correctiveActionsByPanne`).
+- **الحل الجذري المطبق:**
+  1. **التنفيذ المتزامن المسبق للهجرة:** استدعاء `migrateStorageOnce()` بشكل متزامن في مطلع `useGmaoStore` قبل قراءة أي مفتاح من التخزين.
+  2. **الترميم الذاتي متعدد المراحل في `loadCollection` (`migrateStorage.js`):** طالما أن المستخدم لم يفعل وضع المصنع الفارغ الصريح (`startMode === 'empty'`), فإن أي مجموعة مفقودة أو فارغة يتم استرجاعها تلقائياً بالتدرج من:
+     - لقطة الحالة الموحدة `FULL_STATE_SNAPSHOT` (`gmao_full_state_v1`).
+     - أي مفتاح قديم متبقٍ في `LEGACY_KEY_MAP`.
+     - البيانات المرجعية المعتمدة (`demoSeed`).
+  3. **الترطيب العكسي التلقائي من `IndexedDB` (`L2 -> L1 Self-Healing Hydration`) في `useGmaoPersistence.js`:** فحص غير متزامن فور الإقلاع يستعيد أي جدول سقط من `localStorage` مباشرةً من قاعدة بيانات `IndexedDB` (`CIOB_GMAO_INDUSTRIAL_DB`).
+  4. **أولوية الحفظ والشمولية في `useAutoSave.js` و `useGmaoStore.ts`:** حفظ المفاتيح الفردية أولاً قبل `FULL_STATE_SNAPSHOT`، وتضمين جميع الجداول الـ 29 في دفعة `indexedDBService.setItemsBatch`، وتوحيد تطبيع الحركات (`normalizeMovement`) وأسماء خصائص الصيانة التصحيحية.
+  5. **مركز التحكم بوضع Demo Mode و Seed Data حسب القسم في `SettingsView.jsx` و `DataGateway.js`:** إضافة مفتاح تشغيل/إيقاف فوري لـ `Demo Mode` مع قائمة اختيار القسم المستهدف (`All Sections`, `Stock`, `Machines/Families/Templates`, `Entrepôt`, `Zones & Personnel`, `Mouvements & Sortie Rapide`, `Preventive`, `Corrective`) لتمكين حقن البيانات المرجعية أو تفريغها لكل قسم بشكل مستقل وآمن عبر `DataGateway.loadDemoSection` و `DataGateway.clearDemoSection`.
+- **التحقق الهندسي:** نجاح البناء (`compile_applet`)، فحص الكود (`npm run lint` بـ 0 أخطاء)، ونجاح جميع اختبارات المتجر والبيانات.
+- **الحالة:** ✅ محلولة بالكامل
 
 ---
 
