@@ -122,13 +122,58 @@ export default function SettingsView({
         total += (localStorage[x].length + x.length) * 2;
       }
     }
-    return (total / 1024).toFixed(1);
+    return Number((total / 1024).toFixed(1));
   }, [rawStock, mouvements, machines, families, templates, zones, technicians, operations, types]);
 
-  const maxLocalStorageSizeKB = 5120; // 5MB standard
+  // Configurable High-Capacity Browser Cache / IndexedDB Target Quota (Default: 1024 MB = 1 GB)
+  const [configuredQuotaMB, setConfiguredQuotaMB] = useState(() => {
+    const saved = Number(localStorage.getItem('gmao_target_storage_quota_mb'));
+    return saved && saved >= 256 ? saved : 1024; // 1 GB default
+  });
+
+  const [idbQuotaInfo, setIdbQuotaInfo] = useState({
+    usageMB: 0,
+    browserQuotaGB: 1,
+    isPersisted: false,
+  });
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const { indexedDBService } = await import('../../../infrastructure/database/IndexedDBService');
+        await indexedDBService.requestPersistentStorage();
+        const info = await indexedDBService.getStorageQuotaInfo(configuredQuotaMB);
+        if (mounted && info) {
+          setIdbQuotaInfo(info);
+        }
+      } catch {
+        // Fallback silently
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [configuredQuotaMB, rawStock, mouvements, machines, correctiveInterventions, preventiveTasks]);
+
+  const handleQuotaChange = (newQuotaMB) => {
+    const val = Number(newQuotaMB) || 1024;
+    setConfiguredQuotaMB(val);
+    localStorage.setItem('gmao_target_storage_quota_mb', String(val));
+    showToast?.(
+      `Capacité cible du Cache Navigateur (IndexedDB L2) configurée sur ${val >= 1024 ? `${val / 1024} GB` : `${val} MB`}.`,
+      'success'
+    );
+  };
+
+  const totalUsedMB = useMemo(() => {
+    const lsMB = localStorageSizeKB / 1024;
+    return Math.max(lsMB, idbQuotaInfo.usageMB || lsMB).toFixed(2);
+  }, [localStorageSizeKB, idbQuotaInfo.usageMB]);
+
   const storagePercentage = useMemo(() => {
-    return Math.min(100, (localStorageSizeKB / maxLocalStorageSizeKB) * 100).toFixed(1);
-  }, [localStorageSizeKB]);
+    return Math.min(100, (Number(totalUsedMB) / configuredQuotaMB) * 100).toFixed(2);
+  }, [totalUsedMB, configuredQuotaMB]);
 
   // Shared working directory path
   const [sharedFolderPath, setSharedFolderPath] = useState(() => {
@@ -1550,23 +1595,42 @@ export default function SettingsView({
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* LocalStorage Usage */}
+              {/* LocalStorage + IndexedDB High-Capacity Usage */}
               <div className="p-5 rounded-2xl border border-slate-200 bg-white shadow-xs space-y-3">
-                <div className="flex justify-between items-center text-xs font-bold text-slate-700">
+                <div className="flex justify-between items-center text-xs font-bold text-slate-700 gap-2">
                   <span className="flex items-center gap-1.5">
-                    <Database className="w-4 h-4 text-cyan-600" />
-                    Cache Navigateur Local
+                    <Database className="w-4 h-4 text-cyan-600 shrink-0" />
+                    <span>Cache Navigateur (IndexedDB L2 + L1)</span>
                   </span>
-                  <span className="font-mono text-cyan-800">{localStorageSizeKB} KB / 5 MB</span>
+                  <span className="font-mono text-cyan-800 bg-cyan-50 px-2 py-0.5 rounded-lg border border-cyan-200">
+                    {totalUsedMB} MB / {configuredQuotaMB >= 1024 ? `${configuredQuotaMB / 1024} GB` : `${configuredQuotaMB} MB`}
+                  </span>
                 </div>
-                <div className="w-full h-2 rounded-full bg-slate-100 border border-slate-200 overflow-hidden">
+                <div className="w-full h-2.5 rounded-full bg-slate-100 border border-slate-200 overflow-hidden">
                   <div
-                    className="h-full bg-cyan-600 rounded-full transition-all duration-500"
-                    style={{ width: `${storagePercentage}%` }}
+                    className="h-full bg-gradient-to-r from-cyan-600 to-emerald-500 rounded-full transition-all duration-500"
+                    style={{ width: `${Math.max(1.5, Number(storagePercentage))}%` }}
                   />
                 </div>
-                <div className="text-[11px] text-slate-400 font-medium">
-                  Le stockage local est occupe a {storagePercentage}%.
+                <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500 font-medium pt-0.5">
+                  <span>
+                    L1 Rapide: <b className="text-slate-700 font-mono">{localStorageSizeKB} KB</b> • L2 IndexedDB:{' '}
+                    <b className="text-emerald-700 font-mono">
+                      {idbQuotaInfo.browserQuotaGB > 1 ? `Jusqu'à ${idbQuotaInfo.browserQuotaGB} GB dispo` : '1 GB Haute Capacité'}
+                    </b>
+                  </span>
+                  <select
+                    value={configuredQuotaMB}
+                    onChange={(e) => handleQuotaChange(e.target.value)}
+                    className="h-6 px-2 rounded-md border border-slate-300 bg-slate-50 text-[10px] font-bold text-slate-800 cursor-pointer"
+                    title="Plafond de capacité cible (IndexedDB L2)"
+                  >
+                    <option value={256}>Plafond: 256 MB</option>
+                    <option value={512}>Plafond: 512 MB</option>
+                    <option value={1024}>Plafond: 1 GB (Recommandé)</option>
+                    <option value={2048}>Plafond: 2 GB (Big Data)</option>
+                    <option value={5120}>Plafond: 5 GB (Max Usine)</option>
+                  </select>
                 </div>
               </div>
 
