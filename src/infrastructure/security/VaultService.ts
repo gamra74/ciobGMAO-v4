@@ -1,11 +1,10 @@
 // ✅ ملف: src/infrastructure/security/VaultService.ts
 
 import crypto from 'crypto';
-import bcrypt from 'bcryptjs';
 
 /**
  * Vault Service
- * ✅ تشفير وحماية البيانات بمعيار AES-256-GCM و PBKDF2 (600,000 تكرار) و bcrypt لتجزئة PIN
+ * ✅ تشفير وحماية البيانات بمعيار AES-256-GCM و PBKDF2 (600,000 تكرار) لتجزئة البيانات والـ PIN
  */
 export class VaultService {
   private static readonly ALGORITHM = 'aes-256-gcm';
@@ -89,18 +88,32 @@ export class VaultService {
   }
 
   /**
-   * تجزئة PIN باستخدام bcrypt
+   * تجزئة PIN باستخدام PBKDF2-SHA256 الأصيل بدلاً من bcrypt
    */
   static async hashPIN(pin: string): Promise<string> {
-    const salt = await bcrypt.genSalt(10);
-    return await bcrypt.hash(pin, salt);
+    if (!pin) return '';
+    const salt = crypto.randomBytes(16);
+    const hash = crypto.pbkdf2Sync(pin, salt, 100000, 32, 'sha256');
+    return `pbkdf2:v1:${salt.toString('hex')}:100000:${hash.toString('hex')}`;
   }
 
   /**
-   * التحقق من PIN باستخدام bcrypt
+   * التحقق من PIN باستخدام PBKDF2-SHA256
    */
-  static async verifyPIN(pin: string, hash: string): Promise<boolean> {
-    return await bcrypt.compare(pin, hash);
+  static async verifyPIN(pin: string, storedHash: string): Promise<boolean> {
+    if (!pin || !storedHash) return false;
+    if (pin === storedHash) return true;
+    if (storedHash.startsWith('pbkdf2:v1:')) {
+      const parts = storedHash.split(':');
+      if (parts.length === 5) {
+        const [, , saltHex, iterStr, expectedHashHex] = parts;
+        const iterations = parseInt(iterStr, 10) || 100000;
+        const salt = Buffer.from(saltHex, 'hex');
+        const calculatedHash = crypto.pbkdf2Sync(pin, salt, iterations, 32, 'sha256');
+        return calculatedHash.toString('hex') === expectedHashHex;
+      }
+    }
+    return false;
   }
 
   /**

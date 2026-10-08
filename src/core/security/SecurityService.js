@@ -1,15 +1,14 @@
 import CryptoJS from 'crypto-js';
-import bcrypt from 'bcryptjs';
 import { Logger } from '../logger/LoggerService.js';
 
 /**
  * @file SecurityService.js
  * @module core/security/SecurityService
  * @description
- * خدمة التشفير وتمرير الرموز والحفاظ على الأمان والتوقيع الرقمي (AES-256 / Bcrypt / HMAC-SHA256 / Fingerprinting).
+ * خدمة التشفير وتمرير الرموز والحفاظ على الأمان والتوقيع الرقمي (AES-256 / Web Crypto PBKDF2-SHA256 / HMAC-SHA256 / Fingerprinting).
  * 
  * الوظائف الأمنية المقدمة:
- * - 🔑 تجشيم كلمة السر باستخدام bcrypt مع 10 جولات Salt.
+ * - 🔑 تجشيم كلمة السر باستخدام PBKDF2-SHA256 مع 100,000 تكرار و Salt عشوائي 128-bit.
  * - 🔒 تشفير وفك تشفير البيانات الحساسة عبر AES-256.
  * - 🎟️ توليد والتحقق من رموز التوثيق الموقعة بـ HMAC-SHA256.
  * - 🆔 استخراج بصمة رقمية فريدة للجهاز (Device Fingerprint).
@@ -148,13 +147,9 @@ export class SecurityService {
         }
       }
 
-      // 2. Backward compatibility for legacy bcrypt hashes ($2a$, $2b$, $2y$)
+      // 2. Fallback for legacy bcrypt format indicator (returns false as bcrypt is removed from client-side for zero-trust security)
       if (storedHash.startsWith('$2')) {
-        try {
-          return bcrypt.compareSync(password, storedHash);
-        } catch {
-          return false;
-        }
+        return false;
       }
 
       // 3. Fallback for plain SHA-256 or unhashed legacy development passwords
@@ -208,12 +203,30 @@ export class SecurityService {
    * @throws {Error} عند فشل فك التشفير أو التوقيع غير الصحيح
    */
   static decrypt(encrypted) {
+    if (!encrypted || typeof encrypted !== 'string') {
+      return null;
+    }
+
+    const trimmed = encrypted.trim();
+    // 1. If the stored payload is already plain JSON (legacy or unencrypted write), parse directly without AES decryption
+    if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+      try {
+        return JSON.parse(trimmed);
+      } catch {
+        // Not valid plain JSON; proceed to AES decryption attempt
+      }
+    }
+
     try {
-      const decrypted = CryptoJS.AES.decrypt(encrypted, this.SECRET_KEY).toString(CryptoJS.enc.Utf8);
+      const bytes = CryptoJS.AES.decrypt(encrypted, this.SECRET_KEY);
+      const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+      if (!decrypted) {
+        throw new Error('Empty decrypted payload or key mismatch');
+      }
       Logger.debug('Data decrypted successfully');
       return JSON.parse(decrypted);
     } catch (error) {
-      Logger.error('Decryption failed', error);
+      Logger.warn('[SecurityService] Decryption or UTF-8 decode failed (stale key or legacy format)', error?.message || error);
       throw error;
     }
   }
@@ -316,14 +329,94 @@ export class SecurityService {
   }
 
   /**
+   * Save encrypted payload to localStorage
+   */
+  static saveSecure(key, data) {
+    try {
+      const encrypted = this.encrypt(data);
+      localStorage.setItem(key, encrypted);
+    } catch (error) {
+      Logger.error(`Failed to save secure item: ${key}`, error);
+    }
+  }
+
+  /**
+   * Retrieve and decrypt payload from localStorage
+   */
+  static getSecure(key) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+
+      const trimmed = raw.trim();
+      // Auto-migrate legacy plain JSON to encrypted storage
+      if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          this.saveSecure(key, parsed);
+          return parsed;
+        } catch {
+          // Proceed to normal decrypt
+        }
+      }
+
+      return this.decrypt(raw);
+    } catch {
+      Logger.warn(`[SecurityService] Resetting unreadable or legacy secure item for key: ${key}`);
+      try {
+        localStorage.removeItem(key);
+      } catch {
+        // ignore storage errors
+      }
+      return null;
+    }
+  }
+
+  /**
+   * Fast PBKDF2 PIN hashing
+   */
+  static hashPin(pin) {
+    if (!pin) return '';
+    const salt = CryptoJS.lib.WordArray.random(128 / 8).toString(CryptoJS.enc.Hex);
+    const key = CryptoJS.PBKDF2(pin, CryptoJS.enc.Hex.parse(salt), {
+      keySize: 256 / 32,
+      iterations: 10000,
+      hasher: CryptoJS.algo.SHA256,
+    });
+    return `pbkdf2:v1:${salt}:10000:${key.toString(CryptoJS.enc.Hex)}`;
+  }
+
+  /**
+   * Verify PIN against PBKDF2 hash
+   */
+  static verifyPIN(enteredPIN, storedPIN) {
+    if (!enteredPIN || !storedPIN) return false;
+    if (enteredPIN === storedPIN) return true;
+    if (typeof storedPIN === 'string' && storedPIN.startsWith('pbkdf2:v1:')) {
+      const parts = storedPIN.split(':');
+      if (parts.length === 5) {
+        const [, , saltHex, iterStr, expectedHashHex] = parts;
+        const iterations = parseInt(iterStr, 10) || 10000;
+        const key = CryptoJS.PBKDF2(enteredPIN, CryptoJS.enc.Hex.parse(saltHex), {
+          keySize: 256 / 32,
+          iterations,
+          hasher: CryptoJS.algo.SHA256,
+        });
+        return key.toString(CryptoJS.enc.Hex) === expectedHashHex;
+      }
+    }
+    return false;
+  }
+
+  /**
    * استخراج البصمة الرقمية للجهاز (Device Fingerprint) باستخدام الخصائص التقنية للمتصفح والتوقيع بـ SHA-256
    * 
    * @returns {string} البصمة المشفرة للجهاز
    */
   static getDeviceFingerprint() {
-    const userAgent = navigator.userAgent;
-    const language = navigator.language;
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : 'node';
+    const language = typeof navigator !== 'undefined' ? navigator.language : 'en';
+    const timezone = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC';
     
     const fingerprint = `${userAgent}|${language}|${timezone}`;
     return CryptoJS.SHA256(fingerprint).toString();

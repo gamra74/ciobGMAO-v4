@@ -102,49 +102,50 @@ export class AuthService {
     ];
   }
 
-  initDefaultUsers() {
-    let users = null;
+  _loadUsers() {
+    let users;
     try {
-      users = JSON.parse(localStorage.getItem(USERS_KEY));
+      users = SecurityService.getSecure(USERS_KEY);
     } catch {
       users = null;
     }
 
     const defaultUsers = this.getDefaultUsersList();
-
-    if (!users || users.length === 0) {
+    if (!users || !Array.isArray(users) || users.length === 0) {
       users = defaultUsers;
-      localStorage.setItem(USERS_KEY, JSON.stringify(users));
-    } else {
-      // Ensure missing default accounts like 'magasinier' are present
-      let updated = false;
-      defaultUsers.forEach((defUser) => {
-        const idx = users.findIndex((u) => u.username === defUser.username || u.id === defUser.id);
-        if (idx === -1) {
-          users.push(defUser);
+      SecurityService.saveSecure(USERS_KEY, users);
+      indexedDBService.setItem(USERS_KEY, users).catch(() => {});
+    }
+    return users;
+  }
+
+  initDefaultUsers() {
+    const users = this._loadUsers();
+    const defaultUsers = this.getDefaultUsersList();
+
+    // Ensure missing default accounts like 'magasinier' are present
+    let updated = false;
+    defaultUsers.forEach((defUser) => {
+      const idx = users.findIndex((u) => u.username === defUser.username || u.id === defUser.id);
+      if (idx === -1) {
+        users.push(defUser);
+        updated = true;
+      } else {
+        // Enrich existing account with avatar and titleFr if missing
+        if (!users[idx].avatar || !users[idx].titleFr) {
+          users[idx] = { ...defUser, ...users[idx] };
           updated = true;
-        } else {
-          // Enrich existing account with avatar and titleFr if missing
-          if (!users[idx].avatar || !users[idx].titleFr) {
-            users[idx] = { ...defUser, ...users[idx] };
-            updated = true;
-          }
         }
-      });
-      if (updated) {
-        localStorage.setItem(USERS_KEY, JSON.stringify(users));
       }
+    });
+    if (updated) {
+      SecurityService.saveSecure(USERS_KEY, users);
+      indexedDBService.setItem(USERS_KEY, users).catch(() => {});
     }
   }
 
   getAvailableAccounts() {
-    let users;
-    try {
-      const parsed = JSON.parse(localStorage.getItem(USERS_KEY));
-      users = (parsed && Array.isArray(parsed) && parsed.length > 0) ? parsed : this.getDefaultUsersList();
-    } catch {
-      users = this.getDefaultUsersList();
-    }
+    const users = this._loadUsers();
     return users.map((u) => ({
       id: u.id,
       code: u.username,
@@ -164,13 +165,7 @@ export class AuthService {
       throw new Error('Le nouveau mot de passe doit comporter au moins 4 caractères.');
     }
 
-    let users;
-    try {
-      const parsed = JSON.parse(localStorage.getItem(USERS_KEY));
-      users = (parsed && Array.isArray(parsed) && parsed.length > 0) ? parsed : this.getDefaultUsersList();
-    } catch {
-      users = this.getDefaultUsersList();
-    }
+    const users = this._loadUsers();
 
     const idx = users.findIndex(
       (u) => u.username?.toLowerCase() === usernameOrId?.toLowerCase() || u.id === usernameOrId
@@ -183,7 +178,9 @@ export class AuthService {
     const newHash = await SecurityService.hashPassword(cleanPass);
     users[idx].passwordHash = newHash;
     delete users[idx].defaultPass;
-    localStorage.setItem(USERS_KEY, JSON.stringify(users));
+
+    SecurityService.saveSecure(USERS_KEY, users);
+    await indexedDBService.setItem(USERS_KEY, users).catch(() => {});
 
     // Update active session if it corresponds to this user
     const currentSession = this.getCurrentUser();
@@ -196,13 +193,7 @@ export class AuthService {
   }
 
   updateUserProfile(usernameOrId, updates = {}) {
-    let users;
-    try {
-      const parsed = JSON.parse(localStorage.getItem(USERS_KEY));
-      users = (parsed && Array.isArray(parsed) && parsed.length > 0) ? parsed : this.getDefaultUsersList();
-    } catch {
-      users = this.getDefaultUsersList();
-    }
+    const users = this._loadUsers();
 
     const idx = users.findIndex(
       (u) => u.username?.toLowerCase() === usernameOrId?.toLowerCase() || u.id === usernameOrId
@@ -213,7 +204,8 @@ export class AuthService {
     }
 
     users[idx] = { ...users[idx], ...updates };
-    localStorage.setItem(USERS_KEY, JSON.stringify(users));
+    SecurityService.saveSecure(USERS_KEY, users);
+    indexedDBService.setItem(USERS_KEY, users).catch(() => {});
 
     const currentSession = this.getCurrentUser();
     if (currentSession && (currentSession.username === users[idx].username || currentSession.id === users[idx].id)) {
@@ -227,7 +219,8 @@ export class AuthService {
 
   resetAllAccountsToDefaults() {
     const defaultUsers = this.getDefaultUsersList();
-    localStorage.setItem(USERS_KEY, JSON.stringify(defaultUsers));
+    SecurityService.saveSecure(USERS_KEY, defaultUsers);
+    indexedDBService.setItem(USERS_KEY, defaultUsers).catch(() => {});
     window.dispatchEvent(new Event('storage'));
     return defaultUsers;
   }
@@ -253,7 +246,7 @@ export class AuthService {
   }
 
   switchSessionToUser(usernameOrId) {
-    const users = JSON.parse(localStorage.getItem(USERS_KEY)) || this.getDefaultUsersList();
+    const users = this._loadUsers();
     const user = users.find(
       (u) => u.username?.toLowerCase() === usernameOrId?.toLowerCase() || u.id === usernameOrId
     );
@@ -327,7 +320,7 @@ export class AuthService {
     }
 
     // Standard user lookup by username or alias
-    const users = JSON.parse(localStorage.getItem(USERS_KEY)) || this.getDefaultUsersList();
+    const users = this._loadUsers();
     const user = users.find(
       (u) =>
         u.username?.toLowerCase() === cleanUsername ||
@@ -346,7 +339,8 @@ export class AuthService {
           const modernHash = await SecurityService.hashPassword(cleanPassword);
           user.passwordHash = modernHash;
           delete user.defaultPass;
-          localStorage.setItem(USERS_KEY, JSON.stringify(users));
+          SecurityService.saveSecure(USERS_KEY, users);
+          indexedDBService.setItem(USERS_KEY, users).catch(() => {});
         }
 
         const sessionPayload = {
