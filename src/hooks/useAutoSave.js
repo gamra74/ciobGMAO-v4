@@ -95,7 +95,10 @@ export function useAutoSave(state, debounceMs = 1000, onStateChange = null) {
     try {
       AutoBackupService.checkStorageQuota();
 
-      // Write strictly to canonical STORAGE_KEYS first so individual entity keys have priority over snapshot quota
+      // Save unified snapshot for export/restore & multi-tab sync
+      storageService.setItem(STORAGE_KEYS.FULL_STATE_SNAPSHOT, fullState);
+
+      // Write strictly to canonical STORAGE_KEYS
       if (users !== undefined) storageService.setItem(STORAGE_KEYS.PERSONNEL, users);
       if (technicians !== undefined) storageService.setItem(STORAGE_KEYS.TECHNICIANS, technicians);
       if (operations !== undefined) storageService.setItem(STORAGE_KEYS.OPERATIONS, operations);
@@ -126,35 +129,16 @@ export function useAutoSave(state, debounceMs = 1000, onStateChange = null) {
       if (correctiveTravauxAFaire !== undefined) storageService.setItem(STORAGE_KEYS.CORRECTIVE_TRAVAUX, correctiveTravauxAFaire);
       if (correctiveIntervenants !== undefined) storageService.setItem(STORAGE_KEYS.CORRECTIVE_INTERVENANTS, correctiveIntervenants);
 
-      // Save unified snapshot for export/restore & multi-tab sync
-      storageService.setItem(STORAGE_KEYS.FULL_STATE_SNAPSHOT, fullState);
-
-      // High performance single-transaction batch save to IndexedDB using ALL canonical keys
+      // High performance single-transaction batch save to IndexedDB using canonical keys
       indexedDBService.setItemsBatch({
         [STORAGE_KEYS.FULL_STATE_SNAPSHOT]: fullState,
         [STORAGE_KEYS.PERSONNEL]: users || [],
-        [STORAGE_KEYS.TECHNICIANS]: technicians || [],
-        [STORAGE_KEYS.OPERATIONS]: operations || [],
         [STORAGE_KEYS.MACHINES]: machines || [],
-        [STORAGE_KEYS.FAMILIES]: families || [],
-        [STORAGE_KEYS.TEMPLATES]: templates || [],
         [STORAGE_KEYS.BLUEPRINTS]: blueprints || [],
-        [STORAGE_KEYS.ZONES]: zones || [],
         [STORAGE_KEYS.WAREHOUSE_ITEMS]: warehouseItems || [],
-        [STORAGE_KEYS.ENTREPOT_COMPONENTS]: entrepotComponents || [],
-        [STORAGE_KEYS.COMP_GROUPS]: compGroups || [],
-        [STORAGE_KEYS.COMP_FAMILIES]: compFamilies || [],
-        [STORAGE_KEYS.COMP_TEMPLATES]: compTemplates || [],
-        [STORAGE_KEYS.PART_TYPES]: partTypes || [],
-        [STORAGE_KEYS.PART_DESIGNATIONS]: partDesignations || [],
         [STORAGE_KEYS.MOUVEMENTS]: mouvements || [],
         [STORAGE_KEYS.RAW_STOCK]: rawStock || [],
-        [STORAGE_KEYS.STOCK_TYPES]: types || [],
-        [STORAGE_KEYS.DESIGNATIONS]: designations || [],
         [STORAGE_KEYS.PREVENTIVE_TASKS]: preventiveTasks || [],
-        [STORAGE_KEYS.PREVENTIVE_ACTIONS]: preventiveActions || [],
-        [STORAGE_KEYS.PREVENTIVE_GUIDES]: preventiveGuides || [],
-        [STORAGE_KEYS.PREVENTIVE_PLANS]: preventivePlans || [],
         [STORAGE_KEYS.SORTIE_EXTERNE]: sortiesExterne || [],
         [STORAGE_KEYS.CORRECTIVE_INTERVENTIONS]: correctiveInterventions || [],
         [STORAGE_KEYS.CORRECTIVE_ACTIONS_BY_PANNE]: correctiveActionsByPanne || {},

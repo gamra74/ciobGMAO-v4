@@ -220,8 +220,6 @@ export interface GmaoStoreState {
   // ==========================================
   handleLoadDemoData: () => any;
   handleClearAllForRealFactory: () => any;
-  handleLoadDemoSection: (sectionId: string) => any;
-  handleClearDemoSection: (sectionId: string) => any;
 
   // ==========================================
   // 11. Multi-Tab State Synchronization

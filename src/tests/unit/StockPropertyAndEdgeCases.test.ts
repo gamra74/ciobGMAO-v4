@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import fc from 'fast-check';
-import { StockCalculationService } from '../../domain/pdr/services/StockCalculationService';
-import { calculateCurrentStock, getStockStatus } from '../../domain/stockCalculations';
-import { calculateStockStatus } from '../../utils/formulaEngine';
+import { StockCalculationService } from '../../domain/pdr/services/StockCalculationService.js';
+import { calculateCurrentStock, getStockStatus } from '../../domain/stockCalculations.js';
+import { calculateStockStatus } from '../../utils/formulaEngine.js';
 
 // Arbitraries for Property-Based Testing
 const stockItemArb = fc.record({

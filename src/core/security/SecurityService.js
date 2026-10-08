@@ -203,30 +203,12 @@ export class SecurityService {
    * @throws {Error} عند فشل فك التشفير أو التوقيع غير الصحيح
    */
   static decrypt(encrypted) {
-    if (!encrypted || typeof encrypted !== 'string') {
-      return null;
-    }
-
-    const trimmed = encrypted.trim();
-    // 1. If the stored payload is already plain JSON (legacy or unencrypted write), parse directly without AES decryption
-    if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
-      try {
-        return JSON.parse(trimmed);
-      } catch {
-        // Not valid plain JSON; proceed to AES decryption attempt
-      }
-    }
-
     try {
-      const bytes = CryptoJS.AES.decrypt(encrypted, this.SECRET_KEY);
-      const decrypted = bytes.toString(CryptoJS.enc.Utf8);
-      if (!decrypted) {
-        throw new Error('Empty decrypted payload or key mismatch');
-      }
+      const decrypted = CryptoJS.AES.decrypt(encrypted, this.SECRET_KEY).toString(CryptoJS.enc.Utf8);
       Logger.debug('Data decrypted successfully');
       return JSON.parse(decrypted);
     } catch (error) {
-      Logger.warn('[SecurityService] Decryption or UTF-8 decode failed (stale key or legacy format)', error?.message || error);
+      Logger.error('Decryption failed', error);
       throw error;
     }
   }
@@ -345,29 +327,11 @@ export class SecurityService {
    */
   static getSecure(key) {
     try {
-      const raw = localStorage.getItem(key);
-      if (!raw) return null;
-
-      const trimmed = raw.trim();
-      // Auto-migrate legacy plain JSON to encrypted storage
-      if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
-        try {
-          const parsed = JSON.parse(trimmed);
-          this.saveSecure(key, parsed);
-          return parsed;
-        } catch {
-          // Proceed to normal decrypt
-        }
-      }
-
-      return this.decrypt(raw);
-    } catch {
-      Logger.warn(`[SecurityService] Resetting unreadable or legacy secure item for key: ${key}`);
-      try {
-        localStorage.removeItem(key);
-      } catch {
-        // ignore storage errors
-      }
+      const encrypted = localStorage.getItem(key);
+      if (!encrypted) return null;
+      return this.decrypt(encrypted);
+    } catch (error) {
+      Logger.error(`Failed to get secure item for key: ${key}`, error);
       return null;
     }
   }

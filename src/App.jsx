@@ -130,8 +130,6 @@ export default function App() {
     duplicateBOMToTwins,
     handleLoadDemoData,
     handleClearAllForRealFactory,
-    handleLoadDemoSection,
-    handleClearDemoSection,
   } = gmaoState;
 
   // Auto Backup and Performance Monitor Initialization
@@ -348,8 +346,6 @@ export default function App() {
       handleForceSyncCorrectiveSeed,
       handleLoadDemoData,
       handleClearAllForRealFactory,
-      handleLoadDemoSection,
-      handleClearDemoSection,
     },
     setters: gmaoState,
     showToast,

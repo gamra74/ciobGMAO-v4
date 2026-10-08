@@ -7,13 +7,12 @@
 import { create } from 'zustand';
 import type { GmaoStoreState } from '../types/store';
 import { STORAGE_KEYS } from '../infrastructure/persistence/storageKeys';
-import { migrateStorageOnce, loadCollection } from '../infrastructure/persistence/migrateStorage';
+import { loadCollection } from '../infrastructure/persistence/migrateStorage';
 import { DataGateway } from '../application/DataGateway';
 import { storageService } from '../utils/storageService';
 import { dataIntegrityService } from '../services/dataIntegrityService';
 import { reactiveCalculationEngine } from '../services/reactiveCalculationEngine';
 import { loadBaselineCorrectiveData } from '../utils/baselineCorrective';
-import { normalizeMovement } from '../hooks/useMovementSubState';
 
 import initialStockSeed from '../data/stock/seedStockItems.json';
 import initialStockTypes from '../data/stock/seedStockTypes.json';
@@ -208,13 +207,10 @@ function getInitialPersonnel() {
 }
 
 function getInitialMovements() {
-  const loaded = loadCollection(STORAGE_KEYS.MOUVEMENTS, {
+  const mouvements = loadCollection(STORAGE_KEYS.MOUVEMENTS, {
     allowDemoFallback: true,
     demoSeed: initialMouvements,
   });
-  const mouvements = Array.isArray(loaded)
-    ? loaded.map((m: any, idx: number) => normalizeMovement(m, idx))
-    : [];
   return { mouvements };
 }
 
@@ -284,9 +280,6 @@ function getInitialCorrective() {
  * Zustand Global Store Instance
  */
 export const useGmaoStore = create<GmaoStoreState>((set, get) => {
-  // Run one-time legacy key migration synchronously BEFORE reading any canonical key
-  migrateStorageOnce();
-
   const stockInit = getInitialStock();
   const machinesInit = getInitialMachines();
   const warehouseInit = getInitialWarehouse();
@@ -523,12 +516,9 @@ export const useGmaoStore = create<GmaoStoreState>((set, get) => {
     mouvements: movementsInit.mouvements,
 
     setMouvements: (updater) => {
-      const rawNext = resolveUpdate(updater, get().mouvements);
-      const next = Array.isArray(rawNext)
-        ? rawNext.map((m: any, idx: number) => normalizeMovement(m, idx))
-        : [];
+      const next = resolveUpdate(updater, get().mouvements);
       set({ mouvements: next });
-      DataGateway.saveMouvements(next);
+      DataGateway.saveMovements(next);
     },
 
     // ==========================================
@@ -774,10 +764,10 @@ export const useGmaoStore = create<GmaoStoreState>((set, get) => {
     // 8. Corrective Nexus Slice
     // ==========================================
     correctiveInterventions: correctiveInit.interventions,
-    correctiveActionsByPanne: correctiveInit.actionsByPanne,
-    correctivePanneCategories: correctiveInit.panneCategories,
-    correctiveTravauxAFaire: correctiveInit.travauxAFaire,
-    correctiveIntervenants: correctiveInit.intervenants,
+    actionsByPanne: correctiveInit.actionsByPanne,
+    panneCategories: correctiveInit.panneCategories,
+    travauxAFaire: correctiveInit.travauxAFaire,
+    intervenants: correctiveInit.intervenants,
     activeLiveInterventionId: correctiveInit.activeLiveId,
 
     setCorrectiveInterventions: (updater) => {
@@ -787,26 +777,26 @@ export const useGmaoStore = create<GmaoStoreState>((set, get) => {
     },
 
     setCorrectiveActionsByPanne: (updater) => {
-      const next = resolveUpdate(updater, get().correctiveActionsByPanne);
-      set({ correctiveActionsByPanne: next });
+      const next = resolveUpdate(updater, get().actionsByPanne);
+      set({ actionsByPanne: next });
       DataGateway.saveCorrectiveActionsByPanne(next);
     },
 
     setCorrectivePanneCategories: (updater) => {
-      const next = resolveUpdate(updater, get().correctivePanneCategories);
-      set({ correctivePanneCategories: next });
+      const next = resolveUpdate(updater, get().panneCategories);
+      set({ panneCategories: next });
       DataGateway.saveCorrectivePanneCategories(next);
     },
 
     setCorrectiveTravauxAFaire: (updater) => {
-      const next = resolveUpdate(updater, get().correctiveTravauxAFaire);
-      set({ correctiveTravauxAFaire: next });
+      const next = resolveUpdate(updater, get().travauxAFaire);
+      set({ travauxAFaire: next });
       DataGateway.saveCorrectiveTravaux(next);
     },
 
     setCorrectiveIntervenants: (updater) => {
-      const next = resolveUpdate(updater, get().correctiveIntervenants);
-      set({ correctiveIntervenants: next });
+      const next = resolveUpdate(updater, get().intervenants);
+      set({ intervenants: next });
       DataGateway.saveCorrectiveIntervenants(next);
     },
 
@@ -822,7 +812,7 @@ export const useGmaoStore = create<GmaoStoreState>((set, get) => {
     },
 
     handleGetCorrectiveActionsForPanne: (anomalie) => {
-      const actionsByPanne = get().correctiveActionsByPanne;
+      const actionsByPanne = get().actionsByPanne;
       if (!anomalie || !actionsByPanne) return [];
       const anom = String(anomalie).trim();
       if (!anom) return [];
@@ -846,11 +836,11 @@ export const useGmaoStore = create<GmaoStoreState>((set, get) => {
       if (!panneKey || !actionText) return;
       const cleanAction = String(actionText).trim();
       if (!cleanAction) return;
-      const prev = get().correctiveActionsByPanne;
+      const prev = get().actionsByPanne;
       const existing = prev[panneKey] || [];
       if (existing.includes(cleanAction)) return;
       const updated = { ...prev, [panneKey]: [...existing, cleanAction] };
-      set({ correctiveActionsByPanne: updated });
+      set({ actionsByPanne: updated });
       DataGateway.saveCorrectiveActionsByPanne(updated);
     },
 
@@ -858,18 +848,18 @@ export const useGmaoStore = create<GmaoStoreState>((set, get) => {
       if (!panneKey || actionIndex < 0 || !newActionText) return;
       const cleanAction = String(newActionText).trim();
       if (!cleanAction) return;
-      const prev = get().correctiveActionsByPanne;
+      const prev = get().actionsByPanne;
       const existing = prev[panneKey] || [];
       if (actionIndex >= existing.length) return;
       const updatedList = existing.map((act, idx) => (idx === actionIndex ? cleanAction : act));
       const updated = { ...prev, [panneKey]: updatedList };
-      set({ correctiveActionsByPanne: updated });
+      set({ actionsByPanne: updated });
       DataGateway.saveCorrectiveActionsByPanne(updated);
     },
 
     handleDeleteCorrectiveActionForPanne: (panneKey, actionIndex) => {
       if (!panneKey || actionIndex < 0) return;
-      const prev = get().correctiveActionsByPanne;
+      const prev = get().actionsByPanne;
       const existing = prev[panneKey] || [];
       if (actionIndex >= existing.length) return;
       const updatedList = existing.filter((_, idx) => idx !== actionIndex);
@@ -879,7 +869,7 @@ export const useGmaoStore = create<GmaoStoreState>((set, get) => {
       } else {
         delete updated[panneKey];
       }
-      set({ correctiveActionsByPanne: updated });
+      set({ actionsByPanne: updated });
       DataGateway.saveCorrectiveActionsByPanne(updated);
     },
 
@@ -888,11 +878,11 @@ export const useGmaoStore = create<GmaoStoreState>((set, get) => {
       const cleanCat = String(category).trim().toUpperCase();
       const cleanCode = String(panneCode).trim();
       if (!cleanCode) return;
-      const prev = get().correctivePanneCategories;
+      const prev = get().panneCategories;
       const existingList = prev[cleanCat] || [];
       if (existingList.includes(cleanCode)) return;
       const updated = { ...prev, [cleanCat]: [...existingList, cleanCode] };
-      set({ correctivePanneCategories: updated });
+      set({ panneCategories: updated });
       DataGateway.saveCorrectivePanneCategories(updated);
     },
 
@@ -903,21 +893,21 @@ export const useGmaoStore = create<GmaoStoreState>((set, get) => {
       const cleanNew = String(newCode).trim();
       if (!cleanNew || cleanOld === cleanNew) return;
 
-      const prevCats = get().correctivePanneCategories;
+      const prevCats = get().panneCategories;
       const list = prevCats[cleanCat] || [];
       const updatedCats = {
         ...prevCats,
         [cleanCat]: list.map((item) => (item === cleanOld ? cleanNew : item)),
       };
 
-      const prevActions = get().correctiveActionsByPanne;
+      const prevActions = get().actionsByPanne;
       let updatedActions = prevActions;
       if (prevActions[cleanOld] && !prevActions[cleanNew]) {
         updatedActions = { ...prevActions, [cleanNew]: prevActions[cleanOld] };
         delete updatedActions[cleanOld];
       }
 
-      set({ correctivePanneCategories: updatedCats, correctiveActionsByPanne: updatedActions });
+      set({ panneCategories: updatedCats, actionsByPanne: updatedActions });
       DataGateway.saveCorrectivePanneCategories(updatedCats);
       DataGateway.saveCorrectiveActionsByPanne(updatedActions);
     },
@@ -927,20 +917,20 @@ export const useGmaoStore = create<GmaoStoreState>((set, get) => {
       const cleanCat = String(category).trim();
       const cleanCode = String(panneCode).trim();
 
-      const prevCats = get().correctivePanneCategories;
+      const prevCats = get().panneCategories;
       const list = prevCats[cleanCat] || [];
       const updatedCats = {
         ...prevCats,
         [cleanCat]: list.filter((item) => item !== cleanCode),
       };
 
-      const prevActions = get().correctiveActionsByPanne;
+      const prevActions = get().actionsByPanne;
       const updatedActions = { ...prevActions };
       if (updatedActions[cleanCode]) {
         delete updatedActions[cleanCode];
       }
 
-      set({ correctivePanneCategories: updatedCats, correctiveActionsByPanne: updatedActions });
+      set({ panneCategories: updatedCats, actionsByPanne: updatedActions });
       DataGateway.saveCorrectivePanneCategories(updatedCats);
       DataGateway.saveCorrectiveActionsByPanne(updatedActions);
     },
@@ -949,10 +939,10 @@ export const useGmaoStore = create<GmaoStoreState>((set, get) => {
       if (!travailText) return;
       const cleanText = String(travailText).trim();
       if (!cleanText) return;
-      const prev = get().correctiveTravauxAFaire;
+      const prev = get().travauxAFaire;
       if (prev.includes(cleanText)) return;
       const updated = [...prev, cleanText];
-      set({ correctiveTravauxAFaire: updated });
+      set({ travauxAFaire: updated });
       DataGateway.saveCorrectiveTravaux(updated);
     },
 
@@ -961,38 +951,38 @@ export const useGmaoStore = create<GmaoStoreState>((set, get) => {
       const cleanOld = String(oldText).trim();
       const cleanNew = String(newText).trim();
       if (!cleanNew || cleanOld === cleanNew) return;
-      const updated = get().correctiveTravauxAFaire.map((item) => (item === cleanOld ? cleanNew : item));
-      set({ correctiveTravauxAFaire: updated });
+      const updated = get().travauxAFaire.map((item) => (item === cleanOld ? cleanNew : item));
+      set({ travauxAFaire: updated });
       DataGateway.saveCorrectiveTravaux(updated);
     },
 
     handleDeleteTravail: (travailText) => {
       if (!travailText) return;
       const cleanText = String(travailText).trim();
-      const updated = get().correctiveTravauxAFaire.filter((item) => item !== cleanText);
-      set({ correctiveTravauxAFaire: updated });
+      const updated = get().travauxAFaire.filter((item) => item !== cleanText);
+      set({ travauxAFaire: updated });
       DataGateway.saveCorrectiveTravaux(updated);
     },
 
     handleResetCorrectiveActions: async () => {
       const baseline = await loadBaselineCorrectiveData();
       if (!baseline) return;
-      const correctiveActionsByPanne = baseline.actionsByPanne || {};
-      const correctivePanneCategories = baseline.panneCategories || {};
-      const correctiveTravauxAFaire = baseline.travauxAFaire || [];
-      const correctiveIntervenants = baseline.intervenants || [];
+      const actionsByPanne = baseline.actionsByPanne || {};
+      const panneCategories = baseline.panneCategories || {};
+      const travauxAFaire = baseline.travauxAFaire || [];
+      const intervenants = baseline.intervenants || [];
 
       set({
-        correctiveActionsByPanne,
-        correctivePanneCategories,
-        correctiveTravauxAFaire,
-        correctiveIntervenants,
+        actionsByPanne,
+        panneCategories,
+        travauxAFaire,
+        intervenants,
       });
 
-      DataGateway.saveCorrectiveActionsByPanne(correctiveActionsByPanne);
-      DataGateway.saveCorrectivePanneCategories(correctivePanneCategories);
-      DataGateway.saveCorrectiveTravaux(correctiveTravauxAFaire);
-      DataGateway.saveCorrectiveIntervenants(correctiveIntervenants);
+      DataGateway.saveCorrectiveActionsByPanne(actionsByPanne);
+      DataGateway.saveCorrectivePanneCategories(panneCategories);
+      DataGateway.saveCorrectiveTravaux(travauxAFaire);
+      DataGateway.saveCorrectiveIntervenants(intervenants);
     },
 
     handleForceSyncCorrectiveSeed: async () => {
@@ -1295,74 +1285,6 @@ export const useGmaoStore = create<GmaoStoreState>((set, get) => {
 
     handleClearAllForRealFactory: () =>
       DataGateway.clearAllForRealFactory({
-        setTypes: get().setTypes,
-        setDesignations: get().setDesignations,
-        setRawStock: get().setRawStock,
-        setFamilies: get().setFamilies,
-        setTemplates: get().setTemplates,
-        setBlueprints: get().setBlueprints,
-        setMachines: get().setMachines,
-        setZones: get().setZones,
-        setMachineElementsLedger: get().setMachineElementsLedger,
-        setWarehouseItems: get().setWarehouseItems,
-        setEntrepotComponents: get().setEntrepotComponents,
-        setCompGroups: get().setCompGroups,
-        setCompFamilies: get().setCompFamilies,
-        setCompTemplates: get().setCompTemplates,
-        setPartTypes: get().setPartTypes,
-        setPartDesignations: get().setPartDesignations,
-        setUsers: get().setUsers,
-        setTechnicians: get().setTechnicians,
-        setOperations: get().setOperations,
-        setMouvements: get().setMouvements,
-        setPreventiveTasks: get().setPreventiveTasks,
-        setPreventiveActions: get().setPreventiveActions,
-        setPreventiveGuides: get().setPreventiveGuides,
-        setPreventivePlans: get().setPreventivePlans,
-        setSortiesExterne: get().setSortiesExterne,
-        setCorrectiveInterventions: get().setCorrectiveInterventions,
-        setCorrectiveActionsByPanne: get().setCorrectiveActionsByPanne,
-        setCorrectivePanneCategories: get().setCorrectivePanneCategories,
-        setCorrectiveTravauxAFaire: get().setCorrectiveTravauxAFaire,
-        setCorrectiveIntervenants: get().setCorrectiveIntervenants,
-      }),
-
-    handleLoadDemoSection: (sectionId: string) =>
-      DataGateway.loadDemoSection(sectionId, {
-        setTypes: get().setTypes,
-        setDesignations: get().setDesignations,
-        setRawStock: get().setRawStock,
-        setFamilies: get().setFamilies,
-        setTemplates: get().setTemplates,
-        setBlueprints: get().setBlueprints,
-        setMachines: get().setMachines,
-        setZones: get().setZones,
-        setMachineElementsLedger: get().setMachineElementsLedger,
-        setWarehouseItems: get().setWarehouseItems,
-        setEntrepotComponents: get().setEntrepotComponents,
-        setCompGroups: get().setCompGroups,
-        setCompFamilies: get().setCompFamilies,
-        setCompTemplates: get().setCompTemplates,
-        setPartTypes: get().setPartTypes,
-        setPartDesignations: get().setPartDesignations,
-        setUsers: get().setUsers,
-        setTechnicians: get().setTechnicians,
-        setOperations: get().setOperations,
-        setMouvements: get().setMouvements,
-        setPreventiveTasks: get().setPreventiveTasks,
-        setPreventiveActions: get().setPreventiveActions,
-        setPreventiveGuides: get().setPreventiveGuides,
-        setPreventivePlans: get().setPreventivePlans,
-        setSortiesExterne: get().setSortiesExterne,
-        setCorrectiveInterventions: get().setCorrectiveInterventions,
-        setCorrectiveActionsByPanne: get().setCorrectiveActionsByPanne,
-        setCorrectivePanneCategories: get().setCorrectivePanneCategories,
-        setCorrectiveTravauxAFaire: get().setCorrectiveTravauxAFaire,
-        setCorrectiveIntervenants: get().setCorrectiveIntervenants,
-      }),
-
-    handleClearDemoSection: (sectionId: string) =>
-      DataGateway.clearDemoSection(sectionId, {
         setTypes: get().setTypes,
         setDesignations: get().setDesignations,
         setRawStock: get().setRawStock,

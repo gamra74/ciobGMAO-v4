@@ -255,7 +255,5 @@ export function useGmaoState() {
     // 10. Global Operations
     handleLoadDemoData: store.handleLoadDemoData,
     handleClearAllForRealFactory: store.handleClearAllForRealFactory,
-    handleLoadDemoSection: store.handleLoadDemoSection,
-    handleClearDemoSection: store.handleClearDemoSection,
   };
 }

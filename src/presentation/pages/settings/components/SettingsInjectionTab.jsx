@@ -7,19 +7,15 @@ import {
   Wrench,
   FileSpreadsheet,
   Trash2,
-  RefreshCw,
 } from 'lucide-react';
 
 /**
- * Data Injection Hub: Seed factory baseline data, reset datasets, toggle demo mode, and select target section.
+ * Data Injection Hub: Seed factory baseline data, reset datasets, toggle demo mode.
  */
 export default function SettingsInjectionTab({
   handleInjectAll,
   initialStock = [],
   handleInjectGroup,
-  handleClearGroup,
-  selectedDemoSection = 'all',
-  setSelectedDemoSection = () => {},
   initialMachines = [],
   initialZones = [],
   initialTechnicians = [],
@@ -34,50 +30,22 @@ export default function SettingsInjectionTab({
 }) {
   return (
     <div className="space-y-6">
-      <div className="p-4 rounded-2xl border border-emerald-200 bg-emerald-50/40 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-4">
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
             <Sliders className="w-4 h-4 text-emerald-600 shrink-0" />
-            Contrôle du Mode Démo (Seed Data) & Injection par Section
+            Centre d'injection des données d'usine
           </h3>
           <p className="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">
-            Choisissez la section cible pour activer/injecter ses données de référence (Seed Data) ou la vider individuellement.
+            Injectez les structures et données initiales du projet ou videz complètement la base.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={selectedDemoSection}
-            onChange={(e) => setSelectedDemoSection(e.target.value)}
-            className="h-9 px-3 rounded-xl border border-slate-300 bg-white text-xs font-bold text-slate-800"
-          >
-            <option value="all">🌐 Toutes les Sections (Usine Complète)</option>
-            <option value="stock">📦 Stock & Articles PDR</option>
-            <option value="parc">⚙️ Parc Machines, Familles & Modèles</option>
-            <option value="entrepot">🏭 Entrepôt & Organes</option>
-            <option value="zones">👥 Zones & Équipes</option>
-            <option value="mouvements">🔄 Mouvements & Sorties Externes</option>
-            <option value="preventive">📅 Maintenance Préventive</option>
-            <option value="corrective">🔧 Maintenance Corrective</option>
-          </select>
-          <button
-            type="button"
-            onClick={() => (selectedDemoSection === 'all' ? handleInjectAll() : handleInjectGroup(selectedDemoSection))}
-            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Injecter Seed</span>
-          </button>
-          {handleClearGroup && (
-            <button
-              type="button"
-              onClick={() => handleClearGroup(selectedDemoSection)}
-              className="px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs transition flex items-center gap-1 cursor-pointer"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Vider Section</span>
-            </button>
-          )}
-        </div>
+        <button
+          onClick={handleInjectAll}
+          className="w-full lg:w-auto px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-black text-white font-black text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
+        >
+          Injecter Toutes les Données Usine (Excel Twin)
+        </button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -102,50 +102,58 @@ export class AuthService {
     ];
   }
 
-  _loadUsers() {
-    let users;
+  initDefaultUsers() {
+    let users = null;
     try {
       users = SecurityService.getSecure(USERS_KEY);
+      if (!users) {
+        const raw = localStorage.getItem(USERS_KEY);
+        if (raw) users = JSON.parse(raw);
+      }
     } catch {
       users = null;
     }
 
     const defaultUsers = this.getDefaultUsersList();
+
     if (!users || !Array.isArray(users) || users.length === 0) {
       users = defaultUsers;
       SecurityService.saveSecure(USERS_KEY, users);
       indexedDBService.setItem(USERS_KEY, users).catch(() => {});
-    }
-    return users;
-  }
-
-  initDefaultUsers() {
-    const users = this._loadUsers();
-    const defaultUsers = this.getDefaultUsersList();
-
-    // Ensure missing default accounts like 'magasinier' are present
-    let updated = false;
-    defaultUsers.forEach((defUser) => {
-      const idx = users.findIndex((u) => u.username === defUser.username || u.id === defUser.id);
-      if (idx === -1) {
-        users.push(defUser);
-        updated = true;
-      } else {
-        // Enrich existing account with avatar and titleFr if missing
-        if (!users[idx].avatar || !users[idx].titleFr) {
-          users[idx] = { ...defUser, ...users[idx] };
+    } else {
+      // Ensure missing default accounts like 'magasinier' are present
+      let updated = false;
+      defaultUsers.forEach((defUser) => {
+        const idx = users.findIndex((u) => u.username === defUser.username || u.id === defUser.id);
+        if (idx === -1) {
+          users.push(defUser);
           updated = true;
+        } else {
+          // Enrich existing account with avatar and titleFr if missing
+          if (!users[idx].avatar || !users[idx].titleFr) {
+            users[idx] = { ...defUser, ...users[idx] };
+            updated = true;
+          }
         }
+      });
+      if (updated) {
+        SecurityService.saveSecure(USERS_KEY, users);
+        indexedDBService.setItem(USERS_KEY, users).catch(() => {});
       }
-    });
-    if (updated) {
-      SecurityService.saveSecure(USERS_KEY, users);
-      indexedDBService.setItem(USERS_KEY, users).catch(() => {});
     }
   }
 
   getAvailableAccounts() {
-    const users = this._loadUsers();
+    let users;
+    try {
+      users = SecurityService.getSecure(USERS_KEY);
+      if (!users || !Array.isArray(users) || users.length === 0) {
+        const raw = localStorage.getItem(USERS_KEY);
+        users = (raw) ? JSON.parse(raw) : this.getDefaultUsersList();
+      }
+    } catch {
+      users = this.getDefaultUsersList();
+    }
     return users.map((u) => ({
       id: u.id,
       code: u.username,
@@ -165,7 +173,16 @@ export class AuthService {
       throw new Error('Le nouveau mot de passe doit comporter au moins 4 caractères.');
     }
 
-    const users = this._loadUsers();
+    let users;
+    try {
+      users = SecurityService.getSecure(USERS_KEY);
+      if (!users || !Array.isArray(users)) {
+        const raw = localStorage.getItem(USERS_KEY);
+        users = (raw) ? JSON.parse(raw) : this.getDefaultUsersList();
+      }
+    } catch {
+      users = this.getDefaultUsersList();
+    }
 
     const idx = users.findIndex(
       (u) => u.username?.toLowerCase() === usernameOrId?.toLowerCase() || u.id === usernameOrId
@@ -193,7 +210,16 @@ export class AuthService {
   }
 
   updateUserProfile(usernameOrId, updates = {}) {
-    const users = this._loadUsers();
+    let users;
+    try {
+      users = SecurityService.getSecure(USERS_KEY);
+      if (!users || !Array.isArray(users)) {
+        const raw = localStorage.getItem(USERS_KEY);
+        users = (raw) ? JSON.parse(raw) : this.getDefaultUsersList();
+      }
+    } catch {
+      users = this.getDefaultUsersList();
+    }
 
     const idx = users.findIndex(
       (u) => u.username?.toLowerCase() === usernameOrId?.toLowerCase() || u.id === usernameOrId
@@ -246,7 +272,7 @@ export class AuthService {
   }
 
   switchSessionToUser(usernameOrId) {
-    const users = this._loadUsers();
+    const users = JSON.parse(localStorage.getItem(USERS_KEY)) || this.getDefaultUsersList();
     const user = users.find(
       (u) => u.username?.toLowerCase() === usernameOrId?.toLowerCase() || u.id === usernameOrId
     );
@@ -320,7 +346,7 @@ export class AuthService {
     }
 
     // Standard user lookup by username or alias
-    const users = this._loadUsers();
+    const users = JSON.parse(localStorage.getItem(USERS_KEY)) || this.getDefaultUsersList();
     const user = users.find(
       (u) =>
         u.username?.toLowerCase() === cleanUsername ||
@@ -339,8 +365,7 @@ export class AuthService {
           const modernHash = await SecurityService.hashPassword(cleanPassword);
           user.passwordHash = modernHash;
           delete user.defaultPass;
-          SecurityService.saveSecure(USERS_KEY, users);
-          indexedDBService.setItem(USERS_KEY, users).catch(() => {});
+          localStorage.setItem(USERS_KEY, JSON.stringify(users));
         }
 
         const sessionPayload = {

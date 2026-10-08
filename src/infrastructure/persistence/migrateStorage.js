@@ -90,158 +90,45 @@ export function migrateStorageOnce() {
 }
 
 /**
- * Maps canonical STORAGE_KEYS to their corresponding property name inside FULL_STATE_SNAPSHOT ('gmao_full_state_v1').
- */
-export const SNAPSHOT_FIELD_MAP = {
-  [STORAGE_KEYS.STOCK_TYPES]: 'types',
-  [STORAGE_KEYS.DESIGNATIONS]: 'designations',
-  [STORAGE_KEYS.RAW_STOCK]: 'rawStock',
-  [STORAGE_KEYS.FAMILIES]: 'families',
-  [STORAGE_KEYS.TEMPLATES]: 'templates',
-  [STORAGE_KEYS.BLUEPRINTS]: 'blueprints',
-  [STORAGE_KEYS.MACHINES]: 'machines',
-  [STORAGE_KEYS.ZONES]: 'zones',
-  [STORAGE_KEYS.MACHINE_BOM]: 'machineElementsLedger',
-  [STORAGE_KEYS.WAREHOUSE_ITEMS]: 'warehouseItems',
-  [STORAGE_KEYS.ENTREPOT_COMPONENTS]: 'entrepotComponents',
-  [STORAGE_KEYS.COMP_GROUPS]: 'compGroups',
-  [STORAGE_KEYS.COMP_FAMILIES]: 'compFamilies',
-  [STORAGE_KEYS.COMP_TEMPLATES]: 'compTemplates',
-  [STORAGE_KEYS.PART_TYPES]: 'partTypes',
-  [STORAGE_KEYS.PART_DESIGNATIONS]: 'partDesignations',
-  [STORAGE_KEYS.PERSONNEL]: 'users',
-  [STORAGE_KEYS.TECHNICIANS]: 'technicians',
-  [STORAGE_KEYS.OPERATIONS]: 'operations',
-  [STORAGE_KEYS.MOUVEMENTS]: 'mouvements',
-  [STORAGE_KEYS.PREVENTIVE_TASKS]: 'preventiveTasks',
-  [STORAGE_KEYS.PREVENTIVE_ACTIONS]: 'preventiveActions',
-  [STORAGE_KEYS.PREVENTIVE_GUIDES]: 'preventiveGuides',
-  [STORAGE_KEYS.PREVENTIVE_PLANS]: 'preventivePlans',
-  [STORAGE_KEYS.SORTIE_EXTERNE]: 'sortiesExterne',
-  [STORAGE_KEYS.CORRECTIVE_INTERVENTIONS]: 'correctiveInterventions',
-  [STORAGE_KEYS.CORRECTIVE_ACTIONS_BY_PANNE]: 'correctiveActionsByPanne',
-  [STORAGE_KEYS.CORRECTIVE_PANNE_CATEGORIES]: 'correctivePanneCategories',
-  [STORAGE_KEYS.CORRECTIVE_TRAVAUX]: 'correctiveTravauxAFaire',
-  [STORAGE_KEYS.CORRECTIVE_INTERVENANTS]: 'correctiveIntervenants',
-};
-
-/**
- * Checks whether the user explicitly cleared all data for a real-factory deployment.
- */
-export function isExplicitEmptyFactoryMode() {
-  try {
-    const startMode = storageService.getItem(STORAGE_KEYS.START_MODE);
-    const demoFlag = storageService.getItem(STORAGE_KEYS.DEMO_MODE);
-    return startMode === 'empty' || demoFlag === false || demoFlag === 'false';
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Unified collection loader for Zustand store, sub-state hooks, and domain services.
- * Strictly obeys SSOT and Relational Self-Healing rules:
- * 1. If the user explicitly triggered "Clear All for Real Factory" (`startMode === 'empty'`), respects empty `[]` collections.
- * 2. If a canonical key is missing or was accidentally overwritten with `[]` due to pre-migration race or quota eviction,
- *    attempts recovery from:
- *    a) `FULL_STATE_SNAPSHOT` (`gmao_full_state_v1`)
- *    b) Any surviving legacy key in `LEGACY_KEY_MAP`
- *    c) `demoSeed` (when `allowDemoFallback` is true and not in explicit empty factory mode)
+ * Unified collection loader for all use*SubState hooks and services.
+ * Strictly obeys SSOT rules:
+ * - Never rejects a short array (e.g. length === 0 or 2 is valid user data!).
+ * - Never auto-writes seed data to localStorage on startup.
+ * - Returns demoSeed in memory ONLY if canonical key does not exist AND user explicitly enabled DEMO_MODE.
  *
  * @param {string} canonicalKey - Key from STORAGE_KEYS
  * @param {object} options
- * @param {boolean} [options.allowDemoFallback=false] - Whether to return demoSeed when key is absent or uninitialized
- * @param {Array|Object} [options.demoSeed=[]] - Seed data to return when fallback is active
- * @param {Array|Object} [options.emptyDefault=[]] - Default empty value when in explicit empty mode
+ * @param {boolean} [options.allowDemoFallback=false] - Whether to return demoSeed when DEMO_MODE is active and key is absent
+ * @param {Array|Object} [options.demoSeed=[]] - Seed data to return when DEMO_MODE is true
+ * @param {Array|Object} [options.emptyDefault=[]] - Default empty value when key is absent and DEMO_MODE is false
  */
 export function loadCollection(
   canonicalKey,
   { allowDemoFallback = false, demoSeed = [], emptyDefault = [] } = {}
 ) {
-  const explicitEmpty = isExplicitEmptyFactoryMode();
   const saved = storageService.getItem(canonicalKey);
 
-  // 1. Non-empty array in canonical key is always authoritative
-  if (Array.isArray(saved) && saved.length > 0) {
+  // If saved is an array (even [] or length === 2), it is authoritative user data
+  if (Array.isArray(saved)) {
     return saved;
   }
 
-  // 2. Non-empty dictionary object in canonical key is authoritative
+  // Support dictionary objects (e.g. actionsByPanne, panneCategories)
   if (
     !Array.isArray(emptyDefault) &&
     saved &&
-    typeof saved === 'object' &&
-    !Array.isArray(saved) &&
-    Object.keys(saved).length > 0
+    typeof saved === 'object'
   ) {
     return saved;
   }
 
-  // 3. If user explicitly cleared factory data, an existing empty array/object or missing key returns emptyDefault
-  if (explicitEmpty) {
-    if (Array.isArray(saved)) return saved;
-    if (!Array.isArray(emptyDefault) && saved && typeof saved === 'object') return saved;
-    return emptyDefault;
-  }
+  // Key is absent from storage: return emptyDefault unless user explicitly activated DEMO_MODE
+  const demoFlag = storageService.getItem(STORAGE_KEYS.DEMO_MODE);
+  const startMode = storageService.getItem(STORAGE_KEYS.START_MODE);
+  const demoLoaded = (demoFlag === true || demoFlag === 'true') && startMode !== 'empty';
 
-  // 4. Self-Healing Step A: Check FULL_STATE_SNAPSHOT ('gmao_full_state_v1') if canonical key is empty/missing
-  const snapshotField = SNAPSHOT_FIELD_MAP[canonicalKey];
-  if (snapshotField) {
-    const snapshot = storageService.getItem(STORAGE_KEYS.FULL_STATE_SNAPSHOT);
-    if (snapshot && typeof snapshot === 'object') {
-      const snapVal = snapshot[snapshotField];
-      if (Array.isArray(snapVal) && snapVal.length > 0) {
-        storageService.setItem(canonicalKey, snapVal);
-        return snapVal;
-      }
-      if (
-        !Array.isArray(emptyDefault) &&
-        snapVal &&
-        typeof snapVal === 'object' &&
-        !Array.isArray(snapVal) &&
-        Object.keys(snapVal).length > 0
-      ) {
-        storageService.setItem(canonicalKey, snapVal);
-        return snapVal;
-      }
-    }
-  }
-
-  // 5. Self-Healing Step B: Check if any legacy key still holds non-empty data for this canonicalKey
-  for (const [legacyKey, targetCanonical] of Object.entries(LEGACY_KEY_MAP)) {
-    if (targetCanonical === canonicalKey) {
-      const legacyVal = storageService.getItem(legacyKey);
-      if (Array.isArray(legacyVal) && legacyVal.length > 0) {
-        storageService.setItem(canonicalKey, legacyVal);
-        return legacyVal;
-      }
-      if (
-        !Array.isArray(emptyDefault) &&
-        legacyVal &&
-        typeof legacyVal === 'object' &&
-        !Array.isArray(legacyVal) &&
-        Object.keys(legacyVal).length > 0
-      ) {
-        storageService.setItem(canonicalKey, legacyVal);
-        return legacyVal;
-      }
-    }
-  }
-
-  // 6. Self-Healing Step C: Fallback to baseline demoSeed if allowed and not in explicit empty factory mode
-  if (allowDemoFallback && demoSeed !== undefined && demoSeed !== null) {
-    const hasSeedContent =
-      (Array.isArray(demoSeed) && demoSeed.length > 0) ||
-      (!Array.isArray(demoSeed) && typeof demoSeed === 'object' && Object.keys(demoSeed).length > 0);
-    if (hasSeedContent) {
-      storageService.setItem(canonicalKey, demoSeed);
-      return demoSeed;
-    }
+  if (allowDemoFallback && demoLoaded && demoSeed !== undefined && demoSeed !== null) {
     return demoSeed;
-  }
-
-  if (Array.isArray(saved)) {
-    return saved;
   }
 
   return emptyDefault;

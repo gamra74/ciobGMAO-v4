@@ -24,7 +24,6 @@
    - [SEC-05: حماية الرقم السري الإداري Master PIN برمز معرفة صفرية بالذاكرة (Zero-Knowledge)](#sec-05-حماية-الرقم-السري-الإداري-master-pin-برمز-معرفة-صفرية-بالذاكرة-zero-knowledge)
    - [SEC-06: تقييد معدل المحاولات (Rate Limiting) على خادم Express والواجهة الأمامية](#sec-06-تقييد-معدل-المحاولات-rate-limiting-على-خادم-express-والواجهة-الأمامية)
    - [SEC-07: تعقيم وتحقق مدخلات البيانات عبر مخططات Zod الصارمة](#sec-07-تعقيم-وتحقق-مدخلات-البيانات-عبر-مخططات-zod-الصارمة)
-   - [SEC-08: معالجة خطأ فك التشفير (Malformed UTF-8 data) وتوحيد التشفير الآمن لحسابات المستخدمين](#sec-08-معالجة-خطأ-فك-التشفير-malformed-utf-8-data-وتوحيد-التشفير-الآمن-لحسابات-المستخدمين)
 
 2. [⚡ ثانياً: مشاكل الأداء ومعالجة البيانات الكبيرة (Performance & Scalability — PERF)](#2--مشاكل-الأداء-ومعالجة-البيانات-الكبيرة-performance--scalability--perf)
    - [PERF-01: تحسين إعادة الحساب في useAppCalculations وإلغاء الدورة المزدوجة](#perf-01-تحسين-إعادة-الحساب-في-useappcalculations-وإلغاء-الدورة-المزدوجة)
@@ -39,7 +38,6 @@
    - [ARCH-04: التزامن اللحظي بين تبويبات المتصفح عبر BroadcastChannel وقمع الصدى](#arch-04-التزامن-اللحظي-بين-تبويبات-المتصفح-عبر-broadcastchannel-وقمع-الصدى)
    - [ARCH-05: حدود عزل الأخطاء (Error Boundaries) على مستوى كافة التبويبات الـ 24](#arch-05-حدود-عزل-الأخطاء-error-boundaries-على-مستوى-كافة-التبويبات-الـ-24)
    - [ARCH-06: نظام التسجيل المهيكل ومسار التدقيق الزمني للعمليات](#arch-06-نظام-التسجيل-المهيكل-ومسار-التدقيق-الزمني-للعمليات)
-   - [ARCH-07: إصلاح سباق التهيئة عند الإقلاع والترميم التلقائي للبيانات المفقودة بين الطبقات (Self-Healing Hydration & Race Condition Fix)](#arch-07-إصلاح-سباق-التهيئة-عند-الإقلاع-والترميم-التلقائي-للبيانات-المفقودة-بين-الطبقات-self-healing-hydration--race-condition-fix)
 
 4. [🧪 رابعاً: الاختبارات وتغطية الحالات الحدية (Testing & Quality Assurance — TEST)](#4--الاختبارات-وتغطية-الحالات-الحدية-testing--quality-assurance--test)
    - [TEST-01: اختبارات الخصائص العشوائية (Property-Based Testing) عبر fast-check](#test-01-اختبارات-الخصائص-العشوائية-property-based-testing-عبر-fast-check)
@@ -52,7 +50,6 @@
    - [CODE-01: تعزيز أنواع TypeScript الصارمة للمحركات والمتجر](#code-01-تعزيز-أنواع-typescript-الصارمة-للمحركات-ومتجر)
    - [CODE-02: ضبط ESLint 10 و Prettier بدون أي تحذيرات أو أخطاء](#code-02-ضبط-eslint-10-و-prettier-بدون-أي-تحذيرات-أو-أخطاء)
    - [CODE-03: إدارة الملفات الثنائية الكبيرة عبر Git LFS وتوثيق docs/](#code-03-إدارة-الملفات-الثنائية-الكبيرة-عبر-git-lfs-وتوثيق-docs)
-   - [CODE-04: تطهير 353 ملفاً مكرراً يتيماً (.ts/.tsx) ناتجاً عن التراجع الجزئي لهجرة TypeScript ومنع انقسام الاستيراد (Split-Brain Resolution)](#code-04-تطهير-353-ملفاً-مكرراً-يتيماً-tstsx-ناتجاً-عن-التراجع-الجزئي-لهجرة-typescript-ومنع-انقسام-الاستيراد-split-brain-resolution)
 
 6. [📖 سادساً: بروتوكول توثيق المشاكل المستقبلية (Future Issue Documentation Protocol)](#6--بروتوكول-توثيق-المشاكل-المستقبلية-future-issue-documentation-protocol)
 
@@ -69,7 +66,6 @@
 | **SEC-05** | تخزين Master PIN في `localStorage` | ⭐⭐⭐⭐⭐ P0 | Security | ✅ محلولة 100% | `VaultService.test.ts` |
 | **SEC-06** | غياب Rate Limiting لحماية الدخول | ⭐⭐⭐⭐ P1 | Security | ✅ محلولة 100% | `AuthContext.test.js` + `server.ts` |
 | **SEC-07** | غياب تعقيم وتحقق Zod للمدخلات | ⭐⭐⭐⭐ P1 | Security | ✅ محلولة 100% | `ValidationService.ts` + `DataGateway.js` |
-| **SEC-08** | خطأ فك التشفير `Malformed UTF-8 data` لـ `gmao_auth_accounts_v2` | ⭐⭐⭐⭐⭐ P0 | Security | ✅ محلولة 100% | `SecurityService.js` + `AuthService.js` |
 | **PERF-01** | إعادة الحساب المستمرة في `useAppCalculations` | ⭐⭐⭐⭐ P1 | Performance | ✅ محلولة 100% | `AppCalculations.test.jsx` |
 | **PERF-02** | الاستخدام المفرط لـ `localStorage` | ⭐⭐⭐⭐ P1 | Performance | ✅ محلولة 100% | `IndexedDBService.test.ts` |
 | **PERF-03** | بطء القوائم الكبيرة وغياب Virtual Scrolling | ⭐⭐⭐⭐ P1 | Performance | ✅ محلولة 100% | `VirtualScrolling.test.tsx` |
@@ -80,7 +76,6 @@
 | **ARCH-04** | تضارب التزامن بين التبويبات المتعددة | ⭐⭐⭐⭐ P1 | Architecture | ✅ محلولة 100% | `TabSynchronization.test.ts` |
 | **ARCH-05** | غياب Error Boundaries بالتبويبات | ⭐⭐⭐ P2 | Architecture | ✅ محلولة 100% | `AppRouter.jsx` |
 | **ARCH-06** | غياب Structured Logging المتخصص | ⭐⭐⭐ P2 | Architecture | ✅ محلولة 100% | `LoggerService.js` |
-| **ARCH-07** | فقدان جزئي للبيانات وسباق التهيئة قبل الهجرة | ⭐⭐⭐⭐⭐ P0 | Architecture / Persistence | ✅ محلولة 100% | `migrateStorage.js` + `useGmaoStore.ts` + `useGmaoPersistence.js` |
 | **TEST-01** | غياب Property-Based Testing | ⭐⭐⭐⭐ P1 | Testing | ✅ محلولة 100% | `incrementalIndex.property.test.ts` |
 | **TEST-02** | غياب اختبارات الحالات الحدية والكميات السالبة | ⭐⭐⭐ P2 | Testing | ✅ محلولة 100% | `stockCalculation.test.js` |
 | **TEST-03** | غياب اختبارات الأداء تحت الضغط العالي | ⭐⭐⭐ P2 | Testing | ✅ محلولة 100% | `PerformanceLargeScale.test.js` |
@@ -89,7 +84,6 @@
 | **CODE-01** | تعزيز أمان الأنواع الصارمة TypeScript | ⭐⭐⭐ P2 | Code Quality | ✅ محلولة 100% | `src/types/` + `tsconfig.json` |
 | **CODE-02** | ضبط ESLint 10 و Prettier | ⭐⭐⭐ P2 | Code Quality | ✅ محلولة 100% | `eslint.config.js` (0 errors) |
 | **CODE-03** | إدارة ملفات Excel عبر Git LFS وتوثيق docs | ⭐⭐ P3 | Code Quality | ✅ محلولة 100% | `GitLfsConfiguration.test.ts` |
-| **CODE-04** | تطهير 353 ملفاً مكرراً (`.ts`/`.tsx`) ومنع Split-Brain | ⭐⭐⭐⭐⭐ P0 | Code Quality / Architecture | ✅ محلولة 100% | `npm run build` + `npm run lint` |
 
 ---
 
@@ -183,22 +177,6 @@
 
 ---
 
-### SEC-08: معالجة خطأ فك التشفير (Malformed UTF-8 data) وتوحيد التشفير الآمن لحسابات المستخدمين
-- **الأولوية:** ⭐⭐⭐⭐⭐ (P0 - حرج)
-- **التصنيف:** Security / Data Integrity
-- **الموقع:** `src/core/security/SecurityService.js` و `src/core/security/AuthService.js`
-- **وصف المشكلة:** ظهور خطأ `Decryption failed Error: Malformed UTF-8 data` عند إقلاع التطبيق واستدعاء `SecurityService.getSecure('gmao_auth_accounts_v2')` من `AuthService.initDefaultUsers` و `getAvailableAccounts`. كان السبب الجذري مزدوجاً:
-  1. محاولة `CryptoJS.AES.decrypt(...).toString(CryptoJS.enc.Utf8)` فك تشفير نصوص JSON خام غير مشفرة (مكتوبة سابقاً عبر `localStorage.setItem` المباشر في `AuthService.login`) أو نصوص مشفرة بمفتاح جلسة سابق (`_gmao_sec_instance_key`) مختلف.
-  2. وجود قراءات وكتابات غير متجانسة في `AuthService.js` تجمع بين `JSON.parse(localStorage.getItem(USERS_KEY))` المباشر وبين `SecurityService.getSecure(USERS_KEY)`.
-- **الحل الجذري المطبق:**
-  1. تحديث `SecurityService.decrypt()` و `SecurityService.getSecure()` للتحقق المسبق من صيغة البيانات؛ فإذا كانت بصيغة JSON نصية (`[` أو `{`) يتم تحليلها وترقيتها تلقائياً بالتشفير الآمن عبر `saveSecure()`.
-  2. في حال تعذر فك التشفير بسبب تغير مفتاح التشفير أو تلف البيانات القديمة، يتم تطهير المفتاح التالف من `localStorage` بهدوء وإعادة تهيئة الحسابات الافتراضية المشفرة دون رمي استثناءات `Malformed UTF-8 data`.
-  3. توحيد جميع عمليات قراءة وحفظ الحسابات في `AuthService.js` عبر الدالة المركزية `_loadUsers()` و `SecurityService.saveSecure(USERS_KEY, users)`.
-- **التحقق الهندسي:** نجاح البناء (`compile_applet`) والفحص (`npm run lint`) مع اختفاء أخطاء `Malformed UTF-8 data` نهائياً عند الإقلاع وتسجيل الدخول.
-- **الحالة:** ✅ محلولة بالكامل
-
----
-
 ## 2. ⚡ مشاكل الأداء ومعالجة البيانات الكبيرة (Performance & Scalability — PERF)
 
 ### PERF-01: تحسين إعادة الحساب في useAppCalculations وإلغاء الدورة المزدوجة
@@ -257,29 +235,6 @@
 
 ---
 
-### ARCH-07: إصلاح سباق التهيئة عند الإقلاع والترميم التلقائي للبيانات المفقودة بين الطبقات (Self-Healing Hydration & Race Condition Fix)
-- **الأولوية:** ⭐⭐⭐⭐⭐ (P0 - حرج للغاية)
-- **التصنيف:** Architecture / Persistence / Data Integrity
-- **الموقع:** `src/store/useGmaoStore.ts`, `src/infrastructure/persistence/migrateStorage.js`, `src/hooks/useGmaoPersistence.js`, `src/hooks/useAutoSave.js`
-- **وصف المشكلة:** ظهور بعض الصفحات فارغة تماماً (`Stock Actuel`, `Sortie/Entrée Rapide`, `Families`, `Templates`, `Entrepôt`, `Zones`) بينما بقيت صفحات أخرى مملوءة بالبيانات (`Machines`, `Preventive`, `Corrective`). كشف التحليل الهندسي عن 4 أسباب جذرية مترابطة:
-  1. **سباق التهيئة الزمني (Initialization Race Condition):** كان متجر `useGmaoStore` يُنشأ ويقرأ المفاتيح القياسية (`STORAGE_KEYS`) لحظة استيراد الملف (Module Import Time)، بينما كانت دالة الهجرة `migrateStorageOnce()` تُستدعى متأخرةً داخل `useEffect` في `useGmaoState.js` بعد انتهاء أول Render، مما جعل المتجر يقرأ مفاتيح غير مهاجرة كـ `[]` ثم يقوم `useAutoSave` بعد ثانية واحدة بالكتابة فوق المفاتيح بمصفوفات فارغة.
-  2. **شرط `DEMO_MODE` الحاجب في `loadCollection`:** كانت `loadCollection` ترفض إرجاع البيانات المرجعية (`demoSeed`) إذا لم يكن المفتاح `gmao_demo_data_loaded_v1` مضبوطاً صراحةً على `'true'` أو إذا كُتبت مصفوفة فارغة `[]` بالخطأ نتيجة السباق الزمني.
-  3. **استنزاف حصة `localStorage` بسبب حفظ `FULL_STATE_SNAPSHOT` أولاً:** كان `useAutoSave.js` يحفظ لقطة الحالة الكاملة الضخمة (`gmao_full_state_v1`) قبل المفاتيح الفردية، ولم يكن يحفظ كافة الجداول المرجعية (`families`, `templates`, `zones`, `types`, `designations`) في دفعة `IndexedDB`.
-  4. **تطابق أسماء خصائص القواميس وتطبيع الحركات في `useGmaoStore.ts`:** كان المتجر يستدعي `DataGateway.saveMovements` (بدلاً من `saveMouvements`) بدون تطبيع الحركات عبر `normalizeMovement`، ويخزن قواميس الصيانة التصحيحية بأسماء مختصرة (`actionsByPanne` بدلاً من `correctiveActionsByPanne`).
-- **الحل الجذري المطبق:**
-  1. **التنفيذ المتزامن المسبق للهجرة:** استدعاء `migrateStorageOnce()` بشكل متزامن في مطلع `useGmaoStore` قبل قراءة أي مفتاح من التخزين.
-  2. **الترميم الذاتي متعدد المراحل في `loadCollection` (`migrateStorage.js`):** طالما أن المستخدم لم يفعل وضع المصنع الفارغ الصريح (`startMode === 'empty'`), فإن أي مجموعة مفقودة أو فارغة يتم استرجاعها تلقائياً بالتدرج من:
-     - لقطة الحالة الموحدة `FULL_STATE_SNAPSHOT` (`gmao_full_state_v1`).
-     - أي مفتاح قديم متبقٍ في `LEGACY_KEY_MAP`.
-     - البيانات المرجعية المعتمدة (`demoSeed`).
-  3. **الترطيب العكسي التلقائي من `IndexedDB` (`L2 -> L1 Self-Healing Hydration`) في `useGmaoPersistence.js`:** فحص غير متزامن فور الإقلاع يستعيد أي جدول سقط من `localStorage` مباشرةً من قاعدة بيانات `IndexedDB` (`CIOB_GMAO_INDUSTRIAL_DB`).
-  4. **أولوية الحفظ والشمولية في `useAutoSave.js` و `useGmaoStore.ts`:** حفظ المفاتيح الفردية أولاً قبل `FULL_STATE_SNAPSHOT`، وتضمين جميع الجداول الـ 29 في دفعة `indexedDBService.setItemsBatch`، وتوحيد تطبيع الحركات (`normalizeMovement`) وأسماء خصائص الصيانة التصحيحية.
-  5. **مركز التحكم بوضع Demo Mode و Seed Data حسب القسم في `SettingsView.jsx` و `DataGateway.js`:** إضافة مفتاح تشغيل/إيقاف فوري لـ `Demo Mode` مع قائمة اختيار القسم المستهدف (`All Sections`, `Stock`, `Machines/Families/Templates`, `Entrepôt`, `Zones & Personnel`, `Mouvements & Sortie Rapide`, `Preventive`, `Corrective`) لتمكين حقن البيانات المرجعية أو تفريغها لكل قسم بشكل مستقل وآمن عبر `DataGateway.loadDemoSection` و `DataGateway.clearDemoSection`.
-- **التحقق الهندسي:** نجاح البناء (`compile_applet`)، فحص الكود (`npm run lint` بـ 0 أخطاء)، ونجاح جميع اختبارات المتجر والبيانات.
-- **الحالة:** ✅ محلولة بالكامل
-
----
-
 ## 4. 🧪 الاختبارات وتغطية الحالات الحدية (Testing & Quality Assurance — TEST)
 
 ### TEST-01 إلى TEST-05: شمولية الاختبارات
@@ -297,25 +252,9 @@
 ## 5. 📐 جودة الكود والأنواع الصارمة (Code Quality & Type Safety — CODE)
 
 ### CODE-01 إلى CODE-03: جودة الكود والمعايير
-- **TypeScript:** تعريف الأنواع الصارمة والواجهات المعمارية في `src/types/` وتكوين `tsconfig.json`.
+- **TypeScript:** تحويل الملفات والخدمات والأنواع الرئيسية إلى TypeScript الصارم.
 - **ESLint & Prettier:** نتيجة `npm run lint`: **0 أخطاء و 0 تحذيرات**.
 - **Git LFS & Docs:** إدارة قوالب Excel وتوثيق المعمارية في `docs/`.
-
----
-
-### CODE-04: تطهير 353 ملفاً مكرراً يتيماً (.ts/.tsx) ناتجاً عن التراجع الجزئي لهجرة TypeScript ومنع انقسام الاستيراد (Split-Brain Resolution)
-- **الأولوية:** ⭐⭐⭐⭐⭐ (P0 - حرج معمارياً)
-- **التصنيف:** Code Quality / Architecture
-- **الموقع:** شجرة المصدر `src/**` بالكامل (353 ملفاً مكرراً بامتداد `.ts` و `.tsx`)
-- **وصف المشكلة:** أثناء محاولة سابقة لهجرة المشروع بالكامل إلى TypeScript ثم إلغاء التعديل (Revert) بسبب ظهور تعارضات، بقيت 353 نسخة `.ts` و `.tsx` يتيمة (Orphaned Shadow Files) بجانب الملفات الأصلية الشغالة بامتداد `.js` و `.jsx` (مثل وجود `App.jsx` و `App.tsx` معاً، و `SecurityService.js` و `SecurityService.tsx` معاً). أدى ذلك إلى:
-  1. **انقسام الاستيراد (Split-Brain Module Resolution):** عند استيراد وحدة بدون امتداد (`import ... from './SecurityService'`)، كان المجمّع (Vite / Rollup) يربط بعض الملفات بنسخة `.js` المحدثة ويربط ملفات أخرى بنسخة `.ts`/`.tsx` القديمة المهجورة.
-  2. **تضارب الكائنات المفردة (Singleton & Key Mismatch):** نشوء نسختين منفصلتين من خدمات الأمان والحالة في الذاكرة، وتضليل أدوات التدقيق الآلي التي كانت تقرأ الملفات الميتة.
-- **الحل الجذري المطبق:**
-  1. حذف وإزالة كافة الملفات الـ 353 المكررة واليتيمة بامتداد `.ts` / `.tsx` مع الإبقاء الحصري على الملفات المعتمدة الشغالة (`.js` / `.jsx`) المتصلة بنقطة الدخول الحقيقية `/src/main.jsx` وملفات تعريف الأنواع في `src/types/`.
-  2. استعادة مبدأ **مصدر الحقيقة الواحد (Single Source of Truth)** لكل وحدة برمجية في المستودع.
-  3. اعتماد قاعدة هندسية صارمة: أي تحسين مستقبلي للأنواع يتم عبر `src/types/*.d.ts` و `JSDoc` دون توليد ملفات مزدوجة الامتداد في نفس المسار.
-- **التحقق الهندسي:** نجاح تجميع الإنتاج بالكامل (`compile_applet` / `vite build`) واجتياز فحص الكود الشامل (`npm run lint`) بـ **0 أخطاء و 0 تحذيرات**.
-- **الحالة:** ✅ محلولة بالكامل
 
 ---
 

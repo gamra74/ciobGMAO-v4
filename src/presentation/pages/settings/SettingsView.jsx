@@ -103,8 +103,6 @@ export default function SettingsView({
   onBulkImportCorrective,
   onLoadDemoData,
   onClearAllForRealFactory,
-  onLoadDemoSection,
-  onClearDemoSection,
   onExportExcel,
   onDownloadBlankTemplate,
   showToast,
@@ -122,58 +120,13 @@ export default function SettingsView({
         total += (localStorage[x].length + x.length) * 2;
       }
     }
-    return Number((total / 1024).toFixed(1));
+    return (total / 1024).toFixed(1);
   }, [rawStock, mouvements, machines, families, templates, zones, technicians, operations, types]);
 
-  // Configurable High-Capacity Browser Cache / IndexedDB Target Quota (Default: 1024 MB = 1 GB)
-  const [configuredQuotaMB, setConfiguredQuotaMB] = useState(() => {
-    const saved = Number(localStorage.getItem('gmao_target_storage_quota_mb'));
-    return saved && saved >= 256 ? saved : 1024; // 1 GB default
-  });
-
-  const [idbQuotaInfo, setIdbQuotaInfo] = useState({
-    usageMB: 0,
-    browserQuotaGB: 1,
-    isPersisted: false,
-  });
-
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const { indexedDBService } = await import('../../../infrastructure/database/IndexedDBService');
-        await indexedDBService.requestPersistentStorage();
-        const info = await indexedDBService.getStorageQuotaInfo(configuredQuotaMB);
-        if (mounted && info) {
-          setIdbQuotaInfo(info);
-        }
-      } catch {
-        // Fallback silently
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, [configuredQuotaMB, rawStock, mouvements, machines, correctiveInterventions, preventiveTasks]);
-
-  const handleQuotaChange = (newQuotaMB) => {
-    const val = Number(newQuotaMB) || 1024;
-    setConfiguredQuotaMB(val);
-    localStorage.setItem('gmao_target_storage_quota_mb', String(val));
-    showToast?.(
-      `Capacité cible du Cache Navigateur (IndexedDB L2) configurée sur ${val >= 1024 ? `${val / 1024} GB` : `${val} MB`}.`,
-      'success'
-    );
-  };
-
-  const totalUsedMB = useMemo(() => {
-    const lsMB = localStorageSizeKB / 1024;
-    return Math.max(lsMB, idbQuotaInfo.usageMB || lsMB).toFixed(2);
-  }, [localStorageSizeKB, idbQuotaInfo.usageMB]);
-
+  const maxLocalStorageSizeKB = 5120; // 5MB standard
   const storagePercentage = useMemo(() => {
-    return Math.min(100, (Number(totalUsedMB) / configuredQuotaMB) * 100).toFixed(2);
-  }, [totalUsedMB, configuredQuotaMB]);
+    return Math.min(100, (localStorageSizeKB / maxLocalStorageSizeKB) * 100).toFixed(1);
+  }, [localStorageSizeKB]);
 
   // Shared working directory path
   const [sharedFolderPath, setSharedFolderPath] = useState(() => {
@@ -191,10 +144,8 @@ export default function SettingsView({
   const [isDemoMode, setIsDemoMode] = useState(() => {
     const demoFlag = storageService.getItem(STORAGE_KEYS.DEMO_MODE);
     const startMode = storageService.getItem(STORAGE_KEYS.START_MODE);
-    return startMode !== 'empty' && demoFlag !== false && demoFlag !== 'false';
+    return startMode === 'demo' || (demoFlag === true && startMode !== 'empty');
   });
-
-  const [selectedDemoSection, setSelectedDemoSection] = useState('all');
 
   // Admin & Security Config States (Zero-Knowledge Vault)
   const {
@@ -796,24 +747,6 @@ export default function SettingsView({
     showToast('Parametres systeme mis a jour !', 'success');
   };
 
-  const handleToggleDemoMode = (nextValue) => {
-    setIsDemoMode(nextValue);
-    storageService.setItem(STORAGE_KEYS.START_MODE, nextValue ? 'demo' : 'empty');
-    storageService.setItem(STORAGE_KEYS.DEMO_MODE, nextValue);
-    if (nextValue) {
-      if (selectedDemoSection === 'all') {
-        handleInjectAll();
-      } else {
-        handleInjectGroup(selectedDemoSection);
-      }
-    } else {
-      showToast(
-        'Mode Démo (Seed Data Auto-Fallback) désactivé. Les sections vidées resteront vierges au démarrage.',
-        'info'
-      );
-    }
-  };
-
   // DATA INJECTION HUB HANDLERS
   const handleResetToZero = () => {
     if (
@@ -842,21 +775,6 @@ export default function SettingsView({
   };
 
   const handleInjectGroup = (group) => {
-    if (group === 'all') {
-      handleInjectAll();
-      return;
-    }
-
-    if (typeof onLoadDemoSection === 'function') {
-      const res = onLoadDemoSection(group);
-      setIsDemoMode(true);
-      showToast(
-        `Section [${res?.label || group}] initialisée avec succès (${res?.count || ''} éléments Seed Data).`,
-        'success'
-      );
-      return;
-    }
-
     if (group === 'stock') {
       setRawStock(initialStock);
       setTypes(initialStockTypes);
@@ -882,50 +800,6 @@ export default function SettingsView({
       }
       showToast(`${initialCorrectiveInterventions.length} interventions correctives injectees.`, 'success');
     }
-    setIsDemoMode(true);
-    storageService.setItem(STORAGE_KEYS.DEMO_MODE, true);
-    storageService.setItem(STORAGE_KEYS.START_MODE, 'demo');
-  };
-
-  const handleClearGroup = (group) => {
-    if (group === 'all') {
-      handleResetToZero();
-      return;
-    }
-
-    if (
-      !window.confirm(
-        `Voulez-vous vraiment vider les données de la section sélectionnée (${group.toUpperCase()}) ?`
-      )
-    ) {
-      return;
-    }
-
-    if (typeof onClearDemoSection === 'function') {
-      const res = onClearDemoSection(group);
-      showToast(`Section [${res?.label || group}] vidée avec succès.`, 'info');
-      return;
-    }
-
-    if (group === 'stock') {
-      setRawStock([]);
-      setTypes([]);
-    } else if (group === 'parc') {
-      setMachines([]);
-      setFamilies([]);
-      setTemplates([]);
-    } else if (group === 'zones') {
-      setZones([]);
-      setTechnicians([]);
-      setOperations([]);
-    } else if (group === 'mouvements') {
-      setMouvements([]);
-    } else if (group === 'preventive') {
-      if (setPreventiveTasks) setPreventiveTasks([]);
-    } else if (group === 'corrective') {
-      if (setCorrectiveInterventions) setCorrectiveInterventions([]);
-    }
-    showToast(`Section ${group} vidée.`, 'info');
   };
 
   const handleInjectAll = () => {
@@ -939,8 +813,6 @@ export default function SettingsView({
       handleInjectGroup('corrective');
     }
     setIsDemoMode(true);
-    storageService.setItem(STORAGE_KEYS.DEMO_MODE, true);
-    storageService.setItem(STORAGE_KEYS.START_MODE, 'demo');
     showToast('Injection globale de toute l\'usine (Données Démo SSOT) terminee avec succes.', 'success');
   };
 
@@ -1462,8 +1334,8 @@ export default function SettingsView({
             },
             {
               id: 'injection',
-              label: 'Mode Démo & Seed',
-              sub: 'Seed Data & Sections',
+              label: 'Injection',
+              sub: "Centre d'injection",
               icon: Sliders,
               color: 'text-emerald-600',
               activeBg: 'bg-emerald-50/70',
@@ -1595,42 +1467,23 @@ export default function SettingsView({
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* LocalStorage + IndexedDB High-Capacity Usage */}
+              {/* LocalStorage Usage */}
               <div className="p-5 rounded-2xl border border-slate-200 bg-white shadow-xs space-y-3">
-                <div className="flex justify-between items-center text-xs font-bold text-slate-700 gap-2">
+                <div className="flex justify-between items-center text-xs font-bold text-slate-700">
                   <span className="flex items-center gap-1.5">
-                    <Database className="w-4 h-4 text-cyan-600 shrink-0" />
-                    <span>Cache Navigateur (IndexedDB L2 + L1)</span>
+                    <Database className="w-4 h-4 text-cyan-600" />
+                    Cache Navigateur Local
                   </span>
-                  <span className="font-mono text-cyan-800 bg-cyan-50 px-2 py-0.5 rounded-lg border border-cyan-200">
-                    {totalUsedMB} MB / {configuredQuotaMB >= 1024 ? `${configuredQuotaMB / 1024} GB` : `${configuredQuotaMB} MB`}
-                  </span>
+                  <span className="font-mono text-cyan-800">{localStorageSizeKB} KB / 5 MB</span>
                 </div>
-                <div className="w-full h-2.5 rounded-full bg-slate-100 border border-slate-200 overflow-hidden">
+                <div className="w-full h-2 rounded-full bg-slate-100 border border-slate-200 overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-cyan-600 to-emerald-500 rounded-full transition-all duration-500"
-                    style={{ width: `${Math.max(1.5, Number(storagePercentage))}%` }}
+                    className="h-full bg-cyan-600 rounded-full transition-all duration-500"
+                    style={{ width: `${storagePercentage}%` }}
                   />
                 </div>
-                <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500 font-medium pt-0.5">
-                  <span>
-                    L1 Rapide: <b className="text-slate-700 font-mono">{localStorageSizeKB} KB</b> • L2 IndexedDB:{' '}
-                    <b className="text-emerald-700 font-mono">
-                      {idbQuotaInfo.browserQuotaGB > 1 ? `Jusqu'à ${idbQuotaInfo.browserQuotaGB} GB dispo` : '1 GB Haute Capacité'}
-                    </b>
-                  </span>
-                  <select
-                    value={configuredQuotaMB}
-                    onChange={(e) => handleQuotaChange(e.target.value)}
-                    className="h-6 px-2 rounded-md border border-slate-300 bg-slate-50 text-[10px] font-bold text-slate-800 cursor-pointer"
-                    title="Plafond de capacité cible (IndexedDB L2)"
-                  >
-                    <option value={256}>Plafond: 256 MB</option>
-                    <option value={512}>Plafond: 512 MB</option>
-                    <option value={1024}>Plafond: 1 GB (Recommandé)</option>
-                    <option value={2048}>Plafond: 2 GB (Big Data)</option>
-                    <option value={5120}>Plafond: 5 GB (Max Usine)</option>
-                  </select>
+                <div className="text-[11px] text-slate-400 font-medium">
+                  Le stockage local est occupe a {storagePercentage}%.
                 </div>
               </div>
 
@@ -1692,79 +1545,6 @@ export default function SettingsView({
                     Liaison:{' '}
                     {linkedFileHandle ? 'Connecte en Direct' : 'Simulation Active (Excel Twin)'}
                   </div>
-                </div>
-              </div>
-            </div>
-
-            {/* DEMO MODE & SEED DATA QUICK CONTROL CARD IN OVERVIEW */}
-            <div className="p-5 rounded-2xl border-2 border-cyan-200 bg-gradient-to-br from-cyan-50/70 via-white to-emerald-50/30 shadow-xs space-y-4">
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                <div className="flex items-start gap-3">
-                  <span className="p-2.5 bg-cyan-600 text-white rounded-xl shadow-xs shrink-0 mt-0.5">
-                    <Sliders className="w-5 h-5" />
-                  </span>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h4 className="text-sm font-black text-slate-900">
-                        Mode Démo (Seed Data SSOT) & Alimentation par Section
-                      </h4>
-                      <span
-                        className={`px-2 py-0.5 text-[10px] font-extrabold rounded-full border ${
-                          isDemoMode
-                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                            : 'bg-amber-100 text-amber-800 border-amber-300'
-                        }`}
-                      >
-                        {isDemoMode ? 'ACTIF (Auto-Healing Seed)' : 'DÉSACTIVÉ (Mode Usine Vierge)'}
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-500 leading-relaxed">
-                      Activez ou désactivez le Mode Démo, ou choisissez une section spécifique (`Stock`, `Machines`, `Entrepôt`, `Zones`, `Mouvements`, `Préventif`, `Correctif`) pour injecter ou réinitialiser ses données de référence instantanément.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-                  <select
-                    value={selectedDemoSection}
-                    onChange={(e) => setSelectedDemoSection(e.target.value)}
-                    className="h-9 px-3 rounded-xl border border-slate-300 bg-white text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-300 cursor-pointer"
-                  >
-                    <option value="all">🌐 Toutes les Sections (29 Tables)</option>
-                    <option value="stock">📦 Stock & Articles PDR ({rawStock.length})</option>
-                    <option value="parc">⚙️ Machines, Familles & Templates ({machines.length})</option>
-                    <option value="entrepot">🏭 Entrepôt & Organes ({warehouseItems.length})</option>
-                    <option value="zones">👥 Zones & Équipes ({zones.length + technicians.length})</option>
-                    <option value="mouvements">🔄 Mouvements & Sortie Rapide ({mouvements.length})</option>
-                    <option value="preventive">📅 Maintenance Préventive ({preventiveTasks.length})</option>
-                    <option value="corrective">🔧 Maintenance Corrective ({correctiveInterventions.length})</option>
-                  </select>
-
-                  <button
-                    type="button"
-                    onClick={() => handleInjectGroup(selectedDemoSection)}
-                    className="h-9 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-xs transition flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    <span>Activer / Injecter Seed</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleClearGroup(selectedDemoSection)}
-                    className="h-9 px-3 rounded-xl bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Désactiver / Vider</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('injection')}
-                    className="h-9 px-3 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-bold transition cursor-pointer"
-                  >
-                    Gérer par Section ➔
-                  </button>
                 </div>
               </div>
             </div>
@@ -2027,367 +1807,138 @@ export default function SettingsView({
           </div>
         )}
 
-        {/* PANEL 2: INJECTION HUB & DEMO MODE SEED DATA */}
+        {/* PANEL 2: INJECTION HUB */}
         {activeTab === 'injection' && (
           <div className="space-y-6">
-            {/* TOP CONTROL CENTER: DEMO MODE & SECTION SELECTOR */}
-            <div className="p-5 rounded-2xl border-2 border-emerald-200 bg-gradient-to-br from-emerald-50/70 via-white to-cyan-50/40 shadow-xs space-y-5">
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-emerald-100 pb-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2.5 flex-wrap">
-                    <span className="p-2 bg-emerald-600 text-white rounded-xl shadow-xs">
-                      <Sliders className="w-5 h-5" />
-                    </span>
-                    <div>
-                      <h3 className="text-sm font-black text-slate-900 flex items-center gap-2 flex-wrap">
-                        <span>Contrôle du Mode Démo (Seed Data SSOT) & Sélection par Section</span>
-                        <span
-                          className={`px-2.5 py-0.5 text-[10px] font-extrabold rounded-full border ${
-                            isDemoMode
-                              ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                              : 'bg-amber-100 text-amber-800 border-amber-300'
-                          }`}
-                        >
-                          {isDemoMode ? '🟢 MODE DÉMO ACTIF (Auto-Seed)' : '⚪ MODE USINE RÉELLE (Sans Seed Auto)'}
-                        </span>
-                      </h3>
-                      <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
-                        Activez ou désactivez le mode Démo (`DEMO_MODE`), choisissez une section spécifique à alimenter avec les données de référence (`Seed Data`) ou videz-la individuellement sans affecter le reste de l'application.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Live Switch Button for Demo Mode */}
-                <div className="flex items-center gap-3 bg-white px-4 py-2.5 rounded-xl border border-slate-200 shadow-2xs shrink-0">
-                  <div className="text-right">
-                    <div className="text-xs font-bold text-slate-800">
-                      {isDemoMode ? 'Mode Démo Activé' : 'Mode Démo Désactivé'}
-                    </div>
-                    <div className="text-[10px] text-slate-500">
-                      {isDemoMode ? 'Restauration auto si table vide' : 'Autorise les tables vides'}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={isDemoMode}
-                    onClick={() => handleToggleDemoMode(!isDemoMode)}
-                    className={`relative inline-flex h-7 w-13 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      isDemoMode ? 'bg-emerald-600' : 'bg-slate-300'
-                    }`}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-                        isDemoMode ? 'translate-x-6' : 'translate-x-0'
-                      }`}
-                    />
-                  </button>
-                </div>
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-emerald-600 shrink-0" />
+                  Centre d'injection des donnees d'usine
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">
+                  Injectez les structures et donnees initiales du projet ou videz completement la
+                  base.
+                </p>
               </div>
-
-              {/* Section Selector Bar + Targeted Actions */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-end bg-white/90 p-4 rounded-xl border border-emerald-100">
-                <div className="lg:col-span-5 space-y-1.5">
-                  <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider">
-                    1. Choisir la section cible (Département / Module) :
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={selectedDemoSection}
-                      onChange={(e) => setSelectedDemoSection(e.target.value)}
-                      className="w-full h-10 pl-3.5 pr-9 rounded-xl border border-slate-300 bg-white text-xs font-bold text-slate-800 shadow-2xs focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-500 cursor-pointer"
-                    >
-                      <option value="all">🌐 Toutes les Sections de l'Usine (Full Factory Seed — 29 Tables)</option>
-                      <option value="stock">📦 Stock Actuel, Types & Désignations PDR ({rawStock.length} actifs)</option>
-                      <option value="parc">⚙️ Parc Machines, Familles, Modèles, Blueprints & BOM ({machines.length} actifs)</option>
-                      <option value="entrepot">🏭 Entrepôt Réserve, Organes & Pièces Détachées ({warehouseItems.length} actifs)</option>
-                      <option value="zones">👥 Zones d'Ateliers, Techniciens & Opérateurs ({zones.length + technicians.length} actifs)</option>
-                      <option value="mouvements">🔄 Sortie/Entrée Rapide, Mouvements & Sorties Externes ({mouvements.length} actifs)</option>
-                      <option value="preventive">📅 Maintenance Préventive, Tâches, Guides & Actions ({preventiveTasks.length} actifs)</option>
-                      <option value="corrective">🔧 Maintenance Corrective, Demandes DI, BT & Catalogues ({correctiveInterventions.length} actifs)</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="lg:col-span-7 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => handleInjectGroup(selectedDemoSection)}
-                    className="flex-1 h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-sm transition flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    <span>
-                      {selectedDemoSection === 'all'
-                        ? 'Charger Tout le Seed Data (Activer Démo)'
-                        : 'Injecter Seed Data de la Section'}
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleClearGroup(selectedDemoSection)}
-                    className="h-10 px-4 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>
-                      {selectedDemoSection === 'all'
-                        ? 'Vider Toute l\'Usine'
-                        : 'Vider cette Section'}
-                    </span>
-                  </button>
-                </div>
-              </div>
+              <button
+                onClick={handleInjectAll}
+                className="w-full lg:w-auto px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-black text-white font-black text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
+              >
+                Injecter Toutes les Données Usine (Excel Twin)
+              </button>
             </div>
 
-            {/* INDIVIDUAL SECTION CARDS (7 COMPLETE MODULES) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Group 1: Stock */}
               <div className="p-5 rounded-2xl border border-slate-200 bg-white flex flex-col justify-between shadow-xs space-y-4">
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                      <Layers className="w-3.5 h-3.5 text-cyan-600" />
-                      1. Stock & Articles PDR
-                    </h4>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${rawStock.length > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'}`}>
-                      {rawStock.length} / {initialStock.length}
-                    </span>
-                  </div>
+                  <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider mb-2 flex items-center gap-2">
+                    <Layers className="w-3.5 h-3.5 text-cyan-600" />
+                    Stock & Articles ({initialStock.length})
+                  </h4>
                   <p className="text-[11px] text-slate-500 leading-relaxed">
-                    Injecte la nomenclature intégrale des articles de stock (`Stock Actuel`), leurs types et désignations PDR avec emplacements d'ateliers.
+                    Injecte la nomenclature intégrale des articles de stock avec leurs références, désignations et emplacements d'ateliers.
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleInjectGroup('stock')}
-                    className="flex-1 py-2 bg-cyan-50 border border-cyan-200 text-cyan-800 font-bold text-[11px] rounded-lg hover:bg-cyan-100 transition cursor-pointer"
-                  >
-                    Injecter Seed
-                  </button>
-                  <button
-                    onClick={() => handleClearGroup('stock')}
-                    className="px-3 py-2 bg-slate-50 border border-slate-200 text-rose-600 font-bold text-[11px] rounded-lg hover:bg-rose-50 hover:border-rose-200 transition cursor-pointer"
-                    title="Vider uniquement le Stock"
-                  >
-                    Vider
-                  </button>
-                </div>
+                <button
+                  onClick={() => handleInjectGroup('stock')}
+                  className="w-full py-2 bg-slate-50 border border-slate-200 text-slate-700 font-bold text-[11px] rounded-lg hover:bg-slate-100 transition cursor-pointer"
+                >
+                  Injecter le Stock
+                </button>
               </div>
 
-              {/* Group 2: Machines, Families & Templates */}
+              {/* Group 2: Machines */}
               <div className="p-5 rounded-2xl border border-slate-200 bg-white flex flex-col justify-between shadow-xs space-y-4">
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                      <Cpu className="w-3.5 h-3.5 text-emerald-600" />
-                      2. Parc Machines & Modèles
-                    </h4>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${machines.length > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'}`}>
-                      {machines.length} Mch • {families.length} Fam • {templates.length} Tpl
-                    </span>
-                  </div>
+                  <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider mb-2 flex items-center gap-2">
+                    <Cpu className="w-3.5 h-3.5 text-emerald-600" />
+                    Parc Machines ({initialMachines.length})
+                  </h4>
                   <p className="text-[11px] text-slate-500 leading-relaxed">
-                    Initialise les machines enregistrées, les familles (`Family Machine`), les modèles (`Templates Machine`), les blueprints et la nomenclature BOM.
+                    Initialise l'ensemble des 47 machines enregistrées de l'usine, leurs familles de production et gabarits structurels.
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleInjectGroup('parc')}
-                    className="flex-1 py-2 bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold text-[11px] rounded-lg hover:bg-emerald-100 transition cursor-pointer"
-                  >
-                    Injecter Seed
-                  </button>
-                  <button
-                    onClick={() => handleClearGroup('parc')}
-                    className="px-3 py-2 bg-slate-50 border border-slate-200 text-rose-600 font-bold text-[11px] rounded-lg hover:bg-rose-50 hover:border-rose-200 transition cursor-pointer"
-                    title="Vider le Parc Machines, Familles et Templates"
-                  >
-                    Vider
-                  </button>
-                </div>
+                <button
+                  onClick={() => handleInjectGroup('parc')}
+                  className="w-full py-2 bg-slate-50 border border-slate-200 text-slate-700 font-bold text-[11px] rounded-lg hover:bg-slate-100 transition cursor-pointer"
+                >
+                  Injecter le Parc Machines
+                </button>
               </div>
 
-              {/* Group 3: Entrepôt & Réserve */}
+              {/* Group 3: Teams & Zones */}
               <div className="p-5 rounded-2xl border border-slate-200 bg-white flex flex-col justify-between shadow-xs space-y-4">
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                      <Package className="w-3.5 h-3.5 text-violet-600" />
-                      3. Entrepôt & Organes
-                    </h4>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${warehouseItems.length > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'}`}>
-                      {warehouseItems.length} articles
-                    </span>
-                  </div>
+                  <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider mb-2 flex items-center gap-2">
+                    <Users className="w-3.5 h-3.5 text-indigo-600" />
+                    Zones & Équipes ({initialZones.length + initialTechnicians.length})
+                  </h4>
                   <p className="text-[11px] text-slate-500 leading-relaxed">
-                    Initialise le magasin de réserve (`Entrepôt`), les groupes/familles/modèles d'organes et le référentiel des pièces détachées.
+                    Injecte les 14 zones d'ateliers, les superviseurs d'opérations et le corps des techniciens qualifiés.
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleInjectGroup('entrepot')}
-                    className="flex-1 py-2 bg-violet-50 border border-violet-200 text-violet-800 font-bold text-[11px] rounded-lg hover:bg-violet-100 transition cursor-pointer"
-                  >
-                    Injecter Seed
-                  </button>
-                  <button
-                    onClick={() => handleClearGroup('entrepot')}
-                    className="px-3 py-2 bg-slate-50 border border-slate-200 text-rose-600 font-bold text-[11px] rounded-lg hover:bg-rose-50 hover:border-rose-200 transition cursor-pointer"
-                    title="Vider l'Entrepôt"
-                  >
-                    Vider
-                  </button>
-                </div>
+                <button
+                  onClick={() => handleInjectGroup('zones')}
+                  className="w-full py-2 bg-slate-50 border border-slate-200 text-slate-700 font-bold text-[11px] rounded-lg hover:bg-slate-100 transition cursor-pointer"
+                >
+                  Injecter les Équipes
+                </button>
               </div>
 
-              {/* Group 4: Teams & Zones */}
+              {/* Group 4: Mouvements */}
               <div className="p-5 rounded-2xl border border-slate-200 bg-white flex flex-col justify-between shadow-xs space-y-4">
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                      <Users className="w-3.5 h-3.5 text-indigo-600" />
-                      4. Zones & Équipes
-                    </h4>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${zones.length > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'}`}>
-                      {zones.length} Zones • {technicians.length} Techs
-                    </span>
-                  </div>
+                  <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider mb-2 flex items-center gap-2">
+                    <Activity className="w-3.5 h-3.5 text-amber-600" />
+                    Mouvements Historiques ({initialMouvements.length})
+                  </h4>
                   <p className="text-[11px] text-slate-500 leading-relaxed">
-                    Injecte les 14 zones d'ateliers (`Zones`), les superviseurs d'opérations et le corps des techniciens qualifiés.
+                    Injecte les 665 écritures de mouvements de stock (Sorties, Entrées, Sorties Externes, Bons de Commande).
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleInjectGroup('zones')}
-                    className="flex-1 py-2 bg-indigo-50 border border-indigo-200 text-indigo-800 font-bold text-[11px] rounded-lg hover:bg-indigo-100 transition cursor-pointer"
-                  >
-                    Injecter Seed
-                  </button>
-                  <button
-                    onClick={() => handleClearGroup('zones')}
-                    className="px-3 py-2 bg-slate-50 border border-slate-200 text-rose-600 font-bold text-[11px] rounded-lg hover:bg-rose-50 hover:border-rose-200 transition cursor-pointer"
-                    title="Vider les Zones et Équipes"
-                  >
-                    Vider
-                  </button>
-                </div>
+                <button
+                  onClick={() => handleInjectGroup('mouvements')}
+                  className="w-full py-2 bg-slate-50 border border-slate-200 text-slate-700 font-bold text-[11px] rounded-lg hover:bg-slate-100 transition cursor-pointer"
+                >
+                  Injecter les Mouvements
+                </button>
               </div>
 
-              {/* Group 5: Mouvements & Sortie/Entrée Rapide */}
-              <div className="p-5 rounded-2xl border border-slate-200 bg-white flex flex-col justify-between shadow-xs space-y-4">
+              {/* Group 5: Interventions Correctives */}
+              <div className="p-5 rounded-2xl border border-slate-200 bg-white flex flex-col justify-between shadow-xs space-y-4 col-span-1 sm:col-span-2 lg:col-span-1">
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                      <Activity className="w-3.5 h-3.5 text-amber-600" />
-                      5. Mouvements & Sortie Rapide
-                    </h4>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${mouvements.length > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'}`}>
-                      {mouvements.length} mvts
-                    </span>
-                  </div>
+                  <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider mb-2 flex items-center gap-2">
+                    <Wrench className="w-3.5 h-3.5 text-rose-600" />
+                    Interventions Correctives ({initialCorrectiveInterventions.length})
+                  </h4>
                   <p className="text-[11px] text-slate-500 leading-relaxed">
-                    Injecte les écritures de mouvements de stock (`Sortie/Entrée Rapide`, Sorties Internes, Entrées, Sorties Externes, Commandes).
+                    Injecte les 800 fiches de dépannage et bons de travail historiques (Demandes, Pannes, Diagnostic, Réparations).
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleInjectGroup('mouvements')}
-                    className="flex-1 py-2 bg-amber-50 border border-amber-200 text-amber-800 font-bold text-[11px] rounded-lg hover:bg-amber-100 transition cursor-pointer"
-                  >
-                    Injecter Seed
-                  </button>
-                  <button
-                    onClick={() => handleClearGroup('mouvements')}
-                    className="px-3 py-2 bg-slate-50 border border-slate-200 text-rose-600 font-bold text-[11px] rounded-lg hover:bg-rose-50 hover:border-rose-200 transition cursor-pointer"
-                    title="Vider les Mouvements"
-                  >
-                    Vider
-                  </button>
-                </div>
-              </div>
-
-              {/* Group 6: Maintenance Préventive */}
-              <div className="p-5 rounded-2xl border border-slate-200 bg-white flex flex-col justify-between shadow-xs space-y-4">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                      <Clock className="w-3.5 h-3.5 text-teal-600" />
-                      6. Maintenance Préventive
-                    </h4>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${preventiveTasks.length > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'}`}>
-                      {preventiveTasks.length} tâches
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 leading-relaxed">
-                    Injecte le planning préventif complet, les gammes opératoires, guides et actions de maintenance périodique.
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleInjectGroup('preventive')}
-                    className="flex-1 py-2 bg-teal-50 border border-teal-200 text-teal-800 font-bold text-[11px] rounded-lg hover:bg-teal-100 transition cursor-pointer"
-                  >
-                    Injecter Seed
-                  </button>
-                  <button
-                    onClick={() => handleClearGroup('preventive')}
-                    className="px-3 py-2 bg-slate-50 border border-slate-200 text-rose-600 font-bold text-[11px] rounded-lg hover:bg-rose-50 hover:border-rose-200 transition cursor-pointer"
-                    title="Vider le Préventif"
-                  >
-                    Vider
-                  </button>
-                </div>
-              </div>
-
-              {/* Group 7: Interventions Correctives */}
-              <div className="p-5 rounded-2xl border border-slate-200 bg-white flex flex-col justify-between shadow-xs space-y-4 sm:col-span-2 lg:col-span-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <Wrench className="w-3.5 h-3.5 text-rose-600" />
-                      <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">
-                        7. Maintenance Corrective & Catalogues Pannes
-                      </h4>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${correctiveInterventions.length > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'}`}>
-                        {correctiveInterventions.length} interventions
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 leading-relaxed">
-                      Injecte les 800 fiches de dépannage et bons de travail historiques (Demandes DI, Pannes, Diagnostic, Réparations et Catalogues d'actions).
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={() => handleInjectGroup('corrective')}
-                      className="px-4 py-2 bg-rose-50 border border-rose-200 text-rose-800 font-bold text-[11px] rounded-lg hover:bg-rose-100 transition cursor-pointer"
-                    >
-                      Injecter Seed Correctif
-                    </button>
-                    <button
-                      onClick={() => handleClearGroup('corrective')}
-                      className="px-3 py-2 bg-slate-50 border border-slate-200 text-rose-600 font-bold text-[11px] rounded-lg hover:bg-rose-50 hover:border-rose-200 transition cursor-pointer"
-                    >
-                      Vider
-                    </button>
-                  </div>
-                </div>
+                <button
+                  onClick={() => handleInjectGroup('corrective')}
+                  className="w-full py-2 bg-slate-50 border border-slate-200 text-rose-700 font-bold text-[11px] rounded-lg hover:bg-rose-50 border-rose-200 transition cursor-pointer"
+                >
+                  Injecter le Correctif
+                </button>
               </div>
             </div>
 
             <div className="pt-5 border-t border-slate-100 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
               <div className="flex flex-wrap items-center gap-4 min-w-0">
                 <span className="text-xs font-bold text-slate-700">
-                  Comportement au démarrage (Self-Healing Seed Fallback) :
+                  Parametrage de demarrage par defaut:
                 </span>
                 <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-600">
                   <input
                     type="checkbox"
                     checked={isDemoMode}
-                    onChange={(e) => handleToggleDemoMode(e.target.checked)}
-                    className="rounded text-emerald-600 border-slate-300 focus:ring-emerald-500"
+                    onChange={(e) => setIsDemoMode(e.target.checked)}
+                    className="rounded text-cyan-600 border-slate-300 focus:ring-cyan-500"
                   />
-                  <span>Réinjecter automatiquement les données de référence si une section est vide au démarrage</span>
+                  <span>Afficher les maquettes et fiches d'exemples au demarrage</span>
                 </label>
               </div>
               <div className="flex flex-col sm:flex-row gap-2 w-full xl:w-auto">
@@ -2410,14 +1961,14 @@ export default function SettingsView({
                   onClick={handleSaveSettings}
                   className="w-full sm:w-auto px-4 py-2 bg-slate-900 hover:bg-black text-white font-bold text-xs rounded-xl transition cursor-pointer text-center"
                 >
-                  Enregistrer ma préférence
+                  Enregistrer ma preference
                 </button>
                 <button
                   onClick={handleResetToZero}
                   className="w-full sm:w-auto px-4 py-2 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 font-bold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  Effacer tout (Mode Usine Réelle)
+                  Effacer tout et demarrer a vide
                 </button>
               </div>
             </div>

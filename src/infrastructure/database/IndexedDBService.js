@@ -509,64 +509,6 @@ class IndexedDBService {
       return [];
     }
   }
-
-  /**
-   * Requests persistent high-capacity storage from the browser (navigator.storage.persist())
-   * so that the OS/Browser never evicts IndexedDB industrial data under disk pressure.
-   */
-  async requestPersistentStorage() {
-    if (typeof navigator !== 'undefined' && navigator.storage && typeof navigator.storage.persist === 'function') {
-      try {
-        const isPersisted = await navigator.storage.persisted();
-        if (isPersisted) return true;
-        return await navigator.storage.persist();
-      } catch {
-        return false;
-      }
-    }
-    return false;
-  }
-
-  /**
-   * Queries real browser StorageManager quota & usage (IndexedDB + Cache API).
-   * Falls back to 1 GB (1024 MB) target industrial capacity when StorageManager API is unavailable.
-   */
-  async getStorageQuotaInfo(targetCeilingMB = 1024) {
-    let usageBytes = 0;
-    let browserQuotaBytes = targetCeilingMB * 1024 * 1024;
-    let isPersisted = false;
-
-    if (typeof navigator !== 'undefined' && navigator.storage) {
-      try {
-        if (typeof navigator.storage.estimate === 'function') {
-          const estimate = await navigator.storage.estimate();
-          if (typeof estimate.usage === 'number') usageBytes = estimate.usage;
-          if (typeof estimate.quota === 'number' && estimate.quota > 0) {
-            browserQuotaBytes = estimate.quota;
-          }
-        }
-        if (typeof navigator.storage.persisted === 'function') {
-          isPersisted = await navigator.storage.persisted();
-        }
-      } catch {
-        // Ignore estimate errors in restricted contexts
-      }
-    }
-
-    const usageMB = Number((usageBytes / (1024 * 1024)).toFixed(2));
-    const browserQuotaGB = Number((browserQuotaBytes / (1024 * 1024 * 1024)).toFixed(2));
-    const effectiveQuotaMB = Math.max(targetCeilingMB, Math.round(browserQuotaBytes / (1024 * 1024)));
-
-    return {
-      usageBytes,
-      usageMB,
-      browserQuotaBytes,
-      browserQuotaGB,
-      targetCeilingMB,
-      effectiveQuotaMB,
-      isPersisted,
-    };
-  }
 }
 
 export const indexedDBService = new IndexedDBService();
