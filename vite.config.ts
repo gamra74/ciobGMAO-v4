@@ -11,7 +11,17 @@ export default defineConfig({
     dedupe: ['react', 'react-dom'],
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'zustand'],
+    include: [
+      'react',
+      'react-dom',
+      'react-dom/client',
+      'react/jsx-runtime',
+      'react/jsx-dev-runtime',
+      'zustand',
+      'motion/react',
+      '@tanstack/react-virtual',
+      'lucide-react',
+    ],
   },
   plugins: [
     react(),

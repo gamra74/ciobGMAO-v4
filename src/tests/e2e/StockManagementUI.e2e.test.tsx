@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { act } from 'react';
 import AddArticleModal from '../../presentation/pages/stock/AddArticleModal.jsx';
 import { ValidationService } from '../../core/validation/ValidationService.ts';
-import { StockCalculationService } from '../../domain/pdr/services/StockCalculationService.js';
+import { StockCalculationService } from '../../domain/pdr/services/StockCalculationService';
 
 /**
  * Interactive E2E User Flow Harness for Stock Management (Add, Search, Validation)

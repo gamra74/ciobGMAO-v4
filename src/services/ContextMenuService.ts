@@ -9,7 +9,7 @@ export interface ContextMenuItem {
   onClick?: () => void;
 }
 
-import { Logger } from '../core/logger/LoggerService.js';
+import { Logger } from '../core/logger/LoggerService';
 
 export interface ContextMenuState {
   isOpen: boolean;

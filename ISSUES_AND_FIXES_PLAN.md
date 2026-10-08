@@ -30,6 +30,7 @@
    - [PERF-02: التخزين ثلاثي الطبقات مع IndexedDB لمنع تجاوز حصة localstorage](#perf-02-التخزين-ثلاثي-الطبقات-مع-indexeddb-لمنع-تجاوز-حصة-localstorage)
    - [PERF-03: التمرير الافتراضي (Virtual Scrolling) لـ 1,000+ عنصر مع react-window](#perf-03-التمرير-الافتراضي-virtual-scrolling-لـ-1000-عنصر-مع-react-window)
    - [PERF-04: تقسيم الحزم والتحميل الكسول (Lazy Loading & Code Splitting)](#perf-04-تقسيم-الحزم-والتحميل-الكسول-lazy-loading--code-splitting)
+   - [PERF-05: تفعيل التخزين الدائم عالي السعة (1 GB+ IndexedDB L2) مع التحكم في السقف](#perf-05-تفعيل-التخزين-الدائم-عالي-السعة-1-gb-indexeddb-l2-مع-التحكم-في-السقف)
 
 3. [🏛️ ثالثاً: المعمارية وفصل الاهتمامات (Architecture & Separation of Concerns — ARCH)](#3--المعمارية-وفصل-الاهتمامات-architecture--separation-of-concerns--arch)
    - [ARCH-01: خادم Express حقيقي ودمج نقاط API مع العميل الأمامي](#arch-01-خادم-express-حقيقي-ودمج-نقاط-api-مع-العميل-الأمامي)
@@ -38,6 +39,11 @@
    - [ARCH-04: التزامن اللحظي بين تبويبات المتصفح عبر BroadcastChannel وقمع الصدى](#arch-04-التزامن-اللحظي-بين-تبويبات-المتصفح-عبر-broadcastchannel-وقمع-الصدى)
    - [ARCH-05: حدود عزل الأخطاء (Error Boundaries) على مستوى كافة التبويبات الـ 24](#arch-05-حدود-عزل-الأخطاء-error-boundaries-على-مستوى-كافة-التبويبات-الـ-24)
    - [ARCH-06: نظام التسجيل المهيكل ومسار التدقيق الزمني للعمليات](#arch-06-نظام-التسجيل-المهيكل-ومسار-التدقيق-الزمني-للعمليات)
+   - [ARCH-07: القضاء على سباق التهيئة الزمني والترميم العلائقي التلقائي للصفحات الفارغة](#arch-07-القضاء-على-سباق-التهيئة-الزمني-والترميم-العلائقي-التلقائي-للصفحات-الفارغة)
+   - [ARCH-08: مركز التحكم الشامل بوضع Demo Mode (Seed Data SSOT) وحقن/تفريغ الأقسام الانتقائي](#arch-08-مركز-التحكم-الشامل-بوضع-demo-mode-seed-data-ssot-وحقنتفريغ-الأقسام-الانتقائي)
+   - [ARCH-09: تضارب الملفات المزدوجة (Shadow Stubs `.jsx/.js` مقابل الكود الأصلي الكامل `.tsx/.ts`) وخطة الإنقاذ](#arch-09-تضارب-الملفات-المزدوجة-shadow-stubs-jsxjs-مقابل-الكود-الأصلي-الكامل-tsxts-وخطة-الإنقاذ)
+   - [ARCH-10: ربط خدمات التطبيق بحاوية حقن الاعتماديات (DI Container) وحماية كائن التنبيهات في النوافذ المنبثقة](#arch-10-ربط-خدمات-التطبيق-بحاوية-حقن-الاعتماديات-di-container-وحماية-كائن-التنبيهات-في-النوافذ-المنبثقة)
+   - [ARCH-11: منع انقسام حزم React في Vite (Invalid Hook Call / Dual React Pre-bundle Cache)](#arch-11-منع-انقسام-حزم-react-في-vite-invalid-hook-call--dual-react-pre-bundle-cache)
 
 4. [🧪 رابعاً: الاختبارات وتغطية الحالات الحدية (Testing & Quality Assurance — TEST)](#4--الاختبارات-وتغطية-الحالات-الحدية-testing--quality-assurance--test)
    - [TEST-01: اختبارات الخصائص العشوائية (Property-Based Testing) عبر fast-check](#test-01-اختبارات-الخصائص-العشوائية-property-based-testing-عبر-fast-check)
@@ -70,12 +76,16 @@
 | **PERF-02** | الاستخدام المفرط لـ `localStorage` | ⭐⭐⭐⭐ P1 | Performance | ✅ محلولة 100% | `IndexedDBService.test.ts` |
 | **PERF-03** | بطء القوائم الكبيرة وغياب Virtual Scrolling | ⭐⭐⭐⭐ P1 | Performance | ✅ محلولة 100% | `VirtualScrolling.test.tsx` |
 | **PERF-04** | تضخم الحزمة وغياب Code Splitting | ⭐⭐⭐ P2 | Performance | ✅ محلولة 100% | `vite.config.ts` + `AppRouter.jsx` |
+| **PERF-05** | تقييد عرض السعة بـ 5 MB وتفعيل التخزين الدائم `1 GB+` | ⭐⭐⭐⭐ P1 | Performance | ✅ محلولة 100% | `IndexedDBService.js` + `SettingsView.jsx` |
 | **ARCH-01** | غياب خادم Backend حقيقي | ⭐⭐⭐⭐⭐ P0 | Architecture | ✅ محلولة 100% | `server.ts` + `backendApiClient.ts` |
 | **ARCH-02** | خلط منطق الأعمال مع التخزين (SoC) | ⭐⭐⭐⭐ P1 | Architecture | ✅ محلولة 100% | `Container.js` + `DataGateway.js` |
 | **ARCH-03** | تعقيد الحالة والحاجة لـ Zustand | ⭐⭐⭐⭐ P1 | Architecture | ✅ محلولة 100% | `GmaoZustandStore.test.ts` |
 | **ARCH-04** | تضارب التزامن بين التبويبات المتعددة | ⭐⭐⭐⭐ P1 | Architecture | ✅ محلولة 100% | `TabSynchronization.test.ts` |
 | **ARCH-05** | غياب Error Boundaries بالتبويبات | ⭐⭐⭐ P2 | Architecture | ✅ محلولة 100% | `AppRouter.jsx` |
 | **ARCH-06** | غياب Structured Logging المتخصص | ⭐⭐⭐ P2 | Architecture | ✅ محلولة 100% | `LoggerService.js` |
+| **ARCH-07** | سباق التهيئة الزمني وإفراغ بعض الصفحات عند الإقلاع | ⭐⭐⭐⭐⭐ P0 | Architecture | ✅ محلولة 100% | `migrateStorage.ts` + `useGmaoStore.ts` |
+| **ARCH-08** | مركز التحكم بـ Demo Mode وحقن/تفريغ الأقسام الانتقائي | ⭐⭐⭐⭐ P1 | Architecture | ✅ محلولة 100% | `DataGateway.ts` + `SettingsInjectionTab.tsx` |
+| **ARCH-09** | تضارب الملفات المزدوجة (`.jsx/.js` Stubs مقابل `.tsx/.ts` الكاملة) | ⭐⭐⭐⭐⭐ P0 | Architecture | 🔄 قيد التنفيذ (الخطوة 1 و 2 مكتملة) | `index.html` + `src/**/*.tsx` |
 | **TEST-01** | غياب Property-Based Testing | ⭐⭐⭐⭐ P1 | Testing | ✅ محلولة 100% | `incrementalIndex.property.test.ts` |
 | **TEST-02** | غياب اختبارات الحالات الحدية والكميات السالبة | ⭐⭐⭐ P2 | Testing | ✅ محلولة 100% | `stockCalculation.test.js` |
 | **TEST-03** | غياب اختبارات الأداء تحت الضغط العالي | ⭐⭐⭐ P2 | Testing | ✅ محلولة 100% | `PerformanceLargeScale.test.js` |
@@ -199,6 +209,18 @@
 - **الموقع:** `AppRouter.jsx` و `vite.config.ts`
 - **الحل المطبق:** `React.lazy` للتبويبات الـ 24 وتجزئة المكونات الثقيلة في `manualChunks`.
 
+### PERF-05: تفعيل التخزين الدائم عالي السعة (1 GB+ IndexedDB L2) مع التحكم في السقف
+- **الأولوية:** ⭐⭐⭐⭐ (P1 - عالي)
+- **التصنيف:** Performance / Storage Scalability
+- **الموقع:** `src/infrastructure/database/IndexedDBService.js` و `src/presentation/pages/settings/SettingsView.jsx`
+- **وصف المشكلة:** كانت بطاقة `Cache Navigateur Local` في صفحة الإعدادات تقيس استهلاك `localStorage` فقط مقابل ثابت رقمي صلب (`5 MB`) وتتجاهل السعة الفعلية الضخمة لمحرك `IndexedDB` (`CIOB_GMAO_INDUSTRIAL_DB`)، دون طلب صلاحية التخزين الدائم (`navigator.storage.persist()`) لحماية البيانات الصناعية من الحذف التلقائي عند امتلاء القرص.
+- **الحل الجذري المطبق:**
+  1. إضافة دالة `requestPersistentStorage()` في `IndexedDBService.js` وتفعيلها تلقائياً عند تهيئة قاعدة البيانات (`init()`) لاعتماد `CIOB_GMAO_INDUSTRIAL_DB` كتخزين دائم محمي من الحذف التلقائي.
+  2. إضافة دالة `getStorageQuotaInfo()` التي تستعلم من `navigator.storage.estimate()` عن الاستهلاك الفعلي بالميجابايت والحصة الكلية الممنوحة بالجيجابايت من المتصفح.
+  3. تحديث بطاقة `Cache Navigateur (IndexedDB L2 + L1)` في `SettingsView.jsx` لتعرض الاستهلاك الفعلي بالميجابايت مقابل سقف افتراضي **1 GB (Recommandé)**، مع تفصيل طبقة الكاش السريعة (`L1 Rapide` بالكيلوبايت) وطبقة السعة العالية (`L2 IndexedDB` بالجيجابايت المتاحة)، وإتاحة قائمة اختيار السقف (`256 MB`, `512 MB`, `1 GB`, `2 GB`, `5 GB`).
+- **التحقق الهندسي:** بناء التطبيق بنجاح (`compile_applet`) والتحقق من عمل `IndexedDBService` وبطاقة الإشراف في `SettingsView.jsx`.
+- **الحالة:** ✅ محلولة بالكامل
+
 ---
 
 ## 3. 🏛️ المعمارية وفصل الاهتمامات (Architecture & Separation of Concerns — ARCH)
@@ -232,6 +254,88 @@
 - **الأولوية:** ⭐⭐⭐ (P2 - متوسط)
 - **الموقع:** `LoggerService.js` و `AccessLogService.js`
 - **الحل المطبق:** سجل تدقيق مهيكل يصنف الأخطاء والعمليات الحساسة.
+
+### ARCH-07: القضاء على سباق التهيئة الزمني والترميم العلائقي التلقائي للصفحات الفارغة
+- **الأولوية:** ⭐⭐⭐⭐⭐ (P0 - حرج للغاية)
+- **التصنيف:** Architecture / Persistence & Self-Healing Hydration
+- **الموقع:** `src/infrastructure/persistence/migrateStorage.js`, `src/store/useGmaoStore.ts`, `src/hooks/useGmaoPersistence.js`, `src/hooks/useAutoSave.js`
+- **وصف المشكلة:** ظهور بعض الصفحات فارغة (`Stock Actuel`, `Sortie/Entrée Rapide`, `Family Machine`, `Templates Machine`, `Entrepôt`, `Zones`) بينما بقيت صفحات أخرى مملوءة، وذلك بسبب 4 عوامل مترابطة:
+  1. **سباق التهيئة الزمني (Initialization Race Condition):** كان متجر `useGmaoStore` يُنشأ فور استيراد الملف ويقرأ المفاتيح القياسية قبل تنفيذ `migrateStorageOnce()` التي كانت تعمل متأخرةً داخل `useEffect`، مما جعل المتجر يقرأ مصفوفات فارغة `[]` ثم يقوم `useAutoSave` بعد ثانية واحدة بالكتابة فوق المفاتيح بمصفوفات فارغة.
+  2. **شرط `DEMO_MODE` الحاجب في `loadCollection`:** رفض استرجاع البيانات المرجعية (`demoSeed`) إذا لم يكن `DEMO_MODE` مضبوطاً صراحةً على `'true'` أو إذا وُجدت مصفوفة فارغة كُتبت بالخطأ.
+  3. **ترتيب الحفظ في `useAutoSave.js`:** كتابة لقطة الحالة الكاملة (`FULL_STATE_SNAPSHOT`) أولاً قبل المفاتيح الفردية مما يعرض الجداول اللاحقة للسقوط عند اقتراب `localStorage` من سقف 5MB.
+  4. **غياب الترطيب العكسي من `IndexedDB` عند الإقلاع.**
+- **الحل الجذري المطبق:**
+  1. استدعاء `migrateStorageOnce()` بشكل متزامن داخل مُنشئ `useGmaoStore.ts` قبل قراءة أي مفتاح من التخزين.
+  2. تطبيق الترميم التلقائي متعدد المراحل في `loadCollection` (`migrateStorage.js`) بحيث يسترجع أي جدول فارغ (طالما أن المستخدم لم يفعّل وضع المصنع الفارغ الصريح `startMode === 'empty'`) بالترتيب من: `FULL_STATE_SNAPSHOT` ثم `LEGACY_KEY_MAP` ثم `demoSeed` مع حفظه فوراً.
+  3. إضافة خطاف الترطيب العكسي (`L2 -> L1 Self-Healing Hydration`) في `useGmaoPersistence.js` لاستعادة أي جدول سقط من `localStorage` مباشرةً من قاعدة بيانات `IndexedDB`.
+  4. عكس ترتيب الحفظ في `useAutoSave.js` لحفظ المفاتيح الفردية الـ 29 أولاً قبل `FULL_STATE_SNAPSHOT` وتضمين كافة الجداول المرجعية في دفعة `indexedDBService.setItemsBatch`.
+- **التحقق الهندسي:** بناء التطبيق بنجاح (`compile_applet`) والتحقق من امتلاء كافة الجداول واسترجاعها التلقائي.
+- **الحالة:** ✅ محلولة بالكامل
+
+### ARCH-08: مركز التحكم الشامل بوضع Demo Mode (Seed Data SSOT) وحقن/تفريغ الأقسام الانتقائي
+- **الأولوية:** ⭐⭐⭐⭐ (P1 - عالي)
+- **التصنيف:** Architecture / Data Management & UX
+- **الموقع:** `src/application/DataGateway.ts`, `src/store/useGmaoStore.ts`, `src/presentation/pages/settings/SettingsView.tsx`, `src/presentation/pages/settings/components/SettingsInjectionTab.tsx`
+- **وصف المشكلة:** الحاجة إلى أداة تحكم مرنة تتيح للمستخدم تشغيل أو إيقاف `Demo Mode` (`Seed Data SSOT`)، وحقن أو تفريغ قسم محدد من أقسام المصنع الـ 7 دون المساس ببيانات الأقسام الأخرى.
+- **الحل الجذري المطبق:**
+  1. إضافة الدالتين `DataGateway.loadDemoSection(sectionId)` و `DataGateway.clearDemoSection(sectionId)` وربطهما بمتجر `useGmaoStore` (`handleLoadDemoSection`, `handleClearDemoSection`).
+  2. توفير مفتاح تشغيل/إلغاء مباشر لـ `Mode Démo` مع قائمة اختيار القسم المستهدف (`Toutes les Sections (29 Tables)`, `Stock & Articles PDR`, `Parc Machines & Modèles`, `Entrepôt & Organes`, `Zones & Équipes`, `Mouvements & Sortie Rapide`, `Maintenance Préventive`, `Maintenance Corrective`) في كلٍّ من تبويب `Supervision` وتبويب `Mode Démo & Seed` داخل صفحة الإعدادات.
+  3. إضافة أزرار مستقلة (`Injecter Seed` / `Vider`) لكل بطاقة قسم في `SettingsInjectionTab.tsx`.
+- **التحقق الهندسي:** بناء التطبيق بنجاح (`compile_applet`) والتحقق من عمل الحقن والتفريغ الانتقائي لكل قسم.
+- **الحالة:** ✅ محلولة بالكامل
+
+### ARCH-09: تضارب الملفات المزدوجة (Shadow Stubs `.jsx/.js` مقابل الكود الأصلي الكامل `.tsx/.ts`) وخطة الإنقاذ
+- **الأولوية:** ⭐⭐⭐⭐⭐ (P0 - حرج للغاية)
+- **التصنيف:** Architecture / Module Resolution & Codebase Integrity
+- **الموقع:** `index.html`, `src/main.tsx`, `src/App.tsx`, `src/presentation/router/AppRouter.tsx`, وكافة ملفات `src/**/*.tsx` و `src/**/*.ts`
+- **وصف المشكلة:**
+  1. وجود 92 ملفاً بامتداد `.js / .jsx` معظمها عبارة عن نسخ مصغرة بدائية (Stubs بحجم 2KB–10KB) بجانب 427 ملفاً بامتداد `.ts / .tsx` تمثل التطبيق الحقيقي الكامل (مثل `SortieRapideView.tsx` بحجم 263KB مقابل `.jsx` بحجم 16KB، و `DashboardView.tsx` بحجم 112KB مقابل `.jsx` بحجم 10KB، و `EntrepotView.tsx` بحجم 111KB مقابل `.jsx` بحجم 3.4KB).
+  2. توجيه `index.html` إلى `/src/main.jsx` (277 بايت) الذي يستدعي `AppRouter.jsx` فيحمّل الصفحات المصغرة `.jsx` ويحجب الصفحات الكاملة `.tsx`، مما أوحى سابقاً بأن أجزاء كبيرة من الصفحات قد مُسحت.
+  3. في محاولة تنظيف سابقة (قبل استرجاع النسخة الاحتياطية)، تم بالخطأ حذف ملفات `.ts / .tsx` الكاملة بدلاً من ملفات الـ Stubs `.js / .jsx`.
+- **الحل الجذري المطبق (خطة الإنقاذ على مراحل):**
+  1. **الخطوة 1 (حماية الأصل المعماري — مكتملة ✅):** اعتماد ملفات TypeScript (`.ts` و `.tsx`) باعتبارها المصدر الوحيد للحقيقة (Single Source of Truth) وحظر حذف أي ملف `.ts / .tsx` نهائياً.
+  2. **الخطوة 2 (مزامنة التعديلات الحديثة إلى `.ts / .tsx` — مكتملة ✅):** نقل ودمج كافة إصلاحات `PERF-05` و `ARCH-07` و `ARCH-08` بدقة جراحية داخل الملفات الأصلية الكاملة:
+     - `src/infrastructure/database/IndexedDBService.ts`
+     - `src/infrastructure/persistence/migrateStorage.ts`
+     - `src/application/DataGateway.ts`
+     - `src/hooks/useAutoSave.ts`
+     - `src/hooks/useGmaoPersistence.ts`
+     - `src/hooks/useGmaoState.ts`
+     - `src/App.tsx`
+     - `src/presentation/router/useAppRouterProps.ts`
+     - `src/presentation/pages/settings/components/SettingsInjectionTab.tsx`
+     - `src/presentation/pages/settings/SettingsView.tsx`
+  3. **الخطوة 3 (إعادة ربط نقطة الدخول الحقيقية وإزالة الـ Stubs الزائفة بالكامل — مكتملة ✅):**
+     - تحويل `index.html` إلى `/src/main.tsx` (نقطة الدخول الحقيقية الكاملة 2,267 بايت مع مزود اللغات `I18nProvider` وحاوية الاعتماديات `ServiceProvider` وهجرة البيانات المبكرة `migrateStorageOnce()`).
+     - نقل تحسينات فك التشفير الآمن (`decrypt` و `getSecure`) من `SecurityService.js` إلى `SecurityService.tsx`.
+     - استئصال جميع الـ **92 ملفاً بامتداد `.js / .jsx`** من مجلد `src/` بالكامل (بما في ذلك الـ 77 ملفاً المكررة مباشرة والـ 15 ملف `.jsx` المزورة التي كانت موضوعة بأسماء مختلفة في مجلدات `guide/`, `nexus/`, `users/`, `zones/`, `machines/`, `warehouse/`, `stock/`, `preventive/`).
+     - تنظيف جميع مسارات الاستيراد الصريحة من امتدادات `.js / .jsx` وإضافة تصدير `validateImportedData` في `src/utils/validation.ts`.
+- **التحقق الهندسي:** أصبح عدد ملفات `.js / .jsx` داخل `src/` يساوي **0 ملف** (`find src -type f \( -name "*.js" -o -name "*.jsx" \) | wc -l` -> `0`)، ونجح تجميع **2,942 وحدة حقيقية** (`compile_applet`: `Build succeeded`).
+- **الحالة:** ✅ محلولة بالكامل
+
+### ARCH-10: ربط خدمات التطبيق بحاوية حقن الاعتماديات (DI Container) وحماية كائن التنبيهات في النوافذ المنبثقة
+- **الأولوية:** ⭐⭐⭐⭐⭐ P0
+- **التصنيف:** Architecture / Runtime Stability
+- **الموقع:** `src/application/services/MachineApplicationService.ts`, `src/application/services/TaskApplicationService.ts`, `src/presentation/modals/AppModals.tsx`
+- **وصف المشكلة:**
+  1. عند تشغيل التطبيق الكامل عبر `main.tsx` و`App.tsx`، يقوم `useEnterpriseDbSync.ts` باستدعاء `new MachineApplicationService()` بدون تمرير معامل `repository`. كان الباني (Constructor) ينشئ `new MachineService(undefined)` بدلاً من جلب المستودع من حاوية الاعتماديات `Container.resolve('machineService')`، مما تسبب في خطأ `TypeError: Cannot read properties of undefined (reading 'findAll')`.
+  2. في `AppModals.tsx` (السطر 91)، كان يتم فحص `{toast.message && ...}` مباشرة، بينما يبدأ المتغير `toast` في `useAppViewController.ts` بقيمة ابتدائية `null` (`useState(null)`), مما تسبب في خطأ `TypeError: Cannot read properties of null (reading 'message')`.
+- **الحل الجذري المطبق:**
+  1. تحديث `MachineApplicationService.ts` و`TaskApplicationService.ts` لجلب خدمات النطاق والمستودعات المسجلة تلقائياً عبر `Container.resolve('machineService')` و`Container.resolve('taskService')` при عدم تمرير مستودع صريح.
+  2. تحديث فحص الإشعارات في `src/presentation/modals/AppModals.tsx` لاستخدام التسلسل الاختياري الآمن `{toast?.message && ...}`.
+- **التحقق الهندسي:** اختفاء أخطاء `findAll` و`toast.message` نهائياً ونجاح التزامن التلقائي مع IndexedDB.
+- **الحالة:** ✅ محلولة بالكامل
+
+### ARCH-11: منع انقسام حزم React في Vite (Invalid Hook Call / Dual React Pre-bundle Cache)
+- **الأولوية:** ⭐⭐⭐⭐⭐ P0
+- **التصنيف:** Architecture / Build & Bundler Configuration
+- **الموقع:** `vite.config.ts`
+- **وصف المشكلة:** بعد الانتقال من نقطة الدخول المصغرة (`main.jsx`) إلى الشجرة الكاملة (`main.tsx`)، كانت ذاكرة التخزين المؤقت المسبقة لـ Vite (`node_modules/.vite`) تحتفظ بنسخة قديمة من `react-dom/client` بينما قامت بتحزيم مكتبات الجداول الافتراضية (`@tanstack/react-virtual` في `GmaoIndustrialDataGrid.tsx` و`SortieRapideView.tsx` و`StockView.tsx`) مع حزمة فرعية جديدة منفصلة لـ React، مما أدى إلى خطأ `Invalid hook call: Cannot read properties of null (reading 'useRef' / 'useState')`.
+- **الحل الجذري المطبق:**
+  1. توسيع قائمة `optimizeDeps.include` في `vite.config.ts` لتشمل صراحةً: `['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime', 'react/jsx-dev-runtime', 'zustand', 'motion/react', '@tanstack/react-virtual', 'lucide-react']` مع الحفاظ على `resolve.dedupe: ['react', 'react-dom']`.
+  2. تطهير مجلد `node_modules/.vite` وإعادة تشغيل خادم التطوير لضمان وجود نسخة موحدة وحيدة من React عبر كافة المكونات.
+- **التحقق الهندسي:** نجاح بناء الإنتاج (`compile_applet`) وعمل جميع الجداول الافتراضية والصفحات دون أي تعارض في Hooks.
+- **الحالة:** ✅ محلولة بالكامل
 
 ---
 

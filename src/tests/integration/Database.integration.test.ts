@@ -1,6 +1,6 @@
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { DatabaseService } from '../../core/database/DatabaseService.js';
+import { DatabaseService } from '../../core/database/DatabaseService';
 
 describe('DatabaseService Integration', () => {
   let db;

@@ -7,7 +7,7 @@
 import { create } from 'zustand';
 import type { GmaoStoreState } from '../types/store';
 import { STORAGE_KEYS } from '../infrastructure/persistence/storageKeys';
-import { loadCollection } from '../infrastructure/persistence/migrateStorage';
+import { loadCollection, migrateStorageOnce } from '../infrastructure/persistence/migrateStorage';
 import { DataGateway } from '../application/DataGateway';
 import { storageService } from '../utils/storageService';
 import { dataIntegrityService } from '../services/dataIntegrityService';
@@ -280,6 +280,9 @@ function getInitialCorrective() {
  * Zustand Global Store Instance
  */
 export const useGmaoStore = create<GmaoStoreState>((set, get) => {
+  // Run storage migration synchronously BEFORE reading any canonical keys
+  migrateStorageOnce();
+
   const stockInit = getInitialStock();
   const machinesInit = getInitialMachines();
   const warehouseInit = getInitialWarehouse();
@@ -1285,6 +1288,74 @@ export const useGmaoStore = create<GmaoStoreState>((set, get) => {
 
     handleClearAllForRealFactory: () =>
       DataGateway.clearAllForRealFactory({
+        setTypes: get().setTypes,
+        setDesignations: get().setDesignations,
+        setRawStock: get().setRawStock,
+        setFamilies: get().setFamilies,
+        setTemplates: get().setTemplates,
+        setBlueprints: get().setBlueprints,
+        setMachines: get().setMachines,
+        setZones: get().setZones,
+        setMachineElementsLedger: get().setMachineElementsLedger,
+        setWarehouseItems: get().setWarehouseItems,
+        setEntrepotComponents: get().setEntrepotComponents,
+        setCompGroups: get().setCompGroups,
+        setCompFamilies: get().setCompFamilies,
+        setCompTemplates: get().setCompTemplates,
+        setPartTypes: get().setPartTypes,
+        setPartDesignations: get().setPartDesignations,
+        setUsers: get().setUsers,
+        setTechnicians: get().setTechnicians,
+        setOperations: get().setOperations,
+        setMouvements: get().setMouvements,
+        setPreventiveTasks: get().setPreventiveTasks,
+        setPreventiveActions: get().setPreventiveActions,
+        setPreventiveGuides: get().setPreventiveGuides,
+        setPreventivePlans: get().setPreventivePlans,
+        setSortiesExterne: get().setSortiesExterne,
+        setCorrectiveInterventions: get().setCorrectiveInterventions,
+        setCorrectiveActionsByPanne: get().setCorrectiveActionsByPanne,
+        setCorrectivePanneCategories: get().setCorrectivePanneCategories,
+        setCorrectiveTravauxAFaire: get().setCorrectiveTravauxAFaire,
+        setCorrectiveIntervenants: get().setCorrectiveIntervenants,
+      }),
+
+    handleLoadDemoSection: (sectionId: string) =>
+      DataGateway.loadDemoSection(sectionId, {
+        setTypes: get().setTypes,
+        setDesignations: get().setDesignations,
+        setRawStock: get().setRawStock,
+        setFamilies: get().setFamilies,
+        setTemplates: get().setTemplates,
+        setBlueprints: get().setBlueprints,
+        setMachines: get().setMachines,
+        setZones: get().setZones,
+        setMachineElementsLedger: get().setMachineElementsLedger,
+        setWarehouseItems: get().setWarehouseItems,
+        setEntrepotComponents: get().setEntrepotComponents,
+        setCompGroups: get().setCompGroups,
+        setCompFamilies: get().setCompFamilies,
+        setCompTemplates: get().setCompTemplates,
+        setPartTypes: get().setPartTypes,
+        setPartDesignations: get().setPartDesignations,
+        setUsers: get().setUsers,
+        setTechnicians: get().setTechnicians,
+        setOperations: get().setOperations,
+        setMouvements: get().setMouvements,
+        setPreventiveTasks: get().setPreventiveTasks,
+        setPreventiveActions: get().setPreventiveActions,
+        setPreventiveGuides: get().setPreventiveGuides,
+        setPreventivePlans: get().setPreventivePlans,
+        setSortiesExterne: get().setSortiesExterne,
+        setCorrectiveInterventions: get().setCorrectiveInterventions,
+        setCorrectiveActionsByPanne: get().setCorrectiveActionsByPanne,
+        setCorrectivePanneCategories: get().setCorrectivePanneCategories,
+        setCorrectiveTravauxAFaire: get().setCorrectiveTravauxAFaire,
+        setCorrectiveIntervenants: get().setCorrectiveIntervenants,
+      }),
+
+    handleClearDemoSection: (sectionId: string) =>
+      DataGateway.clearDemoSection(sectionId, {
         setTypes: get().setTypes,
         setDesignations: get().setDesignations,
         setRawStock: get().setRawStock,
