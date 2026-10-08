@@ -1,6 +1,8 @@
 import { STORAGE_KEYS } from '../infrastructure/persistence/storageKeys.js';
 import { storageService } from '../utils/storageService.js';
 import { dataIntegrityService } from '../services/dataIntegrityService.js';
+import { sanitizeObject } from '../utils/sanitize.js';
+import { ValidationService } from '../core/validation/ValidationService.ts';
 
 import seedMachines from '../data/machines/seedMachines.json';
 import seedFamilies from '../data/machines/seedFamilies.json';
@@ -41,11 +43,41 @@ import seedPartDesignations from '../data/warehouse/seedPartDesignations.json';
  * Ensures every write targets the canonical STORAGE_KEYS only and supports optional referential checks.
  */
 export const DataGateway = {
+  /**
+   * Sanitizes any incoming entity payload against XSS injection while preserving non-string types.
+   */
+  sanitizePayload(payload) {
+    return sanitizeObject(payload);
+  },
+
+  /**
+   * Validates an entity using ValidationService when strict validation is requested.
+   */
+  validateEntity(entityType, item) {
+    switch (entityType) {
+      case 'stock':
+        return ValidationService.validateStockItem(item);
+      case 'machine':
+        return ValidationService.validateMachine(item);
+      case 'movement':
+        return ValidationService.validateMovement(item);
+      case 'zone':
+        return ValidationService.validateZone(item);
+      case 'user':
+        return ValidationService.validateUser(item);
+      default:
+        return { valid: true, data: item, errors: [] };
+    }
+  },
+
   // ==========================================
   // 1. MACHINES & TOPOLOGY
   // ==========================================
-  saveMachines(list = []) {
-    const clean = Array.isArray(list) ? list : [];
+  saveMachines(list = [], { validate = false } = {}) {
+    let clean = Array.isArray(list) ? list : [];
+    if (validate) {
+      clean = clean.filter((m) => ValidationService.validateMachine(m).valid);
+    }
     storageService.setItem(STORAGE_KEYS.MACHINES, clean);
     return clean;
   },
@@ -114,6 +146,10 @@ export const DataGateway = {
     }
     storageService.setItem(STORAGE_KEYS.MOUVEMENTS, clean);
     return clean;
+  },
+
+  saveMovements(list = [], options = {}) {
+    return this.saveMouvements(list, options);
   },
 
   // ==========================================
@@ -239,6 +275,22 @@ export const DataGateway = {
       storageService.setItem(STORAGE_KEYS.OPERATIONS, operations);
     }
     return cleanUsers;
+  },
+
+  saveUsers(users = []) {
+    return this.savePersonnel(users);
+  },
+
+  saveTechnicians(technicians = []) {
+    const clean = Array.isArray(technicians) ? technicians : [];
+    storageService.setItem(STORAGE_KEYS.TECHNICIANS, clean);
+    return clean;
+  },
+
+  saveOperations(operations = []) {
+    const clean = Array.isArray(operations) ? operations : [];
+    storageService.setItem(STORAGE_KEYS.OPERATIONS, clean);
+    return clean;
   },
 
   // ==========================================

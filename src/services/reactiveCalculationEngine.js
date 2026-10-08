@@ -14,6 +14,13 @@ class ReactiveCalculationEngine {
   constructor() {
     this.hf = null;
     this.stockSheetId = null;
+    this._lastRawStock = null;
+    this._lastMouvements = null;
+    this._lastGlobalVersion = -1;
+    this._lastComputedItems = null;
+    this._dirtyHyperFormula = false;
+    this._latestComputedStock = [];
+    this._kpiCache = new WeakMap();
     this.initEngine();
   }
 
@@ -54,6 +61,21 @@ class ReactiveCalculationEngine {
         stockIndexStore &&
         typeof stockIndexStore.isHydrated === 'function' &&
         stockIndexStore.isHydrated();
+
+      const currentVersion =
+        hasHydratedStore && typeof stockIndexStore.getGlobalVersion === 'function'
+          ? stockIndexStore.getGlobalVersion()
+          : -1;
+
+      // Return cached result in O(1) if input references and index version are identical
+      if (
+        this._lastComputedItems !== null &&
+        this._lastRawStock === rawStock &&
+        this._lastMouvements === mouvements &&
+        this._lastGlobalVersion === currentVersion
+      ) {
+        return this._lastComputedItems;
+      }
 
       const computedItems = rawStock.map((item, idx) => {
         if (!item) return null;
@@ -124,8 +146,13 @@ class ReactiveCalculationEngine {
         };
       }).filter(Boolean);
 
-      // Async or opportunistic sync to HyperFormula in-memory workbook
-      this.syncHyperFormulaStock(computedItems);
+      // Cache computed items and mark HyperFormula workbook for lazy on-demand sync
+      this._lastRawStock = rawStock;
+      this._lastMouvements = mouvements;
+      this._lastGlobalVersion = currentVersion;
+      this._lastComputedItems = computedItems;
+      this._latestComputedStock = computedItems;
+      this._dirtyHyperFormula = true;
 
       return computedItems;
     } catch (err) {
@@ -167,6 +194,7 @@ class ReactiveCalculationEngine {
       });
 
       this.hf.setCellContents({ sheet: this.stockSheetId, col: 0, row: 0 }, rows);
+      this._dirtyHyperFormula = false;
     } catch (syncErr) {
       Logger.warn('[ReactiveEngine] HyperFormula sheet sync warning:', syncErr, 'reactiveCalculationEngine');
     }
@@ -174,8 +202,13 @@ class ReactiveCalculationEngine {
 
   /**
    * Calcule les métriques globales de stock (KPIs) avec détection des alertes et ruptures
+   * Utilise un WeakMap pour retourner la même référence en O(1) si stockItems n'a pas changé
    */
   computeStockKPIs(stockItems = []) {
+    if (Array.isArray(stockItems) && this._kpiCache.has(stockItems)) {
+      return this._kpiCache.get(stockItems);
+    }
+
     let totalEntrees = 0;
     let totalSorties = 0;
     let totalStockActuel = 0;
@@ -192,7 +225,7 @@ class ReactiveCalculationEngine {
       else if (s.alerte === 'ALERTE') alertes++;
     }
 
-    return {
+    const result = {
       totalArticles: stockItems.length,
       totalEntrees,
       totalSorties,
@@ -200,6 +233,12 @@ class ReactiveCalculationEngine {
       ruptures,
       alertes,
     };
+
+    if (Array.isArray(stockItems)) {
+      this._kpiCache.set(stockItems, result);
+    }
+
+    return result;
   }
 
   /**
@@ -209,6 +248,9 @@ class ReactiveCalculationEngine {
   evaluateFormula(formulaString) {
     if (!this.hf) return null;
     try {
+      if (this._dirtyHyperFormula && this._latestComputedStock.length > 0) {
+        this.syncHyperFormulaStock(this._latestComputedStock);
+      }
       const cleanFormula = formulaString.startsWith('=') ? formulaString : `=${formulaString}`;
       const sheetName = 'Eval_Temp';
       

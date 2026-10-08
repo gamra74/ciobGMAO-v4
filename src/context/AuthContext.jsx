@@ -13,7 +13,32 @@ const LoginSchema = z.object({
   pin: z.string().min(3, "Le code PIN doit comporter au moins 3 caractères").max(10, "Le code PIN est trop long").regex(/^\d+$/, "Le code PIN doit comporter uniquement des chiffres").optional(),
 });
 
-const loginAttemptsMap = new Map(); // username -> { count, lockUntil }
+function getStoredAttempts() {
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      const saved = sessionStorage.getItem('gmao_login_attempts');
+      if (saved) {
+        return new Map(Object.entries(JSON.parse(saved)));
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return new Map();
+}
+
+function persistAttempts(map) {
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      const obj = Object.fromEntries(map.entries());
+      sessionStorage.setItem('gmao_login_attempts', JSON.stringify(obj));
+    }
+  } catch {
+    // ignore
+  }
+}
+
+const loginAttemptsMap = getStoredAttempts(); // username -> { count, lockUntil }
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 
@@ -26,6 +51,7 @@ function checkRateLimit(username) {
   }
   if (record.lockUntil && Date.now() >= record.lockUntil) {
     loginAttemptsMap.delete(username);
+    persistAttempts(loginAttemptsMap);
   }
 }
 
@@ -36,10 +62,12 @@ function recordFailedAttempt(username) {
     record.lockUntil = Date.now() + LOCKOUT_DURATION_MS;
   }
   loginAttemptsMap.set(username, record);
+  persistAttempts(loginAttemptsMap);
 }
 
 function resetFailedAttempts(username) {
   loginAttemptsMap.delete(username);
+  persistAttempts(loginAttemptsMap);
 }
 
 export const AuthProvider = ({ children }) => {

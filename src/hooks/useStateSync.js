@@ -1,84 +1,125 @@
 import { useEffect, useRef } from 'react';
-import { storageService } from '../utils/storageService';
 import { Logger } from '../core/logger/LoggerService';
 import { ConflictResolutionService } from '../services/ConflictResolutionService';
-
-const REALTIME_CHANNEL_NAME = 'gmao_realtime_sync_channel';
+import { tabSyncService } from '../services/TabSyncService';
 
 /**
- * High-Performance Hook to manage real-time multi-tab and multi-window state synchronization.
- * Leverages BroadcastChannel API for zero-latency instant messaging across open browser windows
- * and integrates ConflictResolutionService for deterministic Last Write Wins conflict resolution.
+ * 🏛️ High-Performance Hook for Real-Time Multi-Tab / Multi-Window State Synchronization
+ *
+ * Powered by tabSyncService (BroadcastChannel API + StorageEvent fallback)
+ * - Zero latency IPC between all open browser tabs and windows
+ * - Echo suppression to avoid cascading render cycles
+ * - Deterministic Last-Write-Wins conflict resolution for movements and transactional entities
+ * - Stable reference bindings preventing unnecessary unmount/remount cycles
  */
 export function useStateSync(setters = {}, validators = {}) {
-  const {
-    setTypes,
-    setDesignations,
-    setFamilies,
-    setTemplates,
-    setBlueprints,
-    setCompFamilies,
-    setCompTemplates,
-    setPartTypes,
-    setPartDesignations,
-    setMachines,
-    setWarehouseItems,
-    setZones,
-    setUsers,
-    setTechnicians,
-    setOperations,
-    setMouvements,
-    setRawStock,
-    setPreventiveTasks,
-    setPreventiveActions,
-    setPreventiveGuides,
-    setPreventivePlans,
-    setSortiesExterne,
-  } = setters || {};
+  const settersRef = useRef(setters);
+  const validatorsRef = useRef(validators);
 
-  const { isValidMachineFamilies, isValidMachineTemplates } = validators || {};
-  const channelRef = useRef(null);
+  // Keep references fresh without triggering useEffect re-execution
+  useEffect(() => {
+    settersRef.current = setters;
+    validatorsRef.current = validators;
+  });
 
   useEffect(() => {
-    // Process incoming fresh state payload and apply deterministic conflict resolution
-    const applyStateSync = (fresh, isBroadcast = false) => {
-      if (!fresh) return;
+    const handleRemoteState = (fresh, isBroadcast) => {
+      if (!fresh || typeof fresh !== 'object') return;
+
+      const currentSetters = settersRef.current || {};
+      const currentValidators = validatorsRef.current || {};
 
       try {
-        if (fresh.types && typeof setTypes === 'function') setTypes(fresh.types);
-        if (fresh.designations && typeof setDesignations === 'function') setDesignations(fresh.designations);
-        if (fresh.families && typeof setFamilies === 'function' && (!isValidMachineFamilies || isValidMachineFamilies(fresh.families))) {
-          setFamilies(fresh.families);
+        // If the store provides an atomic applyRemoteStateUpdate method, use it first
+        if (typeof currentSetters.applyRemoteStateUpdate === 'function') {
+          currentSetters.applyRemoteStateUpdate(fresh);
         }
-        if (fresh.templates && typeof setTemplates === 'function' && (!isValidMachineTemplates || isValidMachineTemplates(fresh.templates))) {
-          setTemplates(fresh.templates);
+
+        // 1. Stock Slice
+        if (fresh.types && typeof currentSetters.setTypes === 'function') {
+          currentSetters.setTypes(fresh.types);
         }
-        if (fresh.blueprints && Array.isArray(fresh.blueprints) && typeof setBlueprints === 'function') setBlueprints(fresh.blueprints);
-        if (fresh.compFamilies && typeof setCompFamilies === 'function') setCompFamilies(fresh.compFamilies);
-        if (fresh.compTemplates && typeof setCompTemplates === 'function') setCompTemplates(fresh.compTemplates);
-        if (fresh.partTypes && typeof setPartTypes === 'function') setPartTypes(fresh.partTypes);
-        if (fresh.partDesignations && typeof setPartDesignations === 'function') setPartDesignations(fresh.partDesignations);
+        if (fresh.designations && typeof currentSetters.setDesignations === 'function') {
+          currentSetters.setDesignations(fresh.designations);
+        }
+        if (fresh.rawStock && typeof currentSetters.setRawStock === 'function') {
+          currentSetters.setRawStock(fresh.rawStock);
+        }
 
-        // Apply conflict resolution for transactional collections if broadcast conflict occurs
-        if (fresh.machines && typeof setMachines === 'function') setMachines(fresh.machines);
-        if (fresh.warehouseItems && typeof setWarehouseItems === 'function') setWarehouseItems(fresh.warehouseItems);
-        if (fresh.zones && typeof setZones === 'function') setZones(fresh.zones);
-        if (fresh.users && typeof setUsers === 'function') setUsers(fresh.users);
-        if (fresh.technicians && typeof setTechnicians === 'function') setTechnicians(fresh.technicians);
-        if (fresh.operations && typeof setOperations === 'function') setOperations(fresh.operations);
+        // 2. Machines & Topology Slice
+        if (
+          fresh.families &&
+          typeof currentSetters.setFamilies === 'function' &&
+          (!currentValidators.isValidMachineFamilies || currentValidators.isValidMachineFamilies(fresh.families))
+        ) {
+          currentSetters.setFamilies(fresh.families);
+        }
+        if (
+          fresh.templates &&
+          typeof currentSetters.setTemplates === 'function' &&
+          (!currentValidators.isValidMachineTemplates || currentValidators.isValidMachineTemplates(fresh.templates))
+        ) {
+          currentSetters.setTemplates(fresh.templates);
+        }
+        if (fresh.blueprints && Array.isArray(fresh.blueprints) && typeof currentSetters.setBlueprints === 'function') {
+          currentSetters.setBlueprints(fresh.blueprints);
+        }
+        if (fresh.machines && typeof currentSetters.setMachines === 'function') {
+          currentSetters.setMachines(fresh.machines);
+        }
+        if (fresh.zones && typeof currentSetters.setZones === 'function') {
+          currentSetters.setZones(fresh.zones);
+        }
+        if (fresh.machineElementsLedger && typeof currentSetters.setMachineElementsLedger === 'function') {
+          currentSetters.setMachineElementsLedger(fresh.machineElementsLedger);
+        }
 
-        if (fresh.mouvements && typeof setMouvements === 'function') {
+        // 3. Warehouse Slice
+        if (fresh.warehouseItems && typeof currentSetters.setWarehouseItems === 'function') {
+          currentSetters.setWarehouseItems(fresh.warehouseItems);
+        }
+        if (fresh.entrepotComponents && typeof currentSetters.setEntrepotComponents === 'function') {
+          currentSetters.setEntrepotComponents(fresh.entrepotComponents);
+        }
+        if (fresh.compGroups && typeof currentSetters.setCompGroups === 'function') {
+          currentSetters.setCompGroups(fresh.compGroups);
+        }
+        if (fresh.compFamilies && typeof currentSetters.setCompFamilies === 'function') {
+          currentSetters.setCompFamilies(fresh.compFamilies);
+        }
+        if (fresh.compTemplates && typeof currentSetters.setCompTemplates === 'function') {
+          currentSetters.setCompTemplates(fresh.compTemplates);
+        }
+        if (fresh.partTypes && typeof currentSetters.setPartTypes === 'function') {
+          currentSetters.setPartTypes(fresh.partTypes);
+        }
+        if (fresh.partDesignations && typeof currentSetters.setPartDesignations === 'function') {
+          currentSetters.setPartDesignations(fresh.partDesignations);
+        }
+
+        // 4. Users & Personnel Slice
+        if (fresh.users && typeof currentSetters.setUsers === 'function') {
+          currentSetters.setUsers(fresh.users);
+        }
+        if (fresh.technicians && typeof currentSetters.setTechnicians === 'function') {
+          currentSetters.setTechnicians(fresh.technicians);
+        }
+        if (fresh.operations && typeof currentSetters.setOperations === 'function') {
+          currentSetters.setOperations(fresh.operations);
+        }
+
+        // 5. Movements Slice with Conflict Resolution
+        if (fresh.mouvements && typeof currentSetters.setMouvements === 'function') {
           if (isBroadcast) {
-            setMouvements((prevMouvementList) => {
-              if (!Array.isArray(prevMouvementList) || prevMouvementList.length === 0) return fresh.mouvements;
-              
-              // Optimization: Skip if payload is strictly identical to local state
+            currentSetters.setMouvements((prevMouvementList) => {
+              if (!Array.isArray(prevMouvementList) || prevMouvementList.length === 0) {
+                return fresh.mouvements;
+              }
               const freshLen = fresh.mouvements.length;
               const localLen = prevMouvementList.length;
               if (freshLen === localLen && JSON.stringify(fresh.mouvements) === JSON.stringify(prevMouvementList)) {
                 return prevMouvementList;
               }
-
               return ConflictResolutionService.resolveMultipleConflicts(
                 prevMouvementList,
                 fresh.mouvements,
@@ -86,16 +127,45 @@ export function useStateSync(setters = {}, validators = {}) {
               );
             });
           } else {
-            setMouvements(fresh.mouvements);
+            currentSetters.setMouvements(fresh.mouvements);
           }
         }
 
-        if (fresh.rawStock && typeof setRawStock === 'function') setRawStock(fresh.rawStock);
-        if (fresh.preventiveTasks && typeof setPreventiveTasks === 'function') setPreventiveTasks(fresh.preventiveTasks);
-        if (fresh.preventiveActions && typeof setPreventiveActions === 'function') setPreventiveActions(fresh.preventiveActions);
-        if (fresh.preventiveGuides && typeof setPreventiveGuides === 'function') setPreventiveGuides(fresh.preventiveGuides);
-        if (fresh.preventivePlans && typeof setPreventivePlans === 'function') setPreventivePlans(fresh.preventivePlans);
-        if (fresh.sortiesExterne && typeof setSortiesExterne === 'function') setSortiesExterne(fresh.sortiesExterne);
+        // 6. Preventive Maintenance Slice
+        if (fresh.preventiveTasks && typeof currentSetters.setPreventiveTasks === 'function') {
+          currentSetters.setPreventiveTasks(fresh.preventiveTasks);
+        }
+        if (fresh.preventiveActions && typeof currentSetters.setPreventiveActions === 'function') {
+          currentSetters.setPreventiveActions(fresh.preventiveActions);
+        }
+        if (fresh.preventiveGuides && typeof currentSetters.setPreventiveGuides === 'function') {
+          currentSetters.setPreventiveGuides(fresh.preventiveGuides);
+        }
+        if (fresh.preventivePlans && typeof currentSetters.setPreventivePlans === 'function') {
+          currentSetters.setPreventivePlans(fresh.preventivePlans);
+        }
+
+        // 7. Sorties Externe Slice
+        if (fresh.sortiesExterne && typeof currentSetters.setSortiesExterne === 'function') {
+          currentSetters.setSortiesExterne(fresh.sortiesExterne);
+        }
+
+        // 8. Corrective Nexus Slice
+        if (fresh.correctiveInterventions && typeof currentSetters.setCorrectiveInterventions === 'function') {
+          currentSetters.setCorrectiveInterventions(fresh.correctiveInterventions);
+        }
+        if (fresh.correctiveActionsByPanne && typeof currentSetters.setCorrectiveActionsByPanne === 'function') {
+          currentSetters.setCorrectiveActionsByPanne(fresh.correctiveActionsByPanne);
+        }
+        if (fresh.correctivePanneCategories && typeof currentSetters.setCorrectivePanneCategories === 'function') {
+          currentSetters.setCorrectivePanneCategories(fresh.correctivePanneCategories);
+        }
+        if (fresh.correctiveTravauxAFaire && typeof currentSetters.setCorrectiveTravauxAFaire === 'function') {
+          currentSetters.setCorrectiveTravauxAFaire(fresh.correctiveTravauxAFaire);
+        }
+        if (fresh.correctiveIntervenants && typeof currentSetters.setCorrectiveIntervenants === 'function') {
+          currentSetters.setCorrectiveIntervenants(fresh.correctiveIntervenants);
+        }
 
         Logger.info(`[useStateSync] State synchronized across tabs via ${isBroadcast ? 'BroadcastChannel' : 'StorageEvent'}`);
       } catch (err) {
@@ -103,70 +173,12 @@ export function useStateSync(setters = {}, validators = {}) {
       }
     };
 
-    // 1. Initialize BroadcastChannel for zero-latency multi-tab sync
-    if (typeof window !== 'undefined' && window.BroadcastChannel) {
-      try {
-        const bc = new BroadcastChannel(REALTIME_CHANNEL_NAME);
-        channelRef.current = bc;
-
-        bc.onmessage = (event) => {
-          if (event && event.data && event.data.type === 'GMAO_STATE_UPDATE') {
-            applyStateSync(event.data.payload, true);
-          }
-        };
-      } catch (bcErr) {
-        Logger.warn('[useStateSync] BroadcastChannel initialization failed:', bcErr);
-      }
-    }
-
-    // 2. Fallback window storage event handler
-    const handleStorageChange = (e) => {
-      if (e.key === 'gmao_full_state_v1' && e.newValue) {
-        try {
-          const fresh = storageService.getItem('gmao_full_state_v1');
-          applyStateSync(fresh, false);
-        } catch (_err) {
-          Logger.error('Failed to sync via storage event:', _err, 'useStateSync');
-        }
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
+    const unsubscribe = tabSyncService.subscribe((payload, isBroadcast) => {
+      handleRemoteState(payload, isBroadcast);
+    });
 
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      if (channelRef.current) {
-        try {
-          channelRef.current.close();
-        } catch {
-          // ignore
-        }
-      }
+      unsubscribe();
     };
-  }, [
-    isValidMachineFamilies,
-    isValidMachineTemplates,
-    setTypes,
-    setDesignations,
-    setFamilies,
-    setTemplates,
-    setBlueprints,
-    setCompFamilies,
-    setCompTemplates,
-    setPartTypes,
-    setPartDesignations,
-    setMachines,
-    setWarehouseItems,
-    setZones,
-    setUsers,
-    setTechnicians,
-    setOperations,
-    setMouvements,
-    setRawStock,
-    setPreventiveTasks,
-    setPreventiveActions,
-    setPreventiveGuides,
-    setPreventivePlans,
-    setSortiesExterne,
-  ]);
+  }, []);
 }

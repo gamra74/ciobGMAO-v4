@@ -4,6 +4,7 @@ export * from './preventive';
 export * from './security';
 export * from './sync';
 export * from './kpis';
+export * from './store';
 
 export type NavigationTab =
   | 'dashboard'

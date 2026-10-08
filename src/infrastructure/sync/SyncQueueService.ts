@@ -135,16 +135,50 @@ export class SyncQueueService {
     }
   }
 
-  private async addMovement(_data: any): Promise<void> {
-    // Synchronize movement record
+  private async addMovement(data: any): Promise<void> {
+    if (!data) return;
+    if (typeof fetch !== 'undefined' && typeof window !== 'undefined' && window.location?.protocol?.startsWith('http')) {
+      try {
+        await fetch('/api/gmao/mouvements', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+      } catch {
+        // Fallback silently in offline / test environment
+      }
+    }
   }
 
-  private async updateMachine(_data: any): Promise<void> {
-    // Synchronize machine update
+  private async updateMachine(data: any): Promise<void> {
+    if (!data) return;
+    const id = data.id || data.id_machine_registered;
+    if (id && typeof fetch !== 'undefined' && typeof window !== 'undefined' && window.location?.protocol?.startsWith('http')) {
+      try {
+        await fetch(`/api/gmao/machines/${encodeURIComponent(String(id))}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+      } catch {
+        // Fallback silently in offline / test environment
+      }
+    }
   }
 
-  private async deleteItem(_data: any): Promise<void> {
-    // Synchronize item deletion
+  private async deleteItem(data: any): Promise<void> {
+    if (!data) return;
+    const id = data.id || data.itemId;
+    const entity = data.entity || 'rawStock';
+    if (id && typeof fetch !== 'undefined' && typeof window !== 'undefined' && window.location?.protocol?.startsWith('http')) {
+      try {
+        await fetch(`/api/gmao/${encodeURIComponent(entity)}/${encodeURIComponent(String(id))}`, {
+          method: 'DELETE',
+        });
+      } catch {
+        // Fallback silently in offline / test environment
+      }
+    }
   }
 
   private saveQueueToStorage(): void {
