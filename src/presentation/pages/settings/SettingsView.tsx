@@ -74,6 +74,7 @@ import TelemetryAuditPanel from '../../components/settings/TelemetryAuditPanel';
 import PerformanceDashboardPanel from '../../components/settings/PerformanceDashboardPanel';
 import AppearanceLayoutSelector from '../../components/settings/AppearanceLayoutSelector';
 import SettingsInjectionTab from './components/SettingsInjectionTab';
+import SyncButtons from '../../components/common/SyncButtons';
 
 
 export default function SettingsView({
@@ -3618,6 +3619,9 @@ export default function SettingsView({
                     </button>
                   </div>
                 </div>
+
+                {/* Explicit Manual Server Sync Card (gmao_state.json) */}
+                <SyncButtons showToast={showToast} />
 
                 {/* Metrics Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

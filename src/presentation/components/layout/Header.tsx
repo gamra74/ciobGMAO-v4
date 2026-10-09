@@ -12,10 +12,12 @@ import {
   Layers,
   Boxes,
   Truck,
-  Clock
+  Clock,
+  Cloud
 } from 'lucide-react';
 import PWAInstallButton from '../common/PWAInstallButton';
 import LanguageSwitcher from '../common/LanguageSwitcher';
+import SyncButtons from '../common/SyncButtons';
 import { analytics } from '../../../services/AnalyticsService';
 import { notificationService } from '../../../services/NotificationService';
 import { getParentModuleForTab } from './navConfig';
@@ -38,9 +40,12 @@ export default function Header({
   onDirectSave,
   currentUser,
   onOpenShortcuts,
+  showToast,
 }) {
   const [topologyMenuOpen, setTopologyMenuOpen] = useState(false);
+  const [syncMenuOpen, setSyncMenuOpen] = useState(false);
   const topologyMenuRef = useRef(null);
+  const syncMenuRef = useRef(null);
   const [sidebarStyle, setSidebarStyle] = useState(() => {
     return storageService.getItem('gmao_sidebar_style') || 'floating';
   });
@@ -81,6 +86,9 @@ export default function Header({
     function handleClickOutside(event) {
       if (topologyMenuRef.current && !topologyMenuRef.current.contains(event.target)) {
         setTopologyMenuOpen(false);
+      }
+      if (syncMenuRef.current && !syncMenuRef.current.contains(event.target)) {
+        setSyncMenuOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -649,6 +657,39 @@ export default function Header({
           )}
 
           <PWAInstallButton variant="header" />
+
+          {/* Explicit Server Sync Capsule & Popover Menu */}
+          <div className="relative" ref={syncMenuRef}>
+            <button
+              type="button"
+              onClick={() => setSyncMenuOpen((prev) => !prev)}
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full bg-emerald-50/90 hover:bg-emerald-100/90 border border-emerald-200/90 text-emerald-800 text-xs font-bold transition shadow-[0_2px_6px_rgba(4,120,87,0.08)] hover:shadow-md cursor-pointer shrink-0 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-hidden group"
+              title="مزامنة الخادم الصريحة (حفظ على الخادم / استعادة من الخادم)"
+              aria-label="Synchronisation Serveur gmao_state.json"
+              aria-expanded={syncMenuOpen}
+            >
+              <span className="relative flex h-2 w-2 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600" />
+              </span>
+              <Cloud size={14} className="text-emerald-700 group-hover:scale-110 transition-transform shrink-0" />
+              <span className="hidden xl:inline text-[11px] font-extrabold tracking-tight">Sync Serveur</span>
+              <ChevronDown
+                size={12}
+                className={`text-emerald-600 transition-transform duration-200 ${syncMenuOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+
+            {syncMenuOpen && (
+              <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-slate-200/90 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                <SyncButtons
+                  variant="dropdown"
+                  showToast={showToast}
+                  onCloseDropdown={() => setSyncMenuOpen(false)}
+                />
+              </div>
+            )}
+          </div>
 
           {/* Live Industrial Shift Clock (Configurable via Appearance) */}
           {headerClockEnabled && (

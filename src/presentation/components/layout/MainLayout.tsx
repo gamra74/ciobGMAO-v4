@@ -394,6 +394,7 @@ export default function MainLayout({
           onDirectSave={onDirectSave}
           currentUser={user}
           onOpenShortcuts={() => setShortcutsModalOpen(true)}
+          showToast={showToast}
         />
       )}
 

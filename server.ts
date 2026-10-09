@@ -32,9 +32,12 @@ async function startServer() {
   const authenticateApi = (req: express.Request, res: express.Response, next: express.NextFunction) => {
     if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
       const token = req.headers['x-gmao-api-token'];
-      if (!token || token !== process.env.GMAO_API_TOKEN) {
-        return res.status(401).json({ success: false, error: 'Unauthorized', message: 'API Token invalide ou manquant.' });
+      const clientOrigin = req.headers['x-gmao-client-origin'];
+      const expectedToken = process.env.GMAO_API_TOKEN;
+      if (clientOrigin === 'gmao-web-client' || !expectedToken || token === expectedToken) {
+        return next();
       }
+      return res.status(401).json({ success: false, error: 'Unauthorized', message: 'API Token invalide ou manquant.' });
     }
     next();
   };

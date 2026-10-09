@@ -139,15 +139,22 @@ export default function App() {
   // Auto Backup and Performance Monitor Initialization
   const backupDataRef = useRef({});
 
-  // Load real stock if empty
+  // Load real stock if empty ONLY when not in explicit empty factory mode
   useEffect(() => {
-    if (rawStock && rawStock.length === 0) {
-      console.log('Stock empty, hydrating from DataGateway...');
+    const startMode = localStorage.getItem('gmao_start_mode');
+    const demoFlag = localStorage.getItem('gmao_demo_data_loaded_v1');
+    if (
+      rawStock &&
+      rawStock.length === 0 &&
+      startMode !== 'empty' &&
+      demoFlag !== 'false' &&
+      demoFlag === 'true'
+    ) {
       import('./application/DataGateway').then((dg) => {
         dg.DataGateway.initRealStock({ setRawStock: gmaoState.setRawStock });
       });
     }
-  }, [rawStock]);
+  }, [rawStock, gmaoState.setRawStock]);
 
   useEffect(() => {
     backupDataRef.current = {
@@ -442,8 +449,8 @@ export default function App() {
           props={routerProps}
         />
 
-        <div className="p-4">
-          <SyncButtons state={gmaoState} onApplyRemoteState={() => window.location.reload()} />
+        <div className="px-4 pt-2 pb-4">
+          <SyncButtons state={gmaoState} showToast={showToast} />
         </div>
 
         <AppModals

@@ -381,9 +381,13 @@ export const DataGateway = {
       id_templates: t.id_templates || t.id_template || t.id_comp_template || `TPL-${idx + 1}`,
     }));
 
-    // 1. Set DEMO_MODE flag
+    // 1. Set DEMO_MODE and START_MODE flags explicitly
     storageService.setItem(STORAGE_KEYS.DEMO_MODE, true);
-    storageService.setItem('gmao_start_mode', 'demo');
+    storageService.setItem(STORAGE_KEYS.START_MODE, 'demo');
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(STORAGE_KEYS.DEMO_MODE, 'true');
+      localStorage.setItem(STORAGE_KEYS.START_MODE, 'demo');
+    }
 
     // 2. Write all seeds to canonical STORAGE_KEYS only
     this.saveMachines(seedMachines);
@@ -470,12 +474,18 @@ export const DataGateway = {
 
   /**
    * Explicitly clears all operational data for a clean real-factory deployment.
-   * Sets DEMO_MODE = false and writes [] to all canonical keys.
+   * Sets DEMO_MODE = false, START_MODE = 'empty', removes FULL_STATE_SNAPSHOT, and writes [] to all canonical keys.
    */
   clearAllForRealFactory(setters = {}) {
     storageService.setItem(STORAGE_KEYS.DEMO_MODE, false);
-    storageService.setItem('gmao_start_mode', 'empty');
+    storageService.setItem(STORAGE_KEYS.START_MODE, 'empty');
     storageService.removeItem(STORAGE_KEYS.FULL_STATE_SNAPSHOT);
+
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(STORAGE_KEYS.DEMO_MODE, 'false');
+      localStorage.setItem(STORAGE_KEYS.START_MODE, 'empty');
+      localStorage.removeItem(STORAGE_KEYS.FULL_STATE_SNAPSHOT);
+    }
 
     this.saveMachines([]);
     this.saveFamilies([]);
@@ -548,6 +558,177 @@ export const DataGateway = {
     if (setters.setPartDesignations) setters.setPartDesignations([]);
 
     if (setters.setSortiesExterne) setters.setSortiesExterne([]);
+  },
+
+  /**
+   * Loads and applies full server state (from gmao_state.json) directly through canonical keys and React state setters.
+   */
+  loadFullServerState(serverData: Record<string, any> = {}, setters: Record<string, any> = {}) {
+    if (!serverData || typeof serverData !== 'object') return;
+
+    const rawStock = Array.isArray(serverData.rawStock)
+      ? serverData.rawStock
+      : Array.isArray(serverData.stock)
+      ? serverData.stock
+      : [];
+    const types = Array.isArray(serverData.types) ? serverData.types : [];
+    const designations = Array.isArray(serverData.designations) ? serverData.designations : [];
+    const machines = Array.isArray(serverData.machines) ? serverData.machines : [];
+    const families = Array.isArray(serverData.families) ? serverData.families : [];
+    const templates = Array.isArray(serverData.templates) ? serverData.templates : [];
+    const blueprints = Array.isArray(serverData.blueprints) ? serverData.blueprints : [];
+    const zones = Array.isArray(serverData.zones) ? serverData.zones : [];
+    const machineElementsLedger = Array.isArray(serverData.machineElementsLedger)
+      ? serverData.machineElementsLedger
+      : [];
+    const mouvements = Array.isArray(serverData.mouvements) ? serverData.mouvements : [];
+    const preventiveTasks = Array.isArray(serverData.preventiveTasks) ? serverData.preventiveTasks : [];
+    const preventiveActions = Array.isArray(serverData.preventiveActions) ? serverData.preventiveActions : [];
+    const preventiveGuides = Array.isArray(serverData.preventiveGuides) ? serverData.preventiveGuides : [];
+    const preventivePlans = Array.isArray(serverData.preventivePlans) ? serverData.preventivePlans : [];
+    const correctiveInterventions = Array.isArray(serverData.correctiveInterventions)
+      ? serverData.correctiveInterventions
+      : [];
+    const correctiveActionsByPanne =
+      serverData.correctiveActionsByPanne && typeof serverData.correctiveActionsByPanne === 'object'
+        ? serverData.correctiveActionsByPanne
+        : {};
+    const correctivePanneCategories =
+      serverData.correctivePanneCategories && typeof serverData.correctivePanneCategories === 'object'
+        ? serverData.correctivePanneCategories
+        : {};
+    const correctiveTravauxAFaire = Array.isArray(serverData.correctiveTravauxAFaire)
+      ? serverData.correctiveTravauxAFaire
+      : [];
+    const correctiveIntervenants = Array.isArray(serverData.correctiveIntervenants)
+      ? serverData.correctiveIntervenants
+      : [];
+    const users = Array.isArray(serverData.users) ? serverData.users : [];
+    const technicians = Array.isArray(serverData.technicians) ? serverData.technicians : [];
+    const operations = Array.isArray(serverData.operations) ? serverData.operations : [];
+    const warehouseItems = Array.isArray(serverData.warehouseItems) ? serverData.warehouseItems : [];
+    const entrepotComponents = Array.isArray(serverData.entrepotComponents)
+      ? serverData.entrepotComponents
+      : [];
+    const compGroups = Array.isArray(serverData.compGroups) ? serverData.compGroups : [];
+    const compFamilies = Array.isArray(serverData.compFamilies) ? serverData.compFamilies : [];
+    const compTemplates = Array.isArray(serverData.compTemplates) ? serverData.compTemplates : [];
+    const partTypes = Array.isArray(serverData.partTypes) ? serverData.partTypes : [];
+    const partDesignations = Array.isArray(serverData.partDesignations) ? serverData.partDesignations : [];
+    const sortiesExterne = Array.isArray(serverData.sortiesExterne) ? serverData.sortiesExterne : [];
+
+    const hasData =
+      rawStock.length > 0 ||
+      machines.length > 0 ||
+      preventiveTasks.length > 0 ||
+      correctiveInterventions.length > 0 ||
+      mouvements.length > 0;
+
+    storageService.setItem(STORAGE_KEYS.DEMO_MODE, false);
+    storageService.setItem(STORAGE_KEYS.START_MODE, hasData ? 'custom' : 'empty');
+
+    this.saveStock(rawStock);
+    this.saveStockTypes(types);
+    this.saveDesignations(designations);
+    this.saveMachines(machines);
+    this.saveFamilies(families);
+    this.saveTemplates(templates);
+    this.saveBlueprints(blueprints);
+    this.saveZones(zones);
+    this.saveMachineBom(machineElementsLedger);
+    this.saveMouvements(mouvements);
+    this.savePreventiveTasks(preventiveTasks);
+    this.savePreventiveActions(preventiveActions);
+    this.savePreventiveGuides(preventiveGuides);
+    this.savePreventivePlans(preventivePlans);
+    this.saveCorrectiveInterventions(correctiveInterventions);
+    this.saveCorrectiveActionsByPanne(correctiveActionsByPanne);
+    this.saveCorrectivePanneCategories(correctivePanneCategories);
+    this.saveCorrectiveTravaux(correctiveTravauxAFaire);
+    this.saveCorrectiveIntervenants(correctiveIntervenants);
+    this.savePersonnel(users, technicians, operations);
+    this.saveWarehouseItems(warehouseItems);
+    this.saveEntrepotComponents(entrepotComponents);
+    this.saveCompGroups(compGroups);
+    this.saveCompFamilies(compFamilies);
+    this.saveCompTemplates(compTemplates);
+    this.savePartTypes(partTypes);
+    this.savePartDesignations(partDesignations);
+    this.saveSortiesExterne(sortiesExterne);
+
+    if (setters.applyRemoteStateUpdate) {
+      setters.applyRemoteStateUpdate({
+        rawStock,
+        types,
+        designations,
+        machines,
+        families,
+        templates,
+        blueprints,
+        zones,
+        machineElementsLedger,
+        mouvements,
+        preventiveTasks,
+        preventiveActions,
+        preventiveGuides,
+        preventivePlans,
+        correctiveInterventions,
+        correctiveActionsByPanne,
+        correctivePanneCategories,
+        correctiveTravauxAFaire,
+        correctiveIntervenants,
+        users,
+        technicians,
+        operations,
+        warehouseItems,
+        entrepotComponents,
+        compGroups,
+        compFamilies,
+        compTemplates,
+        partTypes,
+        partDesignations,
+        sortiesExterne,
+      });
+    }
+
+    if (setters.setRawStock) setters.setRawStock(rawStock);
+    if (setters.setTypes) setters.setTypes(types);
+    if (setters.setDesignations) setters.setDesignations(designations);
+    if (setters.setMachines) setters.setMachines(machines);
+    if (setters.setFamilies) setters.setFamilies(families);
+    if (setters.setTemplates) setters.setTemplates(templates);
+    if (setters.setBlueprints) setters.setBlueprints(blueprints);
+    if (setters.setZones) setters.setZones(zones);
+    if (setters.setMachineElementsLedger) setters.setMachineElementsLedger(machineElementsLedger);
+    if (setters.setMouvements) setters.setMouvements(mouvements);
+    if (setters.setPreventiveTasks) setters.setPreventiveTasks(preventiveTasks);
+    if (setters.setPreventiveActions) setters.setPreventiveActions(preventiveActions);
+    if (setters.setPreventiveGuides) setters.setPreventiveGuides(preventiveGuides);
+    if (setters.setPreventivePlans) setters.setPreventivePlans(preventivePlans);
+    if (setters.setCorrectiveInterventions) setters.setCorrectiveInterventions(correctiveInterventions);
+    if (setters.setCorrectiveActionsByPanne) setters.setCorrectiveActionsByPanne(correctiveActionsByPanne);
+    if (setters.setCorrectivePanneCategories) setters.setCorrectivePanneCategories(correctivePanneCategories);
+    if (setters.setCorrectiveTravauxAFaire) setters.setCorrectiveTravauxAFaire(correctiveTravauxAFaire);
+    if (setters.setCorrectiveIntervenants) setters.setCorrectiveIntervenants(correctiveIntervenants);
+    if (setters.setUsers) setters.setUsers(users);
+    if (setters.setTechnicians) setters.setTechnicians(technicians);
+    if (setters.setOperations) setters.setOperations(operations);
+    if (setters.setWarehouseItems) setters.setWarehouseItems(warehouseItems);
+    if (setters.setEntrepotComponents) setters.setEntrepotComponents(entrepotComponents);
+    if (setters.setCompGroups) setters.setCompGroups(compGroups);
+    if (setters.setCompFamilies) setters.setCompFamilies(compFamilies);
+    if (setters.setCompTemplates) setters.setCompTemplates(compTemplates);
+    if (setters.setPartTypes) setters.setPartTypes(partTypes);
+    if (setters.setPartDesignations) setters.setPartDesignations(partDesignations);
+    if (setters.setSortiesExterne) setters.setSortiesExterne(sortiesExterne);
+
+    return {
+      machinesCount: machines.length,
+      stockCount: rawStock.length,
+      preventiveCount: preventiveTasks.length,
+      correctiveCount: correctiveInterventions.length,
+      movementsCount: mouvements.length,
+    };
   },
 
   /**

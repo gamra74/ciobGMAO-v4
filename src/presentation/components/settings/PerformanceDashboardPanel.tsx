@@ -24,6 +24,7 @@ import { trendAnalysisService } from '../../../services/trendAnalysisService';
 import { MemoryOptimizer } from '../../../services/memoryOptimizer';
 import { FormulaEngineOptimizer } from '../../../utils/formulaEngineOptimizer';
 import { StockCalculationService } from '../../../domain/pdr/services/StockCalculationService';
+import SyncButtons from '../common/SyncButtons';
 
 export default function PerformanceDashboardPanel({
   rawStock = [],
@@ -182,6 +183,9 @@ export default function PerformanceDashboardPanel({
           </button>
         </div>
       </div>
+
+      {/* Explicit Server Sync Card (gmao_state.json) */}
+      <SyncButtons showToast={showToast} />
 
       {/* Real-time Metric Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

@@ -185,9 +185,9 @@ export function loadCollection(
     }
   }
 
-  // STAGE 3: Recover from Unified FULL_STATE_SNAPSHOT if present
+  // STAGE 3: Recover from Unified FULL_STATE_SNAPSHOT if present (only when not in explicit empty mode)
   const snapshotField = SNAPSHOT_FIELD_MAP[canonicalKey];
-  if (snapshotField) {
+  if (snapshotField && startMode !== 'empty' && demoFlag !== false && demoFlag !== 'false') {
     const snapshot = storageService.getItem(STORAGE_KEYS.FULL_STATE_SNAPSHOT);
     if (snapshot && typeof snapshot === 'object') {
       const snapVal = snapshot[snapshotField];
