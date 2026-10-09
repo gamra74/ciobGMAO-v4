@@ -1,4 +1,5 @@
 import ReactDOM from 'react-dom/client';
+import './index.css';
 import App from './App';
 import ErrorBoundary from './presentation/components/common/ErrorBoundary';
 import { storageService } from './utils/storageService';

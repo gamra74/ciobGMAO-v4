@@ -89,7 +89,9 @@ export function useGmaoPersistence({
   useStateSync(setters, validators);
 
   // 3. Enterprise Domain Repositories synchronization with IndexedDB
-  useEnterpriseDbSync(state, setters);
+  const { syncEnterpriseDb } = useEnterpriseDbSync(state);
+  // Manual sync function is now exposed
+  const manualSyncToIdb = syncEnterpriseDb;
 
-  return { saveAllState };
+  return { saveAllState, manualSyncToIdb };
 }

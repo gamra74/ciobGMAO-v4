@@ -25,6 +25,8 @@ import AppRouter from './presentation/router/AppRouter';
 import { useAppRouterProps } from './presentation/router/useAppRouterProps';
 
 import { useAppViewController } from './hooks/useAppViewController';
+import SyncButtons from './presentation/components/common/SyncButtons';
+import initialStockSeed from './data/stock/seedStockItems.json';
 
 export default function App() {
   const { user: currentUser } = useAuth();
@@ -136,6 +138,17 @@ export default function App() {
 
   // Auto Backup and Performance Monitor Initialization
   const backupDataRef = useRef({});
+
+  // Load real stock if empty
+  useEffect(() => {
+    if (rawStock && rawStock.length === 0) {
+      console.log('Stock empty, hydrating from DataGateway...');
+      import('./application/DataGateway').then((dg) => {
+        dg.DataGateway.initRealStock({ setRawStock: gmaoState.setRawStock });
+      });
+    }
+  }, [rawStock]);
+
   useEffect(() => {
     backupDataRef.current = {
       currentUser,
@@ -428,6 +441,10 @@ export default function App() {
           setCurrentTab={setCurrentTab}
           props={routerProps}
         />
+
+        <div className="p-4">
+          <SyncButtons state={gmaoState} onApplyRemoteState={() => window.location.reload()} />
+        </div>
 
         <AppModals
           {...modals}

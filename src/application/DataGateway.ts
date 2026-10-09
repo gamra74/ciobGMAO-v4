@@ -351,6 +351,16 @@ export const DataGateway = {
   // 8. EXPLICIT DEMO DATA LOADER & FACTORY CLEAR
   // ==========================================
   /**
+   * Explicitly loads real stock data.
+   */
+  initRealStock(setters = {}) {
+    this.saveStock(seedStockItems);
+    if (setters.setRawStock) setters.setRawStock(seedStockItems);
+    // Also update designations if needed, but for now focus on RAW_STOCK
+    return { stockCount: seedStockItems.length };
+  },
+
+  /**
    * Explicitly loads all documented factory demo seeds into canonical STORAGE_KEYS.
    * Sets DEMO_MODE = true.
    */

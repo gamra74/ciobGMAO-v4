@@ -12,7 +12,7 @@ export const STORAGE_KEYS = {
   MACHINE_BOM: 'gmao_machine_bom_ledger_v1',
 
   // 2. Stock & Movements
-  RAW_STOCK: 'gmao_raw_stock_v7',
+  RAW_STOCK: 'gmao_raw_stock_v8',
   STOCK_TYPES: 'gmao_types_v5',
   DESIGNATIONS: 'gmao_designations_v3',
   MOUVEMENTS: 'gmao_mouvements_v2',
@@ -87,6 +87,7 @@ export const LEGACY_KEY_MAP = {
   gmao_zones_v1: STORAGE_KEYS.ZONES,
 
   // Stock & Movements
+  gmao_raw_stock_v7: STORAGE_KEYS.RAW_STOCK,
   gmao_raw_stock_v6: STORAGE_KEYS.RAW_STOCK,
   gmao_raw_stock_v5: STORAGE_KEYS.RAW_STOCK,
   gmao_raw_stock_v4: STORAGE_KEYS.RAW_STOCK,
