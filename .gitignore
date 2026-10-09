@@ -11,10 +11,11 @@ node_modules/
 dist/
 dev-dist/
 
-# Runtime server state & temporary workbooks
-data/
-data/gmao_state.json
-GMAO_x5f_Light_x5f_Template_x5f_V2_x5f_Formules.xlsx
+# Runtime server state & temporary workbooks (anchored to root /data/ only — never ignore /src/data/ seeds)
+/data/
+/data/gmao_state.json
+!/src/data/
+/GMAO_x5f_Light_x5f_Template_x5f_V2_x5f_Formules.xlsx
 
 # Local & alternative lockfiles to prevent cloud deployment conflicts (e.g. bun exit status 127)
 bun.lock

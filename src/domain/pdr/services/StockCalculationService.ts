@@ -1,6 +1,19 @@
 import { Logger } from '../../../core/logger/LoggerService';
 import { safeNum, calculateStockStatus } from '../../../utils/formulaEngine';
 import { multiLevelCacheManager } from '../../../core/cache/MultiLevelCacheManager';
+import { normalizeType } from '../../../application/IncrementalStockIndex';
+
+export interface StockCalculationResult {
+  ref: string;
+  designation: string;
+  stockInitial: number;
+  entrees: number;
+  sorties: number;
+  stockActuel: number;
+  alerte: 'OK' | 'ALERTE' | 'RUPTURE';
+  seuil: number;
+  lastUpdated: Date;
+}
 
 /**
  * Enhanced Stock Calculation Service for CIOB GMAO Light
@@ -44,7 +57,7 @@ export class StockCalculationService {
   static calculateEntrees(ref, movements = []) {
     try {
       if (!ref) return 0;
-      const refKey = String(ref).toLowerCase().trim();
+      const refKey = String(ref).toUpperCase().trim();
       const hash = `${refKey}_entrees_${this.getMovementHash(movements)}`;
 
       if (this.cache.has(hash)) {
@@ -56,9 +69,9 @@ export class StockCalculationService {
 
       const entrees = movements.reduce((sum, m) => {
         if (!m) return sum;
-        const mRef = String(m.ref || m.Ref || '').toLowerCase().trim();
-        const mType = String(m.type || '').toLowerCase();
-        if (mRef === refKey && (mType.includes('entrée') || mType.includes('entree'))) {
+        const mRef = String(m.ref || m.Ref || '').toUpperCase().trim();
+        const normalized = normalizeType(m.type || '');
+        if (mRef === refKey && normalized === 'ENTREE') {
           return sum + safeNum(m.quantite || m.quantity, 0);
         }
         return sum;
@@ -79,7 +92,7 @@ export class StockCalculationService {
   static calculateSorties(ref, movements = []) {
     try {
       if (!ref) return 0;
-      const refKey = String(ref).toLowerCase().trim();
+      const refKey = String(ref).toUpperCase().trim();
       const hash = `${refKey}_sorties_${this.getMovementHash(movements)}`;
 
       if (this.cache.has(hash)) {
@@ -91,9 +104,9 @@ export class StockCalculationService {
 
       const sorties = movements.reduce((sum, m) => {
         if (!m) return sum;
-        const mRef = String(m.ref || m.Ref || '').toLowerCase().trim();
-        const mType = String(m.type || '').toLowerCase();
-        if (mRef === refKey && (mType.includes('sortie') || mType === 'bon de sortie')) {
+        const mRef = String(m.ref || m.Ref || '').toUpperCase().trim();
+        const normalized = normalizeType(m.type || '');
+        if (mRef === refKey && normalized === 'SORTIE') {
           return sum + safeNum(m.quantite || m.quantity, 0);
         }
         return sum;
@@ -239,17 +252,17 @@ export class StockCalculationService {
       const mvtIndex = new Map();
       movements.forEach((m) => {
         if (!m) return;
-        const r = String(m.ref || m.Ref || '').toLowerCase().trim();
+        const r = String(m.ref || m.Ref || '').toUpperCase().trim();
         if (!r) return;
         if (!mvtIndex.has(r)) {
           mvtIndex.set(r, { entrees: 0, sorties: 0 });
         }
         const entry = mvtIndex.get(r);
-        const typeStr = String(m.type || '').toLowerCase();
+        const normalized = normalizeType(m.type || '');
         const qty = safeNum(m.quantite || m.quantity, 0);
-        if (typeStr.includes('entr')) {
+        if (normalized === 'ENTREE') {
           entry.entrees += qty;
-        } else if (typeStr.includes('sort')) {
+        } else if (normalized === 'SORTIE') {
           entry.sorties += qty;
         }
       });
@@ -257,7 +270,7 @@ export class StockCalculationService {
       // Single-pass O(A) calculations
       articles.forEach((art) => {
         if (!art) return;
-        const refKey = String(art.ref || '').toLowerCase().trim();
+        const refKey = String(art.ref || '').toUpperCase().trim();
         const mTotals = mvtIndex.get(refKey) || { entrees: 0, sorties: 0 };
         const init = safeNum(art.stockInitial || art.initialStock, 0);
         const currentStock = Math.max(0, init + mTotals.entrees - mTotals.sorties);
@@ -313,6 +326,94 @@ export class StockCalculationService {
         alerteItems: [],
       };
     }
+  }
+
+  /**
+   * Batch calculate all stocks in O(A + M) time using normalized ref & movement types
+   */
+  static calculateAllStocks(
+    articles: any[] = [],
+    movements: any[] = []
+  ): StockCalculationResult[] {
+    const index = new Map<string, { entreesSum: number; sortiesSum: number }>();
+
+    if (Array.isArray(movements)) {
+      for (let i = 0; i < movements.length; i++) {
+        const m = movements[i];
+        if (!m) continue;
+        const key = String(m.ref || m.Ref || '').trim().toUpperCase();
+        if (!key) continue;
+        let item = index.get(key);
+        if (!item) {
+          item = { entreesSum: 0, sortiesSum: 0 };
+          index.set(key, item);
+        }
+        const qty = safeNum(m.quantite ?? m.quantity, 0);
+        const norm = normalizeType(m.type || '');
+        if (norm === 'ENTREE') item.entreesSum += qty;
+        else if (norm === 'SORTIE') item.sortiesSum += qty;
+      }
+    }
+
+    const now = new Date();
+    return (Array.isArray(articles) ? articles : []).map((article) => {
+      const ref = String(article?.ref || '').trim();
+      const key = ref.toUpperCase();
+      const stockInitial = safeNum(article?.stockInitial, 0);
+      const seuil = safeNum(article?.seuil, 0);
+      const mvt = index.get(key);
+      const entrees = mvt ? mvt.entreesSum : 0;
+      const sorties = mvt ? mvt.sortiesSum : 0;
+      const rawActuel = stockInitial + entrees - sorties;
+      const stockActuel = Math.max(0, rawActuel);
+      const alerte: 'OK' | 'ALERTE' | 'RUPTURE' =
+        rawActuel <= 0 ? 'RUPTURE' : rawActuel <= seuil ? 'ALERTE' : 'OK';
+
+      return {
+        ref,
+        designation: article?.designation || '',
+        stockInitial,
+        entrees,
+        sorties,
+        stockActuel,
+        alerte,
+        seuil,
+        lastUpdated: now,
+      };
+    });
+  }
+
+  static calculateStockByRef(article: any, movements: any[] = []): StockCalculationResult {
+    const [res] = this.calculateAllStocks([article], movements);
+    return res;
+  }
+
+  static getStockStatus(stockActuel: number, seuil: number): 'OK' | 'ALERTE' | 'RUPTURE' {
+    if (stockActuel <= 0) return 'RUPTURE';
+    if (stockActuel <= seuil) return 'ALERTE';
+    return 'OK';
+  }
+
+  static getStockAlerts(stocks: StockCalculationResult[] = []) {
+    return {
+      rupture: stocks.filter((s) => s.alerte === 'RUPTURE'),
+      alerte: stocks.filter((s) => s.alerte === 'ALERTE'),
+      ok: stocks.filter((s) => s.alerte === 'OK'),
+    };
+  }
+
+  static getStockStatistics(stocks: StockCalculationResult[] = []) {
+    return {
+      totalArticles: stocks.length,
+      totalValue: stocks.reduce((sum, s) => sum + s.stockActuel * 100, 0),
+      articlesInRupture: stocks.filter((s) => s.alerte === 'RUPTURE').length,
+      articlesInAlerte: stocks.filter((s) => s.alerte === 'ALERTE').length,
+      articlesOK: stocks.filter((s) => s.alerte === 'OK').length,
+      averageStock:
+        stocks.length > 0
+          ? stocks.reduce((sum, s) => sum + s.stockActuel, 0) / stocks.length
+          : 0,
+    };
   }
 
   /**

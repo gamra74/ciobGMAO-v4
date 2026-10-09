@@ -39,14 +39,19 @@ export interface StockTotals {
 }
 
 export interface MovementDelta {
-  ref: string;
+  ref?: string;
+  itemId?: string;
+  Ref?: string;
   type: string;
-  quantity: number;
+  quantity?: number;
+  quantite?: number;
+  [key: string]: any;
 }
 
 export class IncrementalStockIndex {
   private index = new Map<string, StockTotals>();
   private initialStocks = new Map<string, number>();
+  private movementHistory = new Map<string, MovementDelta[]>();
   private hydrated = false;
 
   hasData(): boolean {
@@ -77,18 +82,81 @@ export class IncrementalStockIndex {
     }
   }
 
-  rebuild(movements: MovementDelta[], initialStocks?: Map<string, number>): void {
+  rebuild(movements: MovementDelta[] = [], initialStocks?: Map<string, number> | Record<string, number>): void {
     this.index.clear();
+    this.movementHistory.clear();
     if (initialStocks) {
-      this.initialStocks = new Map(initialStocks);
+      this.initialStocks.clear();
+      this.setAllInitialStocks(initialStocks);
     }
-    for (const m of movements) {
-      this._accumulate(m, +1);
+    if (Array.isArray(movements)) {
+      for (let i = 0; i < movements.length; i++) {
+        const m = movements[i];
+        if (!m) continue;
+        this._accumulate(m, +1);
+      }
     }
+    this.hydrated = true;
+  }
+
+  /**
+   * Alias for rebuild() supporting core/domain/services benchmark and legacy callers
+   */
+  buildIndex(
+    movements: MovementDelta[] = [],
+    initialStocks: Map<string, number> | Record<string, number> = new Map()
+  ): void {
+    this.rebuild(movements, initialStocks);
   }
 
   applyDelta(m: MovementDelta): void {
     this._accumulate(m, +1);
+  }
+
+  /**
+   * Alias for applyDelta() supporting core/domain/services callers
+   */
+  addMovement(m: MovementDelta): void {
+    if (!m) return;
+    const key = this._key(m.ref ?? m.itemId ?? m.Ref ?? '');
+    if (key) {
+      let list = this.movementHistory.get(key);
+      if (!list) {
+        list = [];
+        this.movementHistory.set(key, list);
+      }
+      list.push(m);
+    }
+    this._accumulate(m, +1);
+  }
+
+  getMovements(ref: string): MovementDelta[] {
+    const key = this._key(ref);
+    if (!key) return [];
+    return this.movementHistory.get(key) ?? [];
+  }
+
+  getStock(ref: string): number {
+    return this.calculateCurrentStock(ref);
+  }
+
+  getAllStocks(): Map<string, number> {
+    const result = new Map<string, number>();
+    const allKeys = new Set<string>([
+      ...this.initialStocks.keys(),
+      ...this.index.keys(),
+    ]);
+    allKeys.forEach((k) => {
+      result.set(k, this.calculateCurrentStock(k));
+    });
+    return result;
+  }
+
+  clear(): void {
+    this.index.clear();
+    this.initialStocks.clear();
+    this.movementHistory.clear();
+    this.hydrated = false;
   }
 
   rollbackDelta(m: MovementDelta): void {
@@ -149,6 +217,7 @@ export class IncrementalStockIndex {
     physicalStock: number;
     availableStock: number;
     hasDiscrepancy: boolean;
+    hasNegativeDiscrepancy: boolean;
     entrees: number;
     sorties: number;
     commandes: number;
@@ -159,6 +228,7 @@ export class IncrementalStockIndex {
       physicalStock,
       availableStock: Math.max(0, physicalStock),
       hasDiscrepancy: physicalStock < 0,
+      hasNegativeDiscrepancy: physicalStock < 0,
       entrees: totals.entrees,
       sorties: totals.sorties,
       commandes: totals.commandes,
@@ -172,14 +242,14 @@ export class IncrementalStockIndex {
   }
 
   private _accumulate(m: MovementDelta, sign: 1 | -1): void {
-    const key = this._key(m.ref);
+    const rawRef = m.ref ?? m.itemId ?? m.Ref ?? '';
+    const key = this._key(rawRef);
     if (!key) return;
-    const qty = Number(m.quantity);
+    const qty = Number(m.quantity ?? m.quantite ?? 0);
     if (!Number.isFinite(qty) || qty === 0) return;
 
     const type = normalizeType(m.type);
     if (!type) {
-      // Gracefully log unknown types for traceability without crashing
       console.warn(`[StockIndex] Unknown type "${m.type}" for ref ${key} — SKIPPED`);
       return;
     }
@@ -202,3 +272,6 @@ export class IncrementalStockIndex {
     }
   }
 }
+
+export const stockIndex = new IncrementalStockIndex();
+export default IncrementalStockIndex;

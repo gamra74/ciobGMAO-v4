@@ -21,7 +21,7 @@ describe('Git Binary Files & Ignore Configuration (P2-1)', () => {
     expect(content).toContain('*.png binary');
   });
 
-  it('should have .gitignore properly excluding local temporary envs, runtime state, and lock conflicts', () => {
+  it('should have .gitignore properly excluding local temporary envs, runtime state, and lock conflicts without ignoring src/data/ seeds', () => {
     const gitignorePath = path.resolve(process.cwd(), '.gitignore');
     expect(fs.existsSync(gitignorePath)).toBe(true);
 
@@ -30,6 +30,18 @@ describe('Git Binary Files & Ignore Configuration (P2-1)', () => {
     expect(content).toContain('.env.production.local');
     expect(content).toContain('dist/');
     expect(content).toContain('node_modules/');
-    expect(content).toContain('data/gmao_state.json');
+    expect(content).toContain('/data/');
+    expect(content).toContain('/data/gmao_state.json');
+    expect(content).toContain('!/src/data/');
+
+    // Ensure no unanchored 'data/' line exists that would accidentally ignore 'src/data/'
+    const lines = content.split(/\r?\n/).map((l) => l.trim());
+    expect(lines).not.toContain('data/');
+
+    // Verify src/data seed files exist on disk
+    const seedStockPath = path.resolve(process.cwd(), 'src/data/stock/seedStockItems.json');
+    const seedPreventivePath = path.resolve(process.cwd(), 'src/data/preventive/seedPreventiveTasks.json');
+    expect(fs.existsSync(seedStockPath)).toBe(true);
+    expect(fs.existsSync(seedPreventivePath)).toBe(true);
   });
 });
