@@ -164,23 +164,25 @@ export function loadCollection(
     }
   }
 
-  // STAGE 2: Check Legacy Keys mapped to this canonicalKey
-  for (const [legacyKey, mappedCanonical] of Object.entries(LEGACY_KEY_MAP)) {
-    if (mappedCanonical === canonicalKey && legacyKey !== canonicalKey) {
-      const legacyVal = storageService.getItem(legacyKey);
-      if (Array.isArray(legacyVal) && legacyVal.length > 0) {
-        storageService.setItem(canonicalKey, legacyVal);
-        return legacyVal;
-      }
-      if (
-        !Array.isArray(emptyDefault) &&
-        legacyVal &&
-        typeof legacyVal === 'object' &&
-        !Array.isArray(legacyVal) &&
-        Object.keys(legacyVal).length > 0
-      ) {
-        storageService.setItem(canonicalKey, legacyVal);
-        return legacyVal;
+  // STAGE 2: Check Legacy Keys mapped to this canonicalKey (only when not in explicit empty factory mode)
+  if (startMode !== 'empty' && demoFlag !== false && demoFlag !== 'false') {
+    for (const [legacyKey, mappedCanonical] of Object.entries(LEGACY_KEY_MAP)) {
+      if (mappedCanonical === canonicalKey && legacyKey !== canonicalKey) {
+        const legacyVal = storageService.getItem(legacyKey);
+        if (Array.isArray(legacyVal) && legacyVal.length > 0) {
+          storageService.setItem(canonicalKey, legacyVal);
+          return legacyVal;
+        }
+        if (
+          !Array.isArray(emptyDefault) &&
+          legacyVal &&
+          typeof legacyVal === 'object' &&
+          !Array.isArray(legacyVal) &&
+          Object.keys(legacyVal).length > 0
+        ) {
+          storageService.setItem(canonicalKey, legacyVal);
+          return legacyVal;
+        }
       }
     }
   }

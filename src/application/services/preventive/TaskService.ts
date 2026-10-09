@@ -38,6 +38,38 @@ export class TaskService {
     return updated;
   }
 
+  static updateTaskCounter(taskId, newCounterValue) {
+    return this.updateTask(taskId, { dernier_releve: Number(newCounterValue || 0) });
+  }
+
+  static markTaskAsDone(taskId, validationData = {}) {
+    const current = this.getTasks();
+    const nowIso = new Date().toISOString();
+    const dateRealisation =
+      validationData?.date_realisation ||
+      validationData?.date_execution ||
+      nowIso.split('T')[0];
+
+    const updated = current.map((t) =>
+      t.id === taskId
+        ? {
+            ...t,
+            etat: 'Fait',
+            derniere_realisation: dateRealisation,
+            technicien_realisateur:
+              validationData?.technicien ||
+              validationData?.technicien_realisateur ||
+              t.responsable,
+            observations_validation: validationData?.observations || '',
+            duree_reelle: validationData?.duree_reelle || t.duree_estimee,
+            updated_at: nowIso,
+          }
+        : t
+    );
+    this.saveTasks(updated);
+    return updated;
+  }
+
   /**
    * Nettoyage et injection de données réelles d'usine avec normalisation
    */

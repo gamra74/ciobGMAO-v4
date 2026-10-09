@@ -46,6 +46,14 @@ export class PreventiveService {
     return ActionService.deleteAction(id);
   }
 
+  static getTasks() {
+    return TaskService.getTasks();
+  }
+
+  static saveTasks(tasks: any[]) {
+    return TaskService.saveTasks(tasks);
+  }
+
   static markTaskAsDone(id: string, validationData?: any) {
     return TaskService.markTaskAsDone(id, validationData);
   }
@@ -54,12 +62,39 @@ export class PreventiveService {
     return TaskService.updateTaskCounter(id, counter);
   }
 
+  static updateTaskStatus(id: string, newStatus: string) {
+    return TaskService.updateTask(id, { etat: newStatus });
+  }
+
   static updateTask(id: string, taskData: any) {
     return TaskService.updateTask(id, taskData);
   }
 
   static deleteTask(id: string) {
     return TaskService.deleteTask(id);
+  }
+
+  static bulkImportTasks(tasksArray: any[], replace = false) {
+    const current = replace ? [] : this.getTasks();
+    return TaskService.injectRealData([...tasksArray, ...current]);
+  }
+
+  static importFromExcel(file: File) {
+    return TaskService.importFromExcel(file);
+  }
+
+  static loadFromPublicJson() {
+    return TaskService.loadFromPublicJson();
+  }
+
+  static getRecommendedPDRForAction(actionCode?: string, composant?: string) {
+    const guides = GuideService.getGuides();
+    if (!Array.isArray(guides) || !composant) return [];
+    const compLower = String(composant).toLowerCase();
+    const match =
+      guides.find((g: any) => String(g.composant_nom || g.composant_type || '').toLowerCase() === compLower) ||
+      guides.find((g: any) => compLower.includes(String(g.composant_nom || g.composant_type || '').toLowerCase()));
+    return match?.pieces_rechange || [];
   }
 
   static createPlanWithTasks(planData: any, taskItems: any[]) {

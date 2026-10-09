@@ -693,6 +693,8 @@ export const useGmaoStore = create<GmaoStoreState>((set, get) => {
         return { cancelled: true };
       }
 
+      DataGateway.purgeLegacyKeysFor(STORAGE_KEYS.PREVENTIVE_TASKS);
+      DataGateway.purgeLegacyKeysFor(STORAGE_KEYS.PREVENTIVE_PLANS);
       set({
         preventiveTasks: [],
         preventivePlans: [],

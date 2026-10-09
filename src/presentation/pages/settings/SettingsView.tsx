@@ -1733,19 +1733,19 @@ export default function SettingsView({
                 </div>
                 <div className="bg-white/80 p-2 rounded-xl border border-emerald-100">
                   <div className="text-[10px] font-bold text-slate-400 uppercase">Sorties Ext.</div>
-                  <div className="text-sm font-black text-emerald-700 font-mono">{sortiesExterne.length || 4}</div>
+                  <div className="text-sm font-black text-emerald-700 font-mono">{sortiesExterne.length}</div>
                 </div>
                 <div className="bg-white/80 p-2 rounded-xl border border-emerald-100">
                   <div className="text-[10px] font-bold text-slate-400 uppercase">Préventif</div>
-                  <div className="text-sm font-black text-emerald-700 font-mono">{preventiveTasks.length || 1175}</div>
+                  <div className="text-sm font-black text-emerald-700 font-mono">{preventiveTasks.length}</div>
                 </div>
                 <div className="bg-white/80 p-2 rounded-xl border border-emerald-100">
                   <div className="text-[10px] font-bold text-slate-400 uppercase">Correctif</div>
-                  <div className="text-sm font-black text-emerald-700 font-mono">{correctiveInterventions.length || 800}</div>
+                  <div className="text-sm font-black text-emerald-700 font-mono">{correctiveInterventions.length}</div>
                 </div>
                 <div className="bg-white/80 p-2 rounded-xl border border-emerald-100">
                   <div className="text-[10px] font-bold text-slate-400 uppercase">Entrepôt</div>
-                  <div className="text-sm font-black text-emerald-700 font-mono">{warehouseItems.length || 185}</div>
+                  <div className="text-sm font-black text-emerald-700 font-mono">{warehouseItems.length}</div>
                 </div>
                 <div className="bg-white/80 p-2 rounded-xl border border-emerald-100">
                   <div className="text-[10px] font-bold text-slate-400 uppercase">Zones & Staff</div>
@@ -1932,8 +1932,8 @@ export default function SettingsView({
             initialTechnicians={initialTechnicians}
             initialMouvements={initialMouvements}
             initialCorrectiveInterventions={initialCorrectiveInterventions}
-            warehouseCount={warehouseItems.length || 185}
-            preventiveCount={preventiveTasks.length || 1175}
+            warehouseCount={warehouseItems.length}
+            preventiveCount={preventiveTasks.length}
             isDemoMode={isDemoMode}
             setIsDemoMode={setIsDemoMode}
             onToggleDemoMode={handleToggleDemoMode}

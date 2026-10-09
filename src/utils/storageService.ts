@@ -476,6 +476,24 @@ export const storageService = {
   },
 
   /**
+   * Asynchronous setItem that awaits IndexedDB completion in addition to synchronous memoryCache + localStorage write.
+   * Prevents L2 -> L1 hydration races during factory clear/reset operations.
+   */
+  async setItemAsync(key, value) {
+    this.setItem(key, value);
+    if (key.startsWith('gmao_')) {
+      try {
+        if (value === null || value === undefined) {
+          await indexedDBService.removeItem(key);
+        } else {
+          await indexedDBService.setItem(key, value);
+        }
+      } catch {}
+    }
+    return true;
+  },
+
+  /**
    * Remove item from memory cache, localStorage, and IndexedDB
    */
   removeItem(key) {
@@ -496,11 +514,63 @@ export const storageService = {
   },
 
   /**
-   * Hydrate a key from IndexedDB if not found or evicted in localStorage
-   * Implements L3 -> L2 -> L1 healing flow.
+   * Asynchronous removeItem that awaits IndexedDB removal completion.
+   */
+  async removeItemAsync(key) {
+    this.removeItem(key);
+    if (key.startsWith('gmao_')) {
+      try {
+        await indexedDBService.removeItem(key);
+      } catch {}
+    }
+    return true;
+  },
+
+  /**
+   * Synchronously and asynchronously purges a batch of keys from memoryCache, localStorage, and IndexedDB.
+   */
+  async removeItemsBatchAsync(keys = []) {
+    if (!Array.isArray(keys) || keys.length === 0) return true;
+    for (const k of keys) {
+      if (!k) continue;
+      memoryCache.delete(k);
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.removeItem(k);
+        }
+      } catch {}
+    }
+    try {
+      await Promise.all(
+        keys.filter(Boolean).map((k) => indexedDBService.removeItem(k).catch(() => false))
+      );
+    } catch {}
+    return true;
+  },
+
+  /**
+   * Hydrate a key from IndexedDB if not found or evicted in localStorage.
+   * Implements guarded L3 -> L2 -> L1 healing flow:
+   * - Never overwrites an explicit empty factory state (START_MODE === 'empty' or DEMO_MODE === false).
+   * - Never overwrites a key that already has an authoritative array/object in localStorage.
    */
   async hydrateFromIndexedDB(key, fallback = null) {
     try {
+      const startMode = this.getItem(STORAGE_KEYS.START_MODE);
+      const demoFlag = this.getItem(STORAGE_KEYS.DEMO_MODE);
+      if (startMode === 'empty' || demoFlag === false || demoFlag === 'false') {
+        const current = this.getItem(key, undefined);
+        if (current !== undefined && current !== null) {
+          return current;
+        }
+        return fallback;
+      }
+
+      const existing = this.getItem(key, undefined);
+      if (Array.isArray(existing) && existing.length > 0) {
+        return existing;
+      }
+
       const idbVal = await indexedDBService.getItem(key, null);
       if (idbVal !== null && idbVal !== undefined) {
         this.setItem(key, idbVal);

@@ -1,5 +1,6 @@
-import { STORAGE_KEYS } from '../infrastructure/persistence/storageKeys';
+import { STORAGE_KEYS, LEGACY_KEY_MAP, ALL_LEGACY_KEYS } from '../infrastructure/persistence/storageKeys';
 import { storageService } from '../utils/storageService';
+import { indexedDBService } from '../infrastructure/database/IndexedDBService';
 import { dataIntegrityService } from '../services/dataIntegrityService';
 import { sanitizeObject } from '../utils/sanitize';
 import { ValidationService } from '../core/validation/ValidationService';
@@ -473,10 +474,28 @@ export const DataGateway = {
   },
 
   /**
-   * Explicitly clears all operational data for a clean real-factory deployment.
-   * Sets DEMO_MODE = false, START_MODE = 'empty', removes FULL_STATE_SNAPSHOT, and writes [] to all canonical keys.
+   * Purges all legacy keys mapped to a given canonical key (or all legacy keys if canonicalKey is null).
    */
-  clearAllForRealFactory(setters = {}) {
+  purgeLegacyKeysFor(canonicalKey: string | null = null) {
+    if (!canonicalKey) {
+      for (const legacyKey of ALL_LEGACY_KEYS) {
+        storageService.removeItem(legacyKey);
+      }
+      return;
+    }
+    for (const [legacyKey, mappedCanonical] of Object.entries(LEGACY_KEY_MAP)) {
+      if (mappedCanonical === canonicalKey) {
+        storageService.removeItem(legacyKey);
+      }
+    }
+  },
+
+  /**
+   * Explicitly clears all operational data for a clean real-factory deployment.
+   * Sets DEMO_MODE = false, START_MODE = 'empty', removes FULL_STATE_SNAPSHOT, purges all legacy keys,
+   * writes [] to all canonical keys in memory + localStorage + IndexedDB, and clears IndexedDB entity stores.
+   */
+  clearAllForRealFactory(setters: Record<string, any> = {}) {
     storageService.setItem(STORAGE_KEYS.DEMO_MODE, false);
     storageService.setItem(STORAGE_KEYS.START_MODE, 'empty');
     storageService.removeItem(STORAGE_KEYS.FULL_STATE_SNAPSHOT);
@@ -486,6 +505,9 @@ export const DataGateway = {
       localStorage.setItem(STORAGE_KEYS.START_MODE, 'empty');
       localStorage.removeItem(STORAGE_KEYS.FULL_STATE_SNAPSHOT);
     }
+
+    // Purge all legacy keys so Stage 2 of loadCollection can never resurrect old data
+    this.purgeLegacyKeysFor(null);
 
     this.saveMachines([]);
     this.saveFamilies([]);
@@ -558,6 +580,58 @@ export const DataGateway = {
     if (setters.setPartDesignations) setters.setPartDesignations([]);
 
     if (setters.setSortiesExterne) setters.setSortiesExterne([]);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('preventive_tasks_updated', { detail: [] }));
+    }
+
+    // Return a promise that resolves once IndexedDB batch write + entity store clear completes
+    const emptyBatch: Record<string, any> = {
+      [STORAGE_KEYS.DEMO_MODE]: false,
+      [STORAGE_KEYS.START_MODE]: 'empty',
+      [STORAGE_KEYS.MACHINES]: [],
+      [STORAGE_KEYS.FAMILIES]: [],
+      [STORAGE_KEYS.TEMPLATES]: [],
+      [STORAGE_KEYS.BLUEPRINTS]: [],
+      [STORAGE_KEYS.ZONES]: [],
+      [STORAGE_KEYS.MACHINE_BOM]: [],
+      [STORAGE_KEYS.RAW_STOCK]: [],
+      [STORAGE_KEYS.STOCK_TYPES]: [],
+      [STORAGE_KEYS.DESIGNATIONS]: [],
+      [STORAGE_KEYS.MOUVEMENTS]: [],
+      [STORAGE_KEYS.PREVENTIVE_TASKS]: [],
+      [STORAGE_KEYS.PREVENTIVE_ACTIONS]: [],
+      [STORAGE_KEYS.PREVENTIVE_GUIDES]: [],
+      [STORAGE_KEYS.PREVENTIVE_PLANS]: [],
+      [STORAGE_KEYS.CORRECTIVE_INTERVENTIONS]: [],
+      [STORAGE_KEYS.CORRECTIVE_ACTIONS_BY_PANNE]: {},
+      [STORAGE_KEYS.CORRECTIVE_PANNE_CATEGORIES]: {},
+      [STORAGE_KEYS.CORRECTIVE_TRAVAUX]: [],
+      [STORAGE_KEYS.CORRECTIVE_INTERVENANTS]: [],
+      [STORAGE_KEYS.PERSONNEL]: [],
+      [STORAGE_KEYS.TECHNICIANS]: [],
+      [STORAGE_KEYS.OPERATIONS]: [],
+      [STORAGE_KEYS.WAREHOUSE_ITEMS]: [],
+      [STORAGE_KEYS.ENTREPOT_COMPONENTS]: [],
+      [STORAGE_KEYS.COMP_GROUPS]: [],
+      [STORAGE_KEYS.COMP_FAMILIES]: [],
+      [STORAGE_KEYS.COMP_TEMPLATES]: [],
+      [STORAGE_KEYS.PART_TYPES]: [],
+      [STORAGE_KEYS.PART_DESIGNATIONS]: [],
+      [STORAGE_KEYS.SORTIE_EXTERNE]: [],
+    };
+
+    return Promise.all([
+      indexedDBService.removeItem(STORAGE_KEYS.FULL_STATE_SNAPSHOT).catch(() => false),
+      indexedDBService.setItemsBatch(emptyBatch).catch(() => false),
+      indexedDBService.clear('preventive').catch(() => false),
+      indexedDBService.clear('interventions').catch(() => false),
+      indexedDBService.clear('movements').catch(() => false),
+      indexedDBService.clear('machines').catch(() => false),
+      indexedDBService.clear('articles').catch(() => false),
+      indexedDBService.clear('warehouse_items').catch(() => false),
+      storageService.removeItemsBatchAsync(ALL_LEGACY_KEYS).catch(() => false),
+    ]).then(() => ({ cleared: true }));
   },
 
   /**
@@ -916,6 +990,10 @@ export const DataGateway = {
         break;
 
       case 'preventive':
+        this.purgeLegacyKeysFor(STORAGE_KEYS.PREVENTIVE_TASKS);
+        this.purgeLegacyKeysFor(STORAGE_KEYS.PREVENTIVE_ACTIONS);
+        this.purgeLegacyKeysFor(STORAGE_KEYS.PREVENTIVE_GUIDES);
+        this.purgeLegacyKeysFor(STORAGE_KEYS.PREVENTIVE_PLANS);
         this.savePreventiveTasks([]);
         this.savePreventiveActions([]);
         this.savePreventiveGuides([]);
@@ -924,6 +1002,18 @@ export const DataGateway = {
         if (setters.setPreventiveActions) setters.setPreventiveActions([]);
         if (setters.setPreventiveGuides) setters.setPreventiveGuides([]);
         if (setters.setPreventivePlans) setters.setPreventivePlans([]);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('preventive_tasks_updated', { detail: [] }));
+        }
+        indexedDBService
+          .setItemsBatch({
+            [STORAGE_KEYS.PREVENTIVE_TASKS]: [],
+            [STORAGE_KEYS.PREVENTIVE_ACTIONS]: [],
+            [STORAGE_KEYS.PREVENTIVE_GUIDES]: [],
+            [STORAGE_KEYS.PREVENTIVE_PLANS]: [],
+          })
+          .catch(() => false);
+        indexedDBService.clear('preventive').catch(() => false);
         break;
 
       case 'corrective':

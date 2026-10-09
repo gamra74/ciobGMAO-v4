@@ -82,6 +82,20 @@ export function useGmaoPersistence({
     })();
   }, []);
 
+  // Synchronize external preventive_tasks_updated events (e.g. Excel / JSON import) with Zustand store
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleTasksUpdated = (e: any) => {
+      if (e?.detail && Array.isArray(e.detail) && typeof setters?.setPreventiveTasks === 'function') {
+        setters.setPreventiveTasks(e.detail);
+      }
+    };
+    window.addEventListener('preventive_tasks_updated', handleTasksUpdated);
+    return () => {
+      window.removeEventListener('preventive_tasks_updated', handleTasksUpdated);
+    };
+  }, [setters]);
+
   // 1. Debounced auto-save to LocalStorage and IndexedDB batch writes
   const { saveAllState } = useAutoSave(state, 1000, onStateChange);
 
