@@ -28,6 +28,18 @@ async function startServer() {
     next();
   });
 
+  // API Authentication Middleware
+  const authenticateApi = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
+      const token = req.headers['x-gmao-api-token'];
+      if (!token || token !== process.env.GMAO_API_TOKEN) {
+        return res.status(401).json({ success: false, error: 'Unauthorized', message: 'API Token invalide ou manquant.' });
+      }
+    }
+    next();
+  };
+  app.use('/api/gmao', authenticateApi);
+
   // Enterprise In-Memory Rate Limiting (Token Bucket / Sliding Window)
   const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
   const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute

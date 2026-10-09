@@ -192,7 +192,7 @@ export default function SettingsView({
   const [isDemoMode, setIsDemoMode] = useState(() => {
     const demoFlag = storageService.getItem(STORAGE_KEYS.DEMO_MODE);
     const startMode = storageService.getItem(STORAGE_KEYS.START_MODE);
-    return startMode === 'demo' || (demoFlag === true && startMode !== 'empty');
+    return (demoFlag === true || demoFlag === 'true') && startMode !== 'empty';
   });
 
   // Admin & Security Config States (Zero-Knowledge Vault)

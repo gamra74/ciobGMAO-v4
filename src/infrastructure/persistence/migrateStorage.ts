@@ -122,18 +122,19 @@ const SNAPSHOT_FIELD_MAP = {
 };
 
 /**
- * Unified collection loader for all use*SubState hooks and services.
+ * Unified collection loader for all use*SubState hooks, Zustand store, and services.
  * Strictly obeys SSOT rules with 4-Stage Self-Healing Hydration:
- * - Stage 1: Canonical key in storageService (authoritative user data if non-empty, or valid empty array in real factory mode).
+ * - Default for a new installation = EMPTY ([] or {}).
+ * - Stage 1: Canonical key in storageService (authoritative user data if non-empty, or authoritative empty array/object when not in explicit Demo Mode).
  * - Stage 2: Legacy keys in LEGACY_KEY_MAP that map to this canonicalKey.
  * - Stage 3: Unified FULL_STATE_SNAPSHOT ('gmao_full_state_v2') recovery if individual key was evicted or missing.
- * - Stage 4: Seed data fallback (when startMode !== 'empty' and allowDemoFallback is true).
+ * - Stage 4: Seed data fallback ONLY when DEMO_MODE is explicitly true (demoFlag === true || demoFlag === 'true') and startMode !== 'empty' and allowDemoFallback is true.
  *
  * @param {string} canonicalKey - Key from STORAGE_KEYS
  * @param {object} options
- * @param {boolean} [options.allowDemoFallback=false] - Whether to return demoSeed when not in explicit empty factory mode
- * @param {Array|Object} [options.demoSeed=[]] - Seed data to return when demo/default mode is active
- * @param {Array|Object} [options.emptyDefault=[]] - Default empty value when in explicit empty factory mode
+ * @param {boolean} [options.allowDemoFallback=false] - Whether to allow returning demoSeed when DEMO_MODE is explicitly true
+ * @param {Array|Object} [options.demoSeed=[]] - Seed data to return ONLY when DEMO_MODE is explicitly enabled
+ * @param {Array|Object} [options.emptyDefault=[]] - Default empty value when no user data exists and DEMO_MODE is not enabled
  */
 export function loadCollection(
   canonicalKey,
@@ -141,22 +142,16 @@ export function loadCollection(
 ) {
   const demoFlag = storageService.getItem(STORAGE_KEYS.DEMO_MODE);
   const startMode = storageService.getItem(STORAGE_KEYS.START_MODE);
-  const isExplicitRealFactoryEmpty =
-    startMode === 'empty' || demoFlag === false || demoFlag === 'false';
-
-  const hasSeedData =
-    (Array.isArray(demoSeed) && demoSeed.length > 0) ||
-    (demoSeed && typeof demoSeed === 'object' && !Array.isArray(demoSeed) && Object.keys(demoSeed).length > 0);
+  const isExplicitDemoMode =
+    (demoFlag === true || demoFlag === 'true') && startMode !== 'empty';
 
   // STAGE 1: Direct Canonical Key
   const saved = storageService.getItem(canonicalKey);
 
   if (Array.isArray(saved)) {
-    if (saved.length > 0) {
-      return saved;
-    }
-    // If saved is [] and user explicitly chose Real Factory Empty mode (or no seed exists), [] is authoritative
-    if (isExplicitRealFactoryEmpty || !allowDemoFallback || !hasSeedData) {
+    // Any non-empty user array is always authoritative.
+    // An empty array [] is also authoritative unless DEMO_MODE is explicitly enabled and we need to check Stage 2/3/4.
+    if (saved.length > 0 || !isExplicitDemoMode || !allowDemoFallback) {
       return saved;
     }
   } else if (
@@ -164,7 +159,7 @@ export function loadCollection(
     saved &&
     typeof saved === 'object'
   ) {
-    if (Object.keys(saved).length > 0 || isExplicitRealFactoryEmpty || !allowDemoFallback || !hasSeedData) {
+    if (Object.keys(saved).length > 0 || !isExplicitDemoMode || !allowDemoFallback) {
       return saved;
     }
   }
@@ -213,8 +208,8 @@ export function loadCollection(
     }
   }
 
-  // STAGE 4: Seed Fallback (Active by default unless user explicitly cleared for Real Factory)
-  if (allowDemoFallback && !isExplicitRealFactoryEmpty && demoSeed !== undefined && demoSeed !== null) {
+  // STAGE 4: Seed Fallback ONLY if DEMO_MODE is explicitly true (after Load Demo button)
+  if (allowDemoFallback && isExplicitDemoMode && demoSeed !== undefined && demoSeed !== null) {
     return demoSeed;
   }
 

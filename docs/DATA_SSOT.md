@@ -12,6 +12,9 @@ Toute clé absente de ce registre est considérée comme **legacy**, migrée une
 3. **Zéro injection automatique de seed au démarrage** : Le stockage local (`localStorage`) ne reçoit jamais de données seed de manière implicite au chargement si la collection est vide ou courte. Le chargement des données de démonstration se fait exclusivement via une action utilisateur explicite (« Charger données démo / usine ») ou lorsque `DEMO_MODE` (`gmao_demo_data_loaded_v1`) a été explicitement activé.
 4. **Interdiction des seuils de longueur arbitraires** : Une collection contenant `0`, `2` ou `5` enregistrements est une donnée utilisateur valide et ne doit jamais être écrasée par un seed sous prétexte que `length < 10` ou `length < 800`.
 5. **Vérité des chiffres** : Les compteurs, notifications (toasts) et indicateurs KPI reflètent strictement le nombre réel d'enregistrements stockés (`list.length`), sans valeurs marketing codées en dur.
+6. **Hiérarchie de Stockage et Résolution de Conflits** : 
+   - **Ordre de priorité** : Mémoire (L1) → IndexedDB (L2) → Serveur (L3).
+   - **Résolution** : Toute synchronisation entre couches utilise `updatedAt`. L'entité avec l'horodatage le plus récent (`updatedAt`) est considérée comme la plus valide et écrase les versions antérieures. Les écritures serveur (API) doivent valider le jeton `GMAO_API_TOKEN`.
 
 ---
 

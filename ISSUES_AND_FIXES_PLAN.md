@@ -44,6 +44,7 @@
    - [ARCH-09: تضارب الملفات المزدوجة (Shadow Stubs `.jsx/.js` مقابل الكود الأصلي الكامل `.tsx/.ts`) وخطة الإنقاذ](#arch-09-تضارب-الملفات-المزدوجة-shadow-stubs-jsxjs-مقابل-الكود-الأصلي-الكامل-tsxts-وخطة-الإنقاذ)
    - [ARCH-10: ربط خدمات التطبيق بحاوية حقن الاعتماديات (DI Container) وحماية كائن التنبيهات في النوافذ المنبثقة](#arch-10-ربط-خدمات-التطبيق-بحاوية-حقن-الاعتماديات-di-container-وحماية-كائن-التنبيهات-في-النوافذ-المنبثقة)
    - [ARCH-11: منع انقسام حزم React في Vite (Invalid Hook Call / Dual React Pre-bundle Cache)](#arch-11-منع-انقسام-حزم-react-في-vite-invalid-hook-call--dual-react-pre-bundle-cache)
+   - [ARCH-12: إعادة صرامة SSOT في `loadCollection` (الافتراضي = مصنع فارغ ولا يُحمَّل الـ Seed إلا عند `DEMO_MODE === true`)](#arch-12-إعادة-صرامة-ssot-في-loadcollection-الافتراضي--مصنع-فارغ-ولا-يُحمَّل-الـ-seed-إلا-عند-demo_mode--true)
 
 4. [🧪 رابعاً: الاختبارات وتغطية الحالات الحدية (Testing & Quality Assurance — TEST)](#4--الاختبارات-وتغطية-الحالات-الحدية-testing--quality-assurance--test)
    - [TEST-01: اختبارات الخصائص العشوائية (Property-Based Testing) عبر fast-check](#test-01-اختبارات-الخصائص-العشوائية-property-based-testing-عبر-fast-check)
@@ -266,7 +267,7 @@
   4. **غياب الترطيب العكسي من `IndexedDB` عند الإقلاع.**
 - **الحل الجذري المطبق:**
   1. استدعاء `migrateStorageOnce()` بشكل متزامن داخل مُنشئ `useGmaoStore.ts` قبل قراءة أي مفتاح من التخزين.
-  2. تطبيق الترميم التلقائي متعدد المراحل في `loadCollection` (`migrateStorage.js`) بحيث يسترجع أي جدول فارغ (طالما أن المستخدم لم يفعّل وضع المصنع الفارغ الصريح `startMode === 'empty'`) بالترتيب من: `FULL_STATE_SNAPSHOT` ثم `LEGACY_KEY_MAP` ثم `demoSeed` مع حفظه فوراً.
+  2. تطبيق الترميم التلقائي متعدد المراحل في `loadCollection` (`migrateStorage.ts`) بحيث يسترجع أي جدول مفقود بالترتيب من: المفتاح الرسمي (STAGE 1) ثم المفاتيح القديمة `LEGACY_KEY_MAP` (STAGE 2) ثم `FULL_STATE_SNAPSHOT` (STAGE 3)، ولا يرجع إلى `demoSeed` (STAGE 4) إلا إذا كان `DEMO_MODE === true` صراحةً.
   3. إضافة خطاف الترطيب العكسي (`L2 -> L1 Self-Healing Hydration`) في `useGmaoPersistence.js` لاستعادة أي جدول سقط من `localStorage` مباشرةً من قاعدة بيانات `IndexedDB`.
   4. عكس ترتيب الحفظ في `useAutoSave.js` لحفظ المفاتيح الفردية الـ 29 أولاً قبل `FULL_STATE_SNAPSHOT` وتضمين كافة الجداول المرجعية في دفعة `indexedDBService.setItemsBatch`.
 - **التحقق الهندسي:** بناء التطبيق بنجاح (`compile_applet`) والتحقق من امتلاء كافة الجداول واسترجاعها التلقائي.
@@ -335,6 +336,24 @@
   1. توسيع قائمة `optimizeDeps.include` في `vite.config.ts` لتشمل صراحةً: `['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime', 'react/jsx-dev-runtime', 'zustand', 'motion/react', '@tanstack/react-virtual', 'lucide-react']` مع الحفاظ على `resolve.dedupe: ['react', 'react-dom']`.
   2. تطهير مجلد `node_modules/.vite` وإعادة تشغيل خادم التطوير لضمان وجود نسخة موحدة وحيدة من React عبر كافة المكونات.
 - **التحقق الهندسي:** نجاح بناء الإنتاج (`compile_applet`) وعمل جميع الجداول الافتراضية والصفحات دون أي تعارض في Hooks.
+- **الحالة:** ✅ محلولة بالكامل
+
+### ARCH-12: إعادة صرامة SSOT في `loadCollection` (الافتراضي = مصنع فارغ ولا يُحمَّل الـ Seed إلا عند `DEMO_MODE === true`)
+- **الأولوية:** ⭐⭐⭐⭐⭐ P0 (حرجة — قبل أي إنتاج)
+- **التصنيف:** Architecture / Data SSOT & Production Readiness
+- **الموقع:** `src/infrastructure/persistence/migrateStorage.ts`, `src/presentation/pages/settings/SettingsView.tsx`, وكافة خطافات `use*SubState.ts` ومتجر `useGmaoStore.ts`
+- **وصف المشكلة:**
+  - كان `loadCollection` في المرحلة الرابعة (`STAGE 4`) يفحص `!isExplicitRealFactoryEmpty` (أي يعتبر الوضع افتراضياً هو الديمو ما لم يُضبط `START_MODE === 'empty'` أو `DEMO_MODE === false`).
+  - **الأثر:** عند أول زيارة لمصنع جديد (حيث `DEMO_MODE` غير مضبوط بعد `null`)، ومع تمرير `allowDemoFallback: true` في خطافات الحالة (`usePreventiveSubState`, `useStockSubState`, `useMachineSubState`, `useWarehouseSubState`, `useCorrectiveSubState`, `useMovementSubState`, `useUserSubState`, `useSortieExterneSubState`)، كان النظام يحمّل تلقائياً 1,175 مهمة وقائية و412 آلة و873 قطعة غيار دون أن يطلب المستخدم وضع الديمو.
+- **الحل الجذري المطبق:**
+  1. تعديل `loadCollection` في `src/infrastructure/persistence/migrateStorage.ts`:
+     - حذف منطق `isExplicitRealFactoryEmpty` («الافتراضي = ديمو»).
+     - اعتماد الشرط الصارم: `const isExplicitDemoMode = (demoFlag === true || demoFlag === 'true') && startMode !== 'empty';`.
+     - في `STAGE 1`: أي مصفوفة محفوظة (حتى لو كانت فارغة `[]`) تُعد مرجعاً نهائياً ما لم يكن `isExplicitDemoMode === true`.
+     - في `STAGE 4`: `if (allowDemoFallback && isExplicitDemoMode && demoSeed !== undefined && demoSeed !== null) return demoSeed;` وإلا يُرجع `emptyDefault` (`[]` أو `{}`).
+  2. مراجعة جميع الـ 29 استدعاءً لـ `loadCollection` في كافة خطافات `use*SubState.ts` ومتجر `useGmaoStore.ts` وخدمات `PreventiveService` / `SortieExterneService` للتأكد من التزامها الكامل بقاعدة `isExplicitDemoMode`.
+  3. توحيد قراءة حالة `isDemoMode` في `src/presentation/pages/settings/SettingsView.tsx` لتطابق الشرط الصارم `(demoFlag === true || demoFlag === 'true') && startMode !== 'empty'`.
+- **التحقق الهندسي:** عند أول زيارة (بدون `DEMO_MODE = true`) يبدأ المصنع فارغاً تماماً (`0` آلات، `0` مهام وقائية، `0` مخزون)، وعند الضغط على زر حقن الديمو (`Load Demo`) يتم ضبط `DEMO_MODE = true` وتحميل البيانات التجريبية فوراً.
 - **الحالة:** ✅ محلولة بالكامل
 
 ---
