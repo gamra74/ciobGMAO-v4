@@ -17,22 +17,22 @@
 .gitignore text eol=lf
 .gitattributes text eol=lf
 
-# 📦 Git LFS Configuration for Excel Binary Templates and Workbooks
-*.xlsx filter=lfs diff=lfs merge=lfs -text
-*.xls filter=lfs diff=lfs merge=lfs -text
-*.xlsm filter=lfs diff=lfs merge=lfs -text
-*.xlsb filter=lfs diff=lfs merge=lfs -text
+# 📦 Standard Git Binary Configuration for Excel Templates and Workbooks
+*.xlsx binary
+*.xls binary
+*.xlsm binary
+*.xlsb binary
 *.csv text eol=lf
 
-# 📦 Git LFS Configuration for Binary Assets & Archives
-*.pdf filter=lfs diff=lfs merge=lfs -text
-*.zip filter=lfs diff=lfs merge=lfs -text
-*.tar.gz filter=lfs diff=lfs merge=lfs -text
-*.7z filter=lfs diff=lfs merge=lfs -text
-*.png filter=lfs diff=lfs merge=lfs -text
-*.jpg filter=lfs diff=lfs merge=lfs -text
-*.jpeg filter=lfs diff=lfs merge=lfs -text
-*.webp filter=lfs diff=lfs merge=lfs -text
-*.ico filter=lfs diff=lfs merge=lfs -text
-*.sqlite filter=lfs diff=lfs merge=lfs -text
-*.db filter=lfs diff=lfs merge=lfs -text
+# 📦 Standard Git Binary Configuration for Binary Assets & Archives
+*.pdf binary
+*.zip binary
+*.tar.gz binary
+*.7z binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ico binary
+*.sqlite binary
+*.db binary

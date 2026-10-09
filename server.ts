@@ -3,7 +3,6 @@ import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { createServer as createViteServer } from 'vite';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -195,6 +194,7 @@ async function startServer() {
 
   // Setup Vite or static serving
   if (!isProduction) {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
@@ -204,7 +204,7 @@ async function startServer() {
   } else {
     const DIST_DIR = path.join(__dirname, 'dist');
     app.use(express.static(DIST_DIR));
-    app.get('*', (req, res) => {
+    app.get('/{*splat}', (req, res) => {
       res.sendFile(path.join(DIST_DIR, 'index.html'));
     });
     console.log('[Server] Production static serving enabled from dist/');

@@ -34,19 +34,29 @@
 
 ---
 
-## 3. البنية المعمارية وبيئة التشغيل (Architecture & Runtime Stability)
+## 3. البنية المعمارية وبيئة التشغيل والنشر (Architecture, Runtime & Deployment)
 
 | المعرف | المشكلة المرصودة | الحالة | التفاصيل الهندسية والحل المنفّذ |
 | :--- | :--- | :--- | :--- |
 | **ARCH-11** | **انقسام نسخ React في Vite dev cache وخطأ `Invalid hook call` (`useState` of null)** | 🟢 **محلول (Resolved)** | تم توحيد مسارات `react` و `react-dom` في `vite.config.ts` عبر `resolve.alias` و `dedupe`، وإدراج كافة الحزم الخارجية (`zustand`, `motion/react`, `recharts`, `exceljs`, `xlsx`, `hyperformula`, `react-window`, `zod`, إلخ) في `optimizeDeps.include`، وتحويل استيرادات الواجهات في `src/presentation/router/AppRouter.tsx` من `React.lazy` إلى استيرادات ثابتة مباشرة (Static Imports) لمنع إعادة التجميع المتأخرة أثناء التشغيل. |
-| **ARCH-09** | **ازدواجية بعض الملفات القديمة والمهجورة في الشجرة (`app/applet/...` و `mobile/...`)** | 🟡 **جزئي (Partial / In-Progress)** | يعتمد التطبيق الفعلي بالكامل على المسار الموحد `src/`، بينما لا تزال بعض المجلدات الأرشيفية القديمة (`app/applet/` و `mobile/` الجذري) موجودة في المستودع وتحتاج إلى تنظيف تدريجي لضمان عدم الالتباس. |
+| **DEPLOY-01** | **فشل تشغيل الخادم في بيئة الإنتاج Cloud Run بسبب مسار `app.get('*')` في Express 5** | 🟢 **محلول (Resolved)** | تم استبدال `app.get('*', ...)` بالصيغة المعيارية المتوافقة مع Express 5 (`path-to-regexp` v8) وهي `app.get('/{*splat}', ...)` في `server.ts`، مع تحويل استيراد `vite` إلى استيراد ديناميكي `await import('vite')` داخل بيئة التطوير فقط. |
 | **SEC-01** | **حماية نقاط نهاية `/api/gmao/*` وترويسات الأمان** | 🟢 **محلول (Resolved)** | تم تطبيق ترويسات `CSP`، وتحديد معدل الطلبات (Rate Limiting)، والتحقق من الهوية عبر `authenticateApi` في `server.ts`. |
 
 ---
 
-## 4. الأداء والاختبارات (Performance & Quality Assurance)
+## 4. التصدير إلى GitHub وتنظيف المستودع من الملفات الزائدة (Git Export & Dead Code Cleanup)
 
 | المعرف | المشكلة المرصودة | الحالة | التفاصيل الهندسية والحل المنفّذ |
+| :--- | :--- | :--- | :--- |
+| **GIT-01** | **فشل عملية Staging / Commit والتصدير إلى GitHub بسبب `git-lfs`** | 🟢 **محلول (Resolved)** | تم استبدال قواعد `filter=lfs diff=lfs merge=lfs -text` في `.gitattributes` بالمعيار القياسي المدمج في Git وهو `binary` لكافة الملفات الثنائية (`*.png`, `*.xlsx`, `*.pdf`, `*.zip`, إلخ)، وتحديث اختبار الوحدة `src/tests/unit/GitLfsConfiguration.test.ts` واجتيازه بنجاح. |
+| **GIT-02** | **تضخم حمولة المزامنة (GitHub Trees API Payload Bloat)** | 🟢 **محلول (Resolved)** | تم تحديث `.gitignore` لاستثناء `data/gmao_state.json` و `GMAO_x5f_Light_x5f_Template_x5f_V2_x5f_Formules.xlsx`، وحذف الملفات الميتة غير المستخدمة (`GMAO_x5f_Light_x5f_Template_x5f_V2_x5f_Formules.xlsx`، `src/data/_legacy/seedData.ts`، `bun.lock`، وملفات `scripts/data_*.json`). |
+| **ARCH-09** | **وجود مجلدات مكررة قديمة خارج `src/` (`/app/applet/` و `/mobile/`)** | 🟢 **محلول (Resolved)** | تم حذف المجلدين المكررين غير المستخدمين `/app` و `/mobile` الجذري (38 ملفاً زائداً) مع الحفاظ الكامل على `src/mobile/` وكافة ملفات `src/` الأصلية. |
+
+---
+
+## 5. الأداء والاختبارات وخارطة الطريق (Performance, QA & Backlog)
+
+| المعرف | المشكلة المرصودة | الحالة | التفاصيل الهندسية والحل المنفّذ / المخطط |
 | :--- | :--- | :--- | :--- |
 | **PERF-03** | **توسيع نطاق التمرير الافتراضي (Virtual Scrolling) للجداول الضخمة** | 🟡 **جزئي (Partial / In-Progress)** | مكون `VirtualizedTable.tsx` و `GmaoIndustrialDataGrid.tsx` مطبقان في الجداول الرئيسية، ويجري العمل على تعميم التمرير الافتراضي ليشمل كافة الجداول الفرعية عند تجاوز 10,000 سجل. |
 | **TEST-02** | **توسيع تغطية اختبارات التكامل الشاملة (E2E & Conflict Scenarios)** | 🟡 **جزئي (Partial / In-Progress)** | تتوفر اختبارات الوحدة والتكامل الأساسية في `src/tests/`، مع الحاجة إلى إضافة اختبارات آلية تغطي سيناريوهات `ServerSyncConflictModal` وبروتوكول `MANUAL_SSOT_TEST` الخماسي بشكل مؤتمت. |

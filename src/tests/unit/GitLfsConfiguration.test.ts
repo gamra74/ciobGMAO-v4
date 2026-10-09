@@ -2,25 +2,26 @@ import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 
-describe('Git LFS & Binary Files Configuration (P2-1)', () => {
-  it('should have .gitattributes file configured in repository root', () => {
+describe('Git Binary Files & Ignore Configuration (P2-1)', () => {
+  it('should have .gitattributes file configured with standard binary markers in repository root', () => {
     const gitattributesPath = path.resolve(process.cwd(), '.gitattributes');
     expect(fs.existsSync(gitattributesPath)).toBe(true);
 
     const content = fs.readFileSync(gitattributesPath, 'utf-8');
-    
-    // Check Excel spreadsheet binary tracking
-    expect(content).toContain('*.xlsx filter=lfs diff=lfs merge=lfs -text');
-    expect(content).toContain('*.xls filter=lfs diff=lfs merge=lfs -text');
-    expect(content).toContain('*.xlsm filter=lfs diff=lfs merge=lfs -text');
-    expect(content).toContain('*.xlsb filter=lfs diff=lfs merge=lfs -text');
+
+    // Check Excel spreadsheet binary tracking (without requiring git-lfs binary)
+    expect(content).toContain('*.xlsx binary');
+    expect(content).toContain('*.xls binary');
+    expect(content).toContain('*.xlsm binary');
+    expect(content).toContain('*.xlsb binary');
 
     // Check Binary Archives & Assets tracking
-    expect(content).toContain('*.zip filter=lfs diff=lfs merge=lfs -text');
-    expect(content).toContain('*.pdf filter=lfs diff=lfs merge=lfs -text');
+    expect(content).toContain('*.zip binary');
+    expect(content).toContain('*.pdf binary');
+    expect(content).toContain('*.png binary');
   });
 
-  it('should have .gitignore properly excluding local temporary envs and lock conflicts', () => {
+  it('should have .gitignore properly excluding local temporary envs, runtime state, and lock conflicts', () => {
     const gitignorePath = path.resolve(process.cwd(), '.gitignore');
     expect(fs.existsSync(gitignorePath)).toBe(true);
 
@@ -29,5 +30,6 @@ describe('Git LFS & Binary Files Configuration (P2-1)', () => {
     expect(content).toContain('.env.production.local');
     expect(content).toContain('dist/');
     expect(content).toContain('node_modules/');
+    expect(content).toContain('data/gmao_state.json');
   });
 });
