@@ -34,6 +34,7 @@ export default defineConfig({
       'date-fns',
       'dompurify',
       'lz-string',
+      '@tanstack/react-virtual',
     ],
   },
   plugins: [
@@ -45,6 +46,7 @@ export default defineConfig({
         'icon.svg',
         'pwa-192x192.png',
         'pwa-512x512.png',
+        'pwa-maskable-512x512.png',
         'offline.html',
         'manifest.json',
       ],
@@ -80,8 +82,8 @@ export default defineConfig({
         ],
       },
       workbox: {
-        maximumFileSizeToCacheInBytes: 15 * 1024 * 1024,
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,json}'],
+        maximumFileSizeToCacheInBytes: 20 * 1024 * 1024,
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,json,webp}'],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/cdn\.tailwindcss\.com\/.*/i,
@@ -139,10 +141,24 @@ export default defineConfig({
               },
             },
           },
+          {
+            urlPattern: /\/api\/gmao\/.*/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'gmao-api-cache',
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24,
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
         ],
       },
       devOptions: {
-        enabled: false,
+        enabled: true,
         type: 'module',
       },
     }),
@@ -234,5 +250,12 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/tests/setup.js'],
+    exclude: ['node_modules/**', 'dist/**', 'e2e/**'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      reportsDirectory: './coverage',
+      exclude: ['node_modules/', 'src/tests/', 'e2e/', '**/*.d.ts'],
+    },
   },
 });

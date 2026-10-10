@@ -1,13 +1,12 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { List } from 'react-window';
+import { useVirtualizer } from '@tanstack/react-virtual';
 
 /**
- * مكون جدول ذكي افتراضي (Virtualized Table) لتحمل آلاف السجلات بسلاسة 60fps
- * متوافق مع `react-window` v2 (`rowCount`, `rowHeight`, `rowComponent`, `rowProps`).
- *
- * يدعم نمطين:
- * 1) نمط `renderRow({ item, index, style, rowNumber })` مع `items` أو `data`
- * 2) نمط `columns` المهيكل مع `data` أو `items`
+ * مكون جدول ذكي افتراضي (Virtualized Table) لتحمل عشرات آلاف السجلات بسلاسة 60fps
+ * يدعم محركين:
+ * - `@tanstack/react-virtual` (عند `useTanStack = true` أو `VITE_USE_TANSTACK_VIRTUAL = 'true'`) مع دعم التمرير الأفقي والعمودي الذكي
+ * - `react-window` v2 (`rowCount`, `rowHeight`, `rowComponent`, `rowProps`) للتوافق القياسي
  */
 export function VirtualizedTable({
   items,
@@ -24,38 +23,57 @@ export function VirtualizedTable({
   onRowClick,
   emptyMessage = 'Aucun enregistrement trouvé',
   className = '',
-}) {
+  useTanStack,
+  overscanCount = 6,
+}: any) {
   const dataset = useMemo(() => items || data || [], [items, data]);
-  const effectiveRowHeight = rowHeight || itemHeight || 48;
-  const effectiveMaxHeight = height || maxHeight || 560;
+  const effectiveRowHeight = Number(rowHeight || itemHeight || 48);
+  const effectiveMaxHeight = Number(height || maxHeight || 560);
+  const parentRef = useRef<HTMLDivElement | null>(null);
+
+  const shouldUseTanStack = useMemo(() => {
+    if (typeof useTanStack === 'boolean') return useTanStack;
+    try {
+      return import.meta.env?.VITE_USE_TANSTACK_VIRTUAL === 'true';
+    } catch {
+      return false;
+    }
+  }, [useTanStack]);
 
   const calculatedHeight = useMemo(() => {
     if (!dataset.length) return 150;
     return Math.min(Math.max(dataset.length * effectiveRowHeight, 120), effectiveMaxHeight);
   }, [dataset.length, effectiveRowHeight, effectiveMaxHeight]);
 
-  // Row renderer compatible with react-window v2 (`rowComponent` receives `{ index, style, ariaAttributes, ...rowProps }`)
-  const RowComponent = ({ index, style, ariaAttributes }) => {
-    const item = dataset[index];
+  const rowVirtualizer = useVirtualizer({
+    count: dataset.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => effectiveRowHeight,
+    overscan: overscanCount,
+    enabled: shouldUseTanStack && dataset.length > 0,
+  });
+
+  const renderSingleRowContent = (item: any, index: number, style: React.CSSProperties = {}, ariaAttributes: Record<string, any> = {}) => {
     if (!item) return null;
     const rowNumber = startIndex + index + 1;
 
     if (typeof renderRow === 'function') {
       const rendered = renderRow({ item, index, style, rowNumber });
-      // If renderRow returns a <tr> (from table-based views), wrap or convert cleanly for virtualized flex container
       if (React.isValidElement(rendered) && rendered.type === 'tr') {
-        const childrenArray = React.Children.toArray(rendered.props.children);
+        const renderedProps = rendered.props as any;
+        const childrenArray = React.Children.toArray(renderedProps.children);
         return (
           <div
             {...ariaAttributes}
             style={style}
-            onClick={rendered.props.onClick}
-            onContextMenu={rendered.props.onContextMenu}
-            className={`flex items-center w-full box-border ${rendered.props.className || 'border-b border-slate-100'}`}
+            onClick={renderedProps.onClick}
+            onContextMenu={renderedProps.onContextMenu}
+            className={`flex items-center w-full box-border ${renderedProps.className || 'border-b border-slate-100'}`}
           >
-            {childrenArray.map((tdChild, cIdx) => {
+            {childrenArray.map((tdChild: any, cIdx: number) => {
               if (!React.isValidElement(tdChild)) return tdChild;
-              const colSpan = tdChild.props.colSpan;
+              const tdProps = tdChild.props as any;
+              const colSpan = tdProps.colSpan;
               const isRowNumCell = showRowNumber && cIdx === 0;
               const colDef = showRowNumber ? columns[cIdx - 1] : columns[cIdx];
               const flexStyle = isRowNumCell
@@ -70,10 +88,10 @@ export function VirtualizedTable({
                 <div
                   key={tdChild.key || cIdx}
                   style={flexStyle}
-                  className={`truncate ${tdChild.props.className || 'px-3 py-2 text-xs'}`}
-                  title={tdChild.props.title}
+                  className={`truncate ${tdProps.className || 'px-3 py-2 text-xs'}`}
+                  title={tdProps.title}
                 >
-                  {tdChild.props.children}
+                  {tdProps.children}
                 </div>
               );
             })}
@@ -103,7 +121,7 @@ export function VirtualizedTable({
           </div>
         )}
         {columns.length > 0 ? (
-          columns.map((col, cIdx) => {
+          columns.map((col: any, cIdx: number) => {
             const cellContent =
               typeof col.render === 'function'
                 ? col.render(item, index, rowNumber)
@@ -138,12 +156,56 @@ export function VirtualizedTable({
     );
   };
 
+  // Row renderer compatible with react-window v2
+  const RowComponent = ({ index, style, ariaAttributes }: any) => {
+    const item = dataset[index];
+    return renderSingleRowContent(item, index, style, ariaAttributes);
+  };
+
   if (!dataset || dataset.length === 0) {
     return (
       <div className={`w-full bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs ${className}`}>
         {header}
         <div className="py-12 text-center text-slate-400 font-medium text-xs">
           {emptyMessage}
+        </div>
+      </div>
+    );
+  }
+
+  if (shouldUseTanStack) {
+    return (
+      <div className={`w-full bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs ${className}`}>
+        {header && <div className="border-b border-slate-200 bg-slate-100">{header}</div>}
+        <div
+          ref={parentRef}
+          style={{ height: calculatedHeight, overflow: 'auto' }}
+          className="w-full"
+        >
+          <div
+            style={{
+              height: `${rowVirtualizer.getTotalSize()}px`,
+              width: '100%',
+              position: 'relative',
+            }}
+          >
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const item = dataset[virtualRow.index];
+              const rowStyle: React.CSSProperties = {
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: `${virtualRow.size}px`,
+                transform: `translateY(${virtualRow.start}px)`,
+              };
+              return (
+                <React.Fragment key={virtualRow.key}>
+                  {renderSingleRowContent(item, virtualRow.index, rowStyle)}
+                </React.Fragment>
+              );
+            })}
+          </div>
         </div>
       </div>
     );
@@ -158,7 +220,7 @@ export function VirtualizedTable({
           rowCount={dataset.length}
           rowHeight={effectiveRowHeight}
           rowProps={{}}
-          overscanCount={5}
+          overscanCount={overscanCount}
           defaultHeight={calculatedHeight}
           style={{ height: calculatedHeight, width: '100%' }}
         />

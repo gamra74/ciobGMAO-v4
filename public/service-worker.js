@@ -1,12 +1,21 @@
 /**
- * Service Worker optimisé pour PWA - CIOB GMAO Light UI Excel
+ * Service Worker Enterprise Optimisé pour PWA - CIOB GMAO v4
+ * Supporte :
+ * - Stratégies multi-niveaux (Cache-First pour assets, Network-First pour API & Navigation)
+ * - Background Sync ('sync-gmao-data')
+ * - Push Notifications (VAPID / Web Push)
+ * - Nettoyage automatique de la taille du cache (LRU / Max Entries)
+ * - Isolation des requêtes de développement Vite
  */
-const CACHE_NAME = 'gmao-v1';
-const STATIC_ASSETS = [
+const CACHE_NAME = 'gmao-v4';
+const DATA_CACHE_NAME = 'gmao-data-v4';
+const ASSET_CACHE_NAME = 'gmao-assets-v4';
+
+const PRECACHE_ASSETS = [
   '/',
   '/index.html',
-  '/manifest.json',
   '/offline.html',
+  '/manifest.json',
   '/icon.svg',
   '/apple-touch-icon.png',
   '/pwa-192x192.png',
@@ -14,27 +23,30 @@ const STATIC_ASSETS = [
   '/pwa-maskable-512x512.png',
 ];
 
-// Installation du Service Worker
+const API_ENDPOINTS = ['/api/gmao', '/api/health'];
+const MAX_ASSET_CACHE_SIZE = 100;
+const MAX_DATA_CACHE_SIZE = 50;
+
+// 1. Installation du Service Worker
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('✅ Installation du Service Worker et mise en cache des ressources statiques');
-      return cache.addAll(STATIC_ASSETS).catch((err) => {
-        console.warn('Certains fichiers statiques n’ont pu être pré-mis en cache:', err);
+      return cache.addAll(PRECACHE_ASSETS).catch((err) => {
+        console.warn('[SW] Certains fichiers statiques n’ont pu être pré-mis en cache:', err);
       });
     })
   );
   self.skipWaiting();
 });
 
-// Activation du Service Worker
+// 2. Activation et nettoyage des anciens caches
 self.addEventListener('activate', (event) => {
+  const validCaches = new Set([CACHE_NAME, DATA_CACHE_NAME, ASSET_CACHE_NAME]);
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('🗑️ Nettoyage de l’ancien cache:', cacheName);
+          if (!validCaches.has(cacheName)) {
             return caches.delete(cacheName);
           }
         })
@@ -44,21 +56,13 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Stratégie Fetch
+// 3. Interception Fetch avec stratégies dédiées
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-
-  // Cache API supports GET only
-  if (request.method !== 'GET') {
-    return;
-  }
+  if (request.method !== 'GET') return;
 
   const url = new URL(request.url);
-
-  // Ignorer les requêtes non-HTTP/HTTPS (ex: chrome-extension://)
-  if (!url.protocol.startsWith('http')) {
-    return;
-  }
+  if (!url.protocol.startsWith('http')) return;
 
   // Ignorer les requêtes de développement Vite, HMR et WebSockets
   if (
@@ -73,125 +77,191 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Pour les fichiers statiques : Cache First avec mise à jour en tâche de fond
+  // A. Requêtes API : Network-First avec Cache-Fallback
+  if (API_ENDPOINTS.some((endpoint) => url.pathname.startsWith(endpoint))) {
+    event.respondWith(networkFirstWithCacheFallback(request, DATA_CACHE_NAME));
+    return;
+  }
+
+  // B. Ressources statiques : Cache-First avec mise à jour réseau en arrière-plan (Stale-While-Revalidate)
   if (isStaticAsset(request)) {
-    event.respondWith(
-      caches.match(request).then((cachedResponse) => {
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-        return fetch(request).then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            const responseToCache = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(request, responseToCache);
-            });
-          }
-          return networkResponse;
-        });
-      })
-    );
+    event.respondWith(cacheFirstWithNetworkUpdate(request, ASSET_CACHE_NAME));
     return;
   }
 
-  // Pour les routes API : Network First avec fallback
-  if (url.pathname.startsWith('/api')) {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          if (response && response.status === 200) {
-            const responseToCache = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(request, responseToCache);
-            });
-          }
-          return response;
-        })
-        .catch(() => {
-          return caches.match(request).then((cachedResponse) => {
-            return cachedResponse || createOfflineResponse();
-          });
-        })
-    );
-    return;
-  }
-
-  // Pour les pages et navigations : Network First avec fallback sur /offline.html
+  // C. Navigation HTML : Network-First avec repli sur /offline.html
   if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          if (response && response.status === 200) {
-            const responseToCache = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(request, responseToCache);
-            });
-          }
-          return response;
-        })
-        .catch(() => {
-          return caches.match(request).then((cachedResponse) => {
-            return (
-              cachedResponse ||
-              caches.match('/offline.html').then((offlineRes) => {
-                return offlineRes || createOfflineResponse();
-              })
-            );
-          });
-        })
-    );
+    event.respondWith(networkFirstWithOfflineFallback(request));
     return;
   }
 
-  // Par défaut : Network First avec fallback sur cache
+  // D. Par défaut : Network-First
   event.respondWith(
-    fetch(request)
-      .then((response) => {
-        if (response && response.status === 200) {
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, responseToCache);
-          });
-        }
-        return response;
-      })
-      .catch(() => {
-        return caches.match(request);
-      })
+    fetch(request).catch(async () => {
+      const cached = await caches.match(request);
+      return cached || createOfflineResponse();
+    })
   );
 });
 
-/**
- * Vérification des fichiers statiques
- */
+async function networkFirstWithCacheFallback(request, cacheName) {
+  const cache = await caches.open(cacheName);
+  try {
+    const networkResponse = await fetch(request.clone());
+    if (networkResponse && networkResponse.status === 200) {
+      await cache.put(request, networkResponse.clone());
+      cleanupCache(cacheName, MAX_DATA_CACHE_SIZE);
+    }
+    return networkResponse;
+  } catch {
+    const cachedResponse = await cache.match(request);
+    return cachedResponse || createOfflineResponse();
+  }
+}
+
+async function cacheFirstWithNetworkUpdate(request, cacheName) {
+  const cache = await caches.open(cacheName);
+  const cachedResponse = await cache.match(request);
+
+  if (cachedResponse) {
+    fetch(request.clone())
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          cache.put(request, networkResponse.clone());
+        }
+      })
+      .catch(() => {});
+    return cachedResponse;
+  }
+
+  try {
+    const networkResponse = await fetch(request.clone());
+    if (networkResponse && networkResponse.status === 200) {
+      await cache.put(request, networkResponse.clone());
+      cleanupCache(cacheName, MAX_ASSET_CACHE_SIZE);
+    }
+    return networkResponse;
+  } catch {
+    return createOfflineResponse();
+  }
+}
+
+async function networkFirstWithOfflineFallback(request) {
+  try {
+    const networkResponse = await fetch(request.clone());
+    if (networkResponse && networkResponse.status === 200) {
+      const cache = await caches.open(CACHE_NAME);
+      await cache.put(request, networkResponse.clone());
+    }
+    return networkResponse;
+  } catch {
+    const cache = await caches.open(CACHE_NAME);
+    const cachedResponse = await cache.match(request);
+    if (cachedResponse) return cachedResponse;
+
+    const offlineResponse = await cache.match('/offline.html');
+    if (offlineResponse) return offlineResponse;
+
+    return createOfflineResponse();
+  }
+}
+
+// 4. Background Sync
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'sync-gmao-data') {
+    event.waitUntil(syncGmaoData());
+  }
+});
+
+async function syncGmaoData() {
+  try {
+    const cache = await caches.open(DATA_CACHE_NAME);
+    const keys = await cache.keys();
+
+    for (const key of keys) {
+      const request = new Request(key.url, { method: 'GET' });
+      const response = await fetch(request);
+      if (response && response.status === 200) {
+        await cache.put(key, response.clone());
+      }
+    }
+
+    const clients = await self.clients.matchAll();
+    clients.forEach((client) => client.postMessage({ type: 'SYNC_COMPLETE', timestamp: new Date().toISOString() }));
+  } catch {
+    // Replanifier silencieusement si hors-ligne
+  }
+}
+
+// 5. Push Notifications
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { body: event.data ? event.data.text() : 'Nouvelle notification GMAO' };
+  }
+
+  const title = data.title || 'CIOB GMAO';
+  const options = {
+    body: data.body || 'Nouvelle notification',
+    icon: '/pwa-192x192.png',
+    badge: '/pwa-192x192.png',
+    data: data.data || {},
+    actions: data.actions || [],
+    vibrate: [200, 100, 200],
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      if (clientList.length > 0) {
+        return clientList[0].focus();
+      }
+      return self.clients.openWindow('/');
+    })
+  );
+});
+
+// 6. Nettoyage périodique des caches (LRU simple)
+async function cleanupCache(cacheName, maxEntries) {
+  try {
+    const cache = await caches.open(cacheName);
+    const keys = await cache.keys();
+    if (keys.length > maxEntries) {
+      const toDelete = keys.slice(0, keys.length - maxEntries);
+      await Promise.all(toDelete.map((k) => cache.delete(k)));
+    }
+  } catch {
+    // Ignorer les erreurs de nettoyage
+  }
+}
+
 function isStaticAsset(request) {
   const url = new URL(request.url);
   return /\.(js|css|png|jpg|jpeg|svg|gif|webp|woff|woff2|ico|json)$/.test(url.pathname);
 }
 
-/**
- * Création d’une réponse Offline par défaut
- */
 function createOfflineResponse() {
   return new Response(
     JSON.stringify({
-      error: 'Offline',
+      error: 'OFFLINE',
       message: 'Mode hors-ligne actif. Vos données locales sont préservées.',
+      timestamp: new Date().toISOString(),
       status: 503,
     }),
     {
       status: 503,
       statusText: 'Service Unavailable',
-      headers: new Headers({
-        'Content-Type': 'application/json',
-      }),
+      headers: { 'Content-Type': 'application/json' },
     }
   );
 }
 
-/**
- * Traitement des messages provenant des clients
- */
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();

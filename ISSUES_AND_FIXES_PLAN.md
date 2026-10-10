@@ -69,10 +69,13 @@
 
 ---
 
-## 6. الأداء والاختبارات وخارطة الطريق (Performance, QA & Backlog)
+## 6. الأداء، الاختبارات، PWA، وتوثيق API (Performance, CI/CD, PWA & OpenAPI)
 
-| المعرف | المشكلة المرصودة | الحالة | التفاصيل الهندسية والحل المنفّذ / المخطط |
+| المعرف | المشكلة / التحسين المرصود | الحالة | التفاصيل الهندسية والحل المنفّذ / المخطط |
 | :--- | :--- | :--- | :--- |
-| **PERF-03** | **توسيع نطاق التمرير الافتراضي (Virtual Scrolling) للجداول الضخمة** | 🟡 **جزئي (Partial / In-Progress)** | مكون `VirtualizedTable.tsx` و `GmaoIndustrialDataGrid.tsx` مطبقان في الجداول الرئيسية، ويجري العمل على تعميم التمرير الافتراضي ليشمل كافة الجداول الفرعية عند تجاوز 10,000 سجل. |
-| **TEST-02** | **توسيع تغطية اختبارات التكامل الشاملة (E2E & Conflict Scenarios)** | 🟡 **جزئي (Partial / In-Progress)** | تتوفر اختبارات الوحدة والتكامل الأساسية في `src/tests/`، مع الحاجة إلى إضافة اختبارات آلية تغطي سيناريوهات `ServerSyncConflictModal` وبروتوكول `MANUAL_SSOT_TEST` الخماسي بشكل مؤتمت. |
+| **PERF-03** | **تحسين التمرير الافتراضي (Virtual Scrolling) وإضافة Infinite Scroll للجداول الضخمة** | 🟢 **محلول (Resolved)** | تم دمج `@tanstack/react-virtual` إلى جانب `react-window` في كل من `VirtualizedTable.tsx` و `GmaoIndustrialDataGrid.tsx` لدعم عرض 10,000+ سجل بسرعة 60fps، مع إنشاء الخطاف `src/hooks/useInfiniteScroll.ts` للتحميل التدريجي اللانهائي. |
+| **TEST-02** | **أتمتة الاختبارات الشاملة (CI/CD, Coverage, Integration & Playwright E2E)** | 🟢 **محلول (Resolved)** | تم ترقية `.github/workflows/ci-cd.yml` ليشمل 5 مراحل (Quality Gates, Unit Tests + V8 Coverage `@vitest/coverage-v8`, Integration Tests, Playwright E2E `playwright.config.ts` + `e2e/specs/gmao.spec.ts`, Build Artifacts)، مع أتمتة اختبار بروتوكول `MANUAL_SSOT_TEST` الخماسي وفض التعارض في `src/tests/integration/EnhancementsAndSsotIntegration.test.ts`. |
+| **PWA-01** | **ترقية Service Worker ودعم Background Sync و Push Notifications** | 🟢 **محلول (Resolved)** | تم تحديث `public/service-worker.js` إلى معمارية الكاش ثلاثية الطبقات (`gmao-v4`, `gmao-data-v4`, `gmao-assets-v4`) مع تنظيف تلقائي للحجم (LRU)، ودعم `Background Sync` (`sync-gmao-data`) و `Push Notifications`، وإنشاء `src/utils/notificationService.ts` وتفعيل `runtimeCaching` لـ `/api/gmao/*` في `vite.config.ts`. |
+| **API-01** | **توثيق API التفاعلي عبر OpenAPI 3.0 / Swagger** | 🟢 **محلول (Resolved)** | تم إنشاء `src/config/swaggerConfig.ts` وربط واجهة التوثيق التفاعلية على المسارين `/api/docs` و `/api/docs.json` في `server.ts` مع توثيق المصادقة `X-GMAO-API-TOKEN` وكافة نقاط النهاية (`/api/health`, `/api/gmao/state`, `/api/gmao/:entity`). |
 | **IOT-01** | **الربط المباشر مع حساسات المصنع الحية (MQTT / OPC-UA)** | 🔴 **مفتوح (Open / Backlog)** | حالياً يتم تحديث العدادات والساعات يدوياً أو عبر استيراد Excel؛ الربط المباشر مع بروتوكولات المصنع الحية مدرج ضمن خارطة الطريق المستقبلية. |
+

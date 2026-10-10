@@ -3,6 +3,8 @@ import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec, swaggerUiOptions } from './src/config/swaggerConfig';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -71,6 +73,13 @@ async function startServer() {
   };
 
   app.use('/api', apiRateLimiter);
+
+  // OpenAPI 3.0 / Swagger Interactive Documentation
+  app.get('/api/docs.json', (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(swaggerSpec);
+  });
+  app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, swaggerUiOptions));
 
   // Data persistence file path
   const DATA_DIR = path.join(__dirname, 'data');

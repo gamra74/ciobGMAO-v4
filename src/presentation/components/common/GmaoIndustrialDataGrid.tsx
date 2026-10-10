@@ -2,6 +2,7 @@ import { isValidElement, useState, useRef, useEffect, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { ArrowUpDown, ArrowUp, ArrowDown, Inbox, Zap } from 'lucide-react';
 import { List } from 'react-window';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import TableSkeletonRows from './TableSkeletonRows';
 import TablePaginationCard from './TablePaginationCard';
 import { useI18n } from '../../../i18n/I18nContext';
@@ -17,8 +18,8 @@ import { useI18n } from '../../../i18n/I18nContext';
  * 3. En-tête figé (Sticky thead) avec tri dynamique et numérotation des lignes
  * 4. Gestion automatique du chargement (Skeletons) et de l'état vide
  * 5. Intégration transparente de la carte de pagination (TablePaginationCard)
- * 6. Virtual Scrolling (Windowing) haute performance (60fps) pour 1 000+ enregistrements
- * 7. Support double moteur : 'table-window' natif + 'react-window' optionnel
+ * 6. Virtual Scrolling (Windowing) haute performance (60fps) pour 10 000+ enregistrements
+ * 7. Support triple moteur : '@tanstack/react-virtual' + 'table-window' natif + 'react-window' optionnel
  */
 export default function GmaoIndustrialDataGrid({
   title = '',
@@ -50,6 +51,7 @@ export default function GmaoIndustrialDataGrid({
   rowHeight = 52,
   overscanCount = 8,
   useReactWindow = false,
+  useTanStack,
 }) {
   const { t } = useI18n();
   const scrollContainerRef = useRef(null);
@@ -62,7 +64,24 @@ export default function GmaoIndustrialDataGrid({
     return Array.isArray(data) && data.length > virtualThreshold;
   }, [virtualized, data, virtualThreshold]);
 
+  const shouldUseTanStack = useMemo(() => {
+    if (typeof useTanStack === 'boolean') return useTanStack;
+    try {
+      return import.meta.env?.VITE_USE_TANSTACK_VIRTUAL !== 'false';
+    } catch {
+      return true;
+    }
+  }, [useTanStack]);
+
   const effectiveRowHeight = typeof rowHeight === 'number' ? rowHeight : 52;
+
+  const tanstackVirtualizer = useVirtualizer({
+    count: Array.isArray(data) ? data.length : 0,
+    getScrollElement: () => scrollContainerRef.current,
+    estimateSize: () => effectiveRowHeight,
+    overscan: overscanCount,
+    enabled: Boolean(isVirtualized && shouldUseTanStack && !useReactWindow),
+  });
 
   useEffect(() => {
     const el = scrollContainerRef.current;
@@ -91,12 +110,12 @@ export default function GmaoIndustrialDataGrid({
   }, [startIndex, sortField, sortOrder]);
 
   const handleScroll = (e) => {
-    if (isVirtualized) {
+    if (isVirtualized && !shouldUseTanStack) {
       setScrollTop(e.currentTarget.scrollTop);
     }
   };
 
-  // Calculate visible window slice + top/bottom spacer heights
+  // Calculate visible window slice + top/bottom spacer heights (via TanStack Virtual or fallback slice)
   const virtualWindow = useMemo(() => {
     const totalCount = Array.isArray(data) ? data.length : 0;
     if (!isVirtualized || totalCount === 0 || useReactWindow) {
@@ -106,6 +125,25 @@ export default function GmaoIndustrialDataGrid({
         topSpacerHeight: 0,
         bottomSpacerHeight: 0,
       };
+    }
+
+    if (shouldUseTanStack) {
+      const virtualItems = tanstackVirtualizer.getVirtualItems();
+      if (virtualItems.length > 0) {
+        const firstItem = virtualItems[0];
+        const lastItem = virtualItems[virtualItems.length - 1];
+        const startOffsetIndex = firstItem.index;
+        const endOffsetIndex = lastItem.index + 1;
+        const topSpacerHeight = firstItem.start;
+        const bottomSpacerHeight = Math.max(0, tanstackVirtualizer.getTotalSize() - lastItem.end);
+
+        return {
+          visibleData: data.slice(startOffsetIndex, endOffsetIndex),
+          startOffsetIndex,
+          topSpacerHeight,
+          bottomSpacerHeight,
+        };
+      }
     }
 
     const rawStart = Math.floor(scrollTop / effectiveRowHeight);
@@ -122,7 +160,17 @@ export default function GmaoIndustrialDataGrid({
       topSpacerHeight,
       bottomSpacerHeight,
     };
-  }, [isVirtualized, data, scrollTop, viewportHeight, effectiveRowHeight, overscanCount, useReactWindow]);
+  }, [
+    isVirtualized,
+    data,
+    scrollTop,
+    viewportHeight,
+    effectiveRowHeight,
+    overscanCount,
+    useReactWindow,
+    shouldUseTanStack,
+    tanstackVirtualizer,
+  ]);
 
   const bannerColorStyles = {
     indigo: 'bg-indigo-50/40 text-indigo-950 text-slate-500 border-indigo-100/60',
