@@ -123,7 +123,16 @@ export default function BonsTravailTab({
     const set = new Set();
     if (Array.isArray(machines)) {
       machines
-        .filter((m) => m.status !== 'ARCHIVEE' && m.is_active !== false)
+        .filter((m) => {
+          const statusNorm = String(m?.status || m?.statut || '').trim().toUpperCase();
+          return (
+            statusNorm !== 'ARCHIVEE' &&
+            statusNorm !== 'ARCHIVÉE' &&
+            statusNorm !== 'ARCHIVED' &&
+            m?.is_active !== false &&
+            m?.actif !== false
+          );
+        })
         .forEach((m) => {
           const id = m.id_machine_registered || m.id || m.code;
           if (id) set.add(id);

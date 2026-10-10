@@ -477,16 +477,36 @@ export const DataGateway = {
    * Purges all legacy keys mapped to a given canonical key (or all legacy keys if canonicalKey is null).
    */
   purgeLegacyKeysFor(canonicalKey: string | null = null) {
+    const canonicalSet = new Set(Object.values(STORAGE_KEYS));
+    const sweepPreventiveExtras = () => {
+      try {
+        if (typeof localStorage !== 'undefined') {
+          const toRemove: string[] = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.startsWith('gmao_preventive') && !canonicalSet.has(k)) {
+              toRemove.push(k);
+            }
+          }
+          toRemove.forEach((k) => storageService.removeItem(k));
+        }
+      } catch {}
+    };
+
     if (!canonicalKey) {
       for (const legacyKey of ALL_LEGACY_KEYS) {
         storageService.removeItem(legacyKey);
       }
+      sweepPreventiveExtras();
       return;
     }
     for (const [legacyKey, mappedCanonical] of Object.entries(LEGACY_KEY_MAP)) {
       if (mappedCanonical === canonicalKey) {
         storageService.removeItem(legacyKey);
       }
+    }
+    if (canonicalKey.startsWith('gmao_preventive')) {
+      sweepPreventiveExtras();
     }
   },
 

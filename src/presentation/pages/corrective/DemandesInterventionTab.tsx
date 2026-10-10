@@ -132,19 +132,13 @@ export default function DemandesInterventionTab({
   // Combined machine list from registered state (SSOT)
   const allMachineOptions = useMemo(() => {
     const active = filterActiveMachines(machines);
-    if (active.length > 0) {
-      return active.map((m) => ({
-        id_machine_registered: m.id_machine_registered || m.code || m.id,
-        code: m.code || m.id_machine_registered || m.id,
-        zone: m.id_zone_default || m.id_zone || m.zone || 'Atelier',
-        designation: m.designation || m.nom || m.id_machine_registered || m.id,
-        totalInterventions: m.totalInterventions || 0,
-      }));
-    }
-    return [
-      { id_machine_registered: 'RCP-02', code: 'RCP-02', zone: 'FM' },
-      { id_machine_registered: 'P-HYD-01', code: 'P-HYD-01', zone: 'Presse Hydraulique' },
-    ];
+    return active.map((m) => ({
+      id_machine_registered: m.id_machine_registered || m.code || m.id,
+      code: m.code || m.id_machine_registered || m.id,
+      zone: m.id_zone_default || m.id_zone || m.zone || 'Atelier',
+      designation: m.designation || m.nom || m.id_machine_registered || m.id,
+      totalInterventions: m.totalInterventions || 0,
+    }));
   }, [machines]);
 
   // Combined technician list from registered state or seeded intervenants (SSOT)
