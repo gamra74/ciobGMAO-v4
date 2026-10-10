@@ -65,3 +65,40 @@ export interface IPreventiveExecution {
   anomalies_detectees?: boolean;
   actions_correctives_requises?: string;
 }
+
+export interface PreventiveExecutionSpareItem {
+  ref: string;
+  designation?: string;
+  qty: number;
+  unit?: string;
+  unitPrice?: number;
+}
+
+/**
+ * Historical event record for a preventive maintenance execution (P1.1 Event Log)
+ */
+export interface PreventiveExecutionRecord {
+  id: string;
+  taskId: string;
+  taskCode?: string;
+  machineCode: string;
+  machineName?: string;
+  zone?: string;
+  organe: string;
+  actionCode: string;
+  taskDescription?: string;
+  frequence?: string;
+  executedAt: string; // ISO date or YYYY-MM-DD
+  periodMonth: string; // YYYY-MM
+  periodWeek?: string; // e.g., S14
+  executorName: string;
+  durationMinutes: number;
+  laborRate?: number;
+  sparesCost?: number;
+  totalCost?: number;
+  status: 'DONE' | 'SKIPPED' | 'PARTIAL';
+  notes?: string;
+  sparesUsed?: PreventiveExecutionSpareItem[];
+  createdAt: string;
+}
+

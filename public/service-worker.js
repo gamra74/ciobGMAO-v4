@@ -195,20 +195,20 @@ async function syncGmaoData() {
 
 // 5. Push Notifications
 self.addEventListener('push', (event) => {
-  let data = {};
+  let payload;
   try {
-    data = event.data ? event.data.json() : {};
+    payload = event.data ? event.data.json() : {};
   } catch {
-    data = { body: event.data ? event.data.text() : 'Nouvelle notification GMAO' };
+    payload = { body: event.data ? event.data.text() : 'Nouvelle notification GMAO' };
   }
 
-  const title = data.title || 'CIOB GMAO';
+  const title = payload.title || 'CIOB GMAO';
   const options = {
-    body: data.body || 'Nouvelle notification',
+    body: payload.body || 'Nouvelle notification',
     icon: '/pwa-192x192.png',
     badge: '/pwa-192x192.png',
-    data: data.data || {},
-    actions: data.actions || [],
+    data: payload.data || {},
+    actions: payload.actions || [],
     vibrate: [200, 100, 200],
   };
 

@@ -15,7 +15,7 @@ describe('AutoBackupService', () => {
     expect(snap).toBeDefined();
     expect(snap.id).toMatch(/^snap-/);
     expect(snap.isManual).toBe(true);
-    expect(snap.counts.raw_stock_v7).toBe(1);
+    expect(snap.counts.raw_stock_v8).toBe(1);
     expect(snap.counts.mouvements_v2).toBe(1);
 
     const list = AutoBackupService.listSnapshots();

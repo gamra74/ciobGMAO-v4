@@ -49,6 +49,7 @@ const ACTION_PILL_MAP = {
 
 export default function TabMainView({
   tasks = [],
+  executions = [],
   machines = [],
   zones = [],
   technicians = [],
@@ -59,6 +60,7 @@ export default function TabMainView({
   viewMode: controlledViewMode,
   onViewModeChange,
   onMarkTaskDone,
+  onDeleteExecution,
   _onDeleteTask,
   _onUpdateTaskCounter,
   _onUpdateTaskStatus,
@@ -1302,6 +1304,8 @@ export default function TabMainView({
       {viewMode === 'analytics' && (
         <PreventiveAnalyticsView
           tasks={filteredTasks}
+          executions={executions}
+          onDeleteExecution={onDeleteExecution}
           zones={zones}
           actions={actions}
           onSwitchView={(mode) => setViewMode(mode)}

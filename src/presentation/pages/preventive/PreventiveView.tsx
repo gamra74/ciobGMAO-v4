@@ -33,10 +33,12 @@ export default function PreventiveView({
   actions = [],
   guides = [],
   plans: _plans = [],
+  executions = [],
   onUpdateTask = null,
   onDeleteTask: onDeleteTaskProp = null,
   onUpdateTaskCounter: onUpdateTaskCounterProp = null,
   onMarkTaskDone: onMarkTaskDoneProp = null,
+  onDeleteExecution = null,
   onResetToBaseline = null,
   onClearPreventiveForRealFactory = null,
   machines = [],
@@ -390,6 +392,7 @@ export default function PreventiveView({
         <ErrorBoundary sectionName="Matrice & Planning Préventif">
           <TabMainView
             tasks={tasks}
+            executions={executions}
             machines={machines}
             zones={zones}
             technicians={technicians}
@@ -400,6 +403,7 @@ export default function PreventiveView({
             viewMode={viewMode}
             onViewModeChange={setViewMode}
             onMarkTaskDone={handleMarkTaskDone}
+            onDeleteExecution={onDeleteExecution}
             onDeleteTask={handleDeleteTask}
             onUpdateTaskCounter={handleUpdateTaskCounter}
             onUpdateTaskStatus={handleUpdateTaskStatus}

@@ -36,6 +36,7 @@ export function useAutoSave(state, debounceMs = 1000, onStateChange = null) {
     preventiveActions,
     preventiveGuides,
     preventivePlans,
+    preventiveExecutions,
     sortiesExterne,
     correctiveInterventions,
     correctiveActionsByPanne,
@@ -77,6 +78,7 @@ export function useAutoSave(state, debounceMs = 1000, onStateChange = null) {
       preventiveActions,
       preventiveGuides,
       preventivePlans,
+      preventiveExecutions,
       sortiesExterne,
       correctiveInterventions,
       correctiveActionsByPanne,
@@ -120,6 +122,7 @@ export function useAutoSave(state, debounceMs = 1000, onStateChange = null) {
       if (preventiveActions !== undefined) storageService.setItem(STORAGE_KEYS.PREVENTIVE_ACTIONS, preventiveActions);
       if (preventiveGuides !== undefined) storageService.setItem(STORAGE_KEYS.PREVENTIVE_GUIDES, preventiveGuides);
       if (preventivePlans !== undefined) storageService.setItem(STORAGE_KEYS.PREVENTIVE_PLANS, preventivePlans);
+      if (preventiveExecutions !== undefined) storageService.setItem(STORAGE_KEYS.PREVENTIVE_EXECUTIONS, preventiveExecutions);
       if (sortiesExterne !== undefined) storageService.setItem(STORAGE_KEYS.SORTIE_EXTERNE, sortiesExterne);
       if (correctiveInterventions !== undefined) storageService.setItem(STORAGE_KEYS.CORRECTIVE_INTERVENTIONS, correctiveInterventions);
       if (correctiveActionsByPanne !== undefined) storageService.setItem(STORAGE_KEYS.CORRECTIVE_ACTIONS_BY_PANNE, correctiveActionsByPanne);
@@ -156,6 +159,7 @@ export function useAutoSave(state, debounceMs = 1000, onStateChange = null) {
         [STORAGE_KEYS.PREVENTIVE_ACTIONS]: preventiveActions || [],
         [STORAGE_KEYS.PREVENTIVE_GUIDES]: preventiveGuides || [],
         [STORAGE_KEYS.PREVENTIVE_PLANS]: preventivePlans || [],
+        [STORAGE_KEYS.PREVENTIVE_EXECUTIONS]: preventiveExecutions || [],
         [STORAGE_KEYS.SORTIE_EXTERNE]: sortiesExterne || [],
         [STORAGE_KEYS.CORRECTIVE_INTERVENTIONS]: correctiveInterventions || [],
         [STORAGE_KEYS.CORRECTIVE_ACTIONS_BY_PANNE]: correctiveActionsByPanne || {},
@@ -198,6 +202,7 @@ export function useAutoSave(state, debounceMs = 1000, onStateChange = null) {
     preventiveActions,
     preventiveGuides,
     preventivePlans,
+    preventiveExecutions,
     sortiesExterne,
     correctiveInterventions,
     correctiveActionsByPanne,

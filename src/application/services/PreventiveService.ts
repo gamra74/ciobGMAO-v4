@@ -2,8 +2,29 @@ import { ActionService } from './preventive/ActionService';
 import { GuideService } from './preventive/GuideService';
 import { PlanService } from './preventive/PlanService';
 import { TaskService } from './preventive/TaskService';
+import { ExecutionService } from './preventive/ExecutionService';
 
 export class PreventiveService {
+  static getExecutions() {
+    return ExecutionService.getExecutions();
+  }
+
+  static saveExecutions(executions: any[]) {
+    return ExecutionService.saveExecutions(executions);
+  }
+
+  static recordExecution(task: any, validationData?: any) {
+    return ExecutionService.recordExecution(task, validationData);
+  }
+
+  static deleteExecution(id: string) {
+    return ExecutionService.deleteExecution(id);
+  }
+
+  static clearExecutions() {
+    return ExecutionService.clearExecutions();
+  }
+
   static getActions() {
     return ActionService.getActions();
   }

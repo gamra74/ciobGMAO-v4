@@ -205,6 +205,12 @@ export const DataGateway = {
     return clean;
   },
 
+  savePreventiveExecutions(list = []) {
+    const clean = Array.isArray(list) ? list : [];
+    storageService.setItem(STORAGE_KEYS.PREVENTIVE_EXECUTIONS, clean);
+    return clean;
+  },
+
   // ==========================================
   // 4. CORRECTIVE MAINTENANCE
   // ==========================================
@@ -407,6 +413,7 @@ export const DataGateway = {
     this.savePreventiveActions(seedPreventiveActions);
     this.savePreventiveGuides(seedPreventiveGuides);
     this.savePreventivePlans([]);
+    this.savePreventiveExecutions([]);
 
     this.saveCorrectiveInterventions(seedCorrectiveInterventions, { machines: seedMachines });
     this.saveCorrectiveActionsByPanne(seedActionsByPanne);
@@ -443,6 +450,7 @@ export const DataGateway = {
     if (setters.setPreventiveActions) setters.setPreventiveActions(seedPreventiveActions);
     if (setters.setPreventiveGuides) setters.setPreventiveGuides(seedPreventiveGuides);
     if (setters.setPreventivePlans) setters.setPreventivePlans([]);
+    if (setters.setPreventiveExecutions) setters.setPreventiveExecutions([]);
 
     if (setters.setCorrectiveInterventions) setters.setCorrectiveInterventions(seedCorrectiveInterventions);
     if (setters.setCorrectiveActionsByPanne) setters.setCorrectiveActionsByPanne(seedActionsByPanne);
@@ -545,6 +553,7 @@ export const DataGateway = {
     this.savePreventiveActions([]);
     this.savePreventiveGuides([]);
     this.savePreventivePlans([]);
+    this.savePreventiveExecutions([]);
 
     this.saveCorrectiveInterventions([]);
     this.saveCorrectiveActionsByPanne({});
@@ -580,6 +589,7 @@ export const DataGateway = {
     if (setters.setPreventiveActions) setters.setPreventiveActions([]);
     if (setters.setPreventiveGuides) setters.setPreventiveGuides([]);
     if (setters.setPreventivePlans) setters.setPreventivePlans([]);
+    if (setters.setPreventiveExecutions) setters.setPreventiveExecutions([]);
 
     if (setters.setCorrectiveInterventions) setters.setCorrectiveInterventions([]);
     if (setters.setCorrectiveActionsByPanne) setters.setCorrectiveActionsByPanne({});
@@ -603,6 +613,7 @@ export const DataGateway = {
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('preventive_tasks_updated', { detail: [] }));
+      window.dispatchEvent(new CustomEvent('preventive_executions_updated', { detail: [] }));
     }
 
     // Return a promise that resolves once IndexedDB batch write + entity store clear completes
@@ -623,6 +634,7 @@ export const DataGateway = {
       [STORAGE_KEYS.PREVENTIVE_ACTIONS]: [],
       [STORAGE_KEYS.PREVENTIVE_GUIDES]: [],
       [STORAGE_KEYS.PREVENTIVE_PLANS]: [],
+      [STORAGE_KEYS.PREVENTIVE_EXECUTIONS]: [],
       [STORAGE_KEYS.CORRECTIVE_INTERVENTIONS]: [],
       [STORAGE_KEYS.CORRECTIVE_ACTIONS_BY_PANNE]: {},
       [STORAGE_KEYS.CORRECTIVE_PANNE_CATEGORIES]: {},
@@ -680,6 +692,7 @@ export const DataGateway = {
     const preventiveActions = Array.isArray(serverData.preventiveActions) ? serverData.preventiveActions : [];
     const preventiveGuides = Array.isArray(serverData.preventiveGuides) ? serverData.preventiveGuides : [];
     const preventivePlans = Array.isArray(serverData.preventivePlans) ? serverData.preventivePlans : [];
+    const preventiveExecutions = Array.isArray(serverData.preventiveExecutions) ? serverData.preventiveExecutions : [];
     const correctiveInterventions = Array.isArray(serverData.correctiveInterventions)
       ? serverData.correctiveInterventions
       : [];
@@ -735,6 +748,7 @@ export const DataGateway = {
     this.savePreventiveActions(preventiveActions);
     this.savePreventiveGuides(preventiveGuides);
     this.savePreventivePlans(preventivePlans);
+    this.savePreventiveExecutions(preventiveExecutions);
     this.saveCorrectiveInterventions(correctiveInterventions);
     this.saveCorrectiveActionsByPanne(correctiveActionsByPanne);
     this.saveCorrectivePanneCategories(correctivePanneCategories);
@@ -766,6 +780,7 @@ export const DataGateway = {
         preventiveActions,
         preventiveGuides,
         preventivePlans,
+        preventiveExecutions,
         correctiveInterventions,
         correctiveActionsByPanne,
         correctivePanneCategories,
@@ -799,6 +814,7 @@ export const DataGateway = {
     if (setters.setPreventiveActions) setters.setPreventiveActions(preventiveActions);
     if (setters.setPreventiveGuides) setters.setPreventiveGuides(preventiveGuides);
     if (setters.setPreventivePlans) setters.setPreventivePlans(preventivePlans);
+    if (setters.setPreventiveExecutions) setters.setPreventiveExecutions(preventiveExecutions);
     if (setters.setCorrectiveInterventions) setters.setCorrectiveInterventions(correctiveInterventions);
     if (setters.setCorrectiveActionsByPanne) setters.setCorrectiveActionsByPanne(correctiveActionsByPanne);
     if (setters.setCorrectivePanneCategories) setters.setCorrectivePanneCategories(correctivePanneCategories);
@@ -915,10 +931,12 @@ export const DataGateway = {
         this.savePreventiveActions(seedPreventiveActions);
         this.savePreventiveGuides(seedPreventiveGuides);
         this.savePreventivePlans([]);
+        this.savePreventiveExecutions([]);
         if (setters.setPreventiveTasks) setters.setPreventiveTasks(seedPreventiveTasks);
         if (setters.setPreventiveActions) setters.setPreventiveActions(seedPreventiveActions);
         if (setters.setPreventiveGuides) setters.setPreventiveGuides(seedPreventiveGuides);
         if (setters.setPreventivePlans) setters.setPreventivePlans([]);
+        if (setters.setPreventiveExecutions) setters.setPreventiveExecutions([]);
         break;
 
       case 'corrective':
@@ -1014,16 +1032,20 @@ export const DataGateway = {
         this.purgeLegacyKeysFor(STORAGE_KEYS.PREVENTIVE_ACTIONS);
         this.purgeLegacyKeysFor(STORAGE_KEYS.PREVENTIVE_GUIDES);
         this.purgeLegacyKeysFor(STORAGE_KEYS.PREVENTIVE_PLANS);
+        this.purgeLegacyKeysFor(STORAGE_KEYS.PREVENTIVE_EXECUTIONS);
         this.savePreventiveTasks([]);
         this.savePreventiveActions([]);
         this.savePreventiveGuides([]);
         this.savePreventivePlans([]);
+        this.savePreventiveExecutions([]);
         if (setters.setPreventiveTasks) setters.setPreventiveTasks([]);
         if (setters.setPreventiveActions) setters.setPreventiveActions([]);
         if (setters.setPreventiveGuides) setters.setPreventiveGuides([]);
         if (setters.setPreventivePlans) setters.setPreventivePlans([]);
+        if (setters.setPreventiveExecutions) setters.setPreventiveExecutions([]);
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('preventive_tasks_updated', { detail: [] }));
+          window.dispatchEvent(new CustomEvent('preventive_executions_updated', { detail: [] }));
         }
         indexedDBService
           .setItemsBatch({
@@ -1031,6 +1053,7 @@ export const DataGateway = {
             [STORAGE_KEYS.PREVENTIVE_ACTIONS]: [],
             [STORAGE_KEYS.PREVENTIVE_GUIDES]: [],
             [STORAGE_KEYS.PREVENTIVE_PLANS]: [],
+            [STORAGE_KEYS.PREVENTIVE_EXECUTIONS]: [],
           })
           .catch(() => false);
         indexedDBService.clear('preventive').catch(() => false);

@@ -91,6 +91,9 @@ export const serverSyncService = {
     const preventivePlans = Array.isArray(store.preventivePlans)
       ? store.preventivePlans
       : storageService.getItem(STORAGE_KEYS.PREVENTIVE_PLANS) || [];
+    const preventiveExecutions = Array.isArray(store.preventiveExecutions)
+      ? store.preventiveExecutions
+      : storageService.getItem(STORAGE_KEYS.PREVENTIVE_EXECUTIONS) || [];
     const correctiveInterventions = Array.isArray(store.correctiveInterventions)
       ? store.correctiveInterventions
       : storageService.getItem(STORAGE_KEYS.CORRECTIVE_INTERVENTIONS) || [];
@@ -164,6 +167,7 @@ export const serverSyncService = {
       preventiveActions,
       preventiveGuides,
       preventivePlans,
+      preventiveExecutions,
       correctiveInterventions,
       correctiveActionsByPanne,
       correctivePanneCategories,
@@ -436,6 +440,7 @@ export const serverSyncService = {
       setPreventiveActions: store.setPreventiveActions,
       setPreventiveGuides: store.setPreventiveGuides,
       setPreventivePlans: store.setPreventivePlans,
+      setPreventiveExecutions: store.setPreventiveExecutions,
       setSortiesExterne: store.setSortiesExterne,
       setCorrectiveInterventions: store.setCorrectiveInterventions,
       setCorrectiveActionsByPanne: store.setCorrectiveActionsByPanne,

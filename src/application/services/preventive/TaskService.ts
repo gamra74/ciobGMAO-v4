@@ -4,9 +4,29 @@ import { storageService } from '../../../utils/storageService';
 import { STORAGE_KEYS } from '../../../infrastructure/persistence/storageKeys';
 import { loadCollection } from '../../../infrastructure/persistence/migrateStorage';
 import initialTasks from '../../../data/preventive/seedPreventiveTasks.json';
+import { ExecutionService } from './ExecutionService';
 
 export const STORAGE_KEY_TASKS = STORAGE_KEYS.PREVENTIVE_TASKS;
 export const INITIAL_TASKS = Array.isArray(initialTasks) ? initialTasks : [];
+
+function computeNextDueDate(dateRealisation: string, frequence?: string): string {
+  try {
+    const base = new Date(dateRealisation);
+    if (Number.isNaN(base.getTime())) return dateRealisation;
+    const f = String(frequence || 'Mensuel').toLowerCase();
+    let days = 30;
+    if (f.includes('jour') || f.includes('quotid')) days = 1;
+    else if (f.includes('bi') && f.includes('hebdo')) days = 14;
+    else if (f.includes('hebdo') || f === '7j' || f === '1s') days = 7;
+    else if (f.includes('trimestr') || f === '3m' || f === '90j') days = 90;
+    else if (f.includes('semestr') || f === '6m' || f === '180j') days = 180;
+    else if (f.includes('annuel') || f === '1a' || f === '12m' || f === '365j') days = 365;
+    base.setUTCDate(base.getUTCDate() + days);
+    return base.toISOString().split('T')[0];
+  } catch {
+    return dateRealisation;
+  }
+}
 
 export class TaskService {
   static getTasks() {
@@ -42,7 +62,7 @@ export class TaskService {
     return this.updateTask(taskId, { dernier_releve: Number(newCounterValue || 0) });
   }
 
-  static markTaskAsDone(taskId, validationData = {}) {
+  static markTaskAsDone(taskId, validationData: Record<string, any> = {}) {
     const current = this.getTasks();
     const nowIso = new Date().toISOString();
     const dateRealisation =
@@ -50,22 +70,36 @@ export class TaskService {
       validationData?.date_execution ||
       nowIso.split('T')[0];
 
-    const updated = current.map((t) =>
-      t.id === taskId
-        ? {
-            ...t,
-            etat: 'Fait',
-            derniere_realisation: dateRealisation,
-            technicien_realisateur:
-              validationData?.technicien ||
-              validationData?.technicien_realisateur ||
-              t.responsable,
-            observations_validation: validationData?.observations || '',
-            duree_reelle: validationData?.duree_reelle || t.duree_estimee,
-            updated_at: nowIso,
-          }
-        : t
-    );
+    const targetTask = current.find((t) => String(t.id) === String(taskId));
+    const { execution } = ExecutionService.recordExecution(targetTask || { id: taskId }, {
+      ...validationData,
+      date_realisation: dateRealisation,
+    });
+
+    const updated = current.map((t) => {
+      if (String(t.id) !== String(taskId)) return t;
+      const nextDue = computeNextDueDate(dateRealisation, t.frequence);
+      const prevCost = Number(t.cout_cumule || 0);
+      const addedCost = Number(execution.totalCost || 0);
+      const nextPlanning =
+        t.planning && typeof t.planning === 'object' && execution.periodWeek && t.planning[execution.periodWeek]
+          ? { ...t.planning, [execution.periodWeek]: 'DONE' }
+          : t.planning;
+
+      return {
+        ...t,
+        etat: 'Fait',
+        derniere_realisation: dateRealisation,
+        lastExecutedAt: dateRealisation,
+        prochaine_echeance: nextDue,
+        technicien_realisateur: execution.executorName || t.responsable,
+        observations_validation: execution.notes || '',
+        duree_reelle: validationData?.duree_reelle || `${execution.durationMinutes} min`,
+        cout_cumule: Number((prevCost + addedCost).toFixed(2)),
+        planning: nextPlanning,
+        updated_at: nowIso,
+      };
+    });
     this.saveTasks(updated);
     return updated;
   }

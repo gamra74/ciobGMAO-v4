@@ -18,6 +18,9 @@
 
 إذا كنت تبحث عن تفاصيل رياضية أو برمجية دقيقة لوحدات محددة:
 
+* 🛠️ **سجل المشاكل الهندسية والحلول المنفذة:** [`ISSUES_AND_FIXES_PLAN.md`](./ISSUES_AND_FIXES_PLAN.md)
+* 🗺️ **خارطة الطريق المعمارية وخطة المراحل (`P0` → `P6`):** [`ROADMAP_AND_PHASES_PLAN.md`](./ROADMAP_AND_PHASES_PLAN.md)
+* 🧪 **بروتوكول التحقق اليدوي من ثبات البيانات (`SSOT`):** [`docs/MANUAL_SSOT_TEST.md`](./docs/MANUAL_SSOT_TEST.md)
 * 📐 **الصيغ الرياضية المطابقة لإكسيل:** [`EXCEL_FORMULAS.md`](./EXCEL_FORMULAS.md)
 * ⚙️ **هرم المكونات وتسميات ID/CODE/REF:** [`docs/COMPOSANTS_HIERARCHIE_ET_IDENTIFIANTS.md`](./docs/COMPOSANTS_HIERARCHIE_ET_IDENTIFIANTS.md)
 * 🧪 **استراتيجية الاختبارات وضمان الجودة:** [`src/tests/testing-strategy.md`](./src/tests/testing-strategy.md)

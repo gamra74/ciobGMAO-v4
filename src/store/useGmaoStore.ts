@@ -231,7 +231,11 @@ function getInitialPreventive() {
     allowDemoFallback: true,
     demoSeed: initialTasks,
   });
-  return { actions, guides, plans, tasks };
+  const executions = loadCollection(STORAGE_KEYS.PREVENTIVE_EXECUTIONS, {
+    allowDemoFallback: false,
+    demoSeed: [],
+  });
+  return { actions, guides, plans, tasks, executions };
 }
 
 function getInitialSorties() {
@@ -531,6 +535,7 @@ export const useGmaoStore = create<GmaoStoreState>((set, get) => {
     preventiveActions: preventiveInit.actions,
     preventiveGuides: preventiveInit.guides,
     preventivePlans: preventiveInit.plans,
+    preventiveExecutions: preventiveInit.executions,
 
     setPreventiveTasks: (updater) => {
       const next = resolveUpdate(updater, get().preventiveTasks);
@@ -554,6 +559,12 @@ export const useGmaoStore = create<GmaoStoreState>((set, get) => {
       const next = resolveUpdate(updater, get().preventivePlans);
       set({ preventivePlans: next });
       DataGateway.savePreventivePlans(next);
+    },
+
+    setPreventiveExecutions: (updater) => {
+      const next = resolveUpdate(updater, get().preventiveExecutions);
+      set({ preventiveExecutions: next });
+      DataGateway.savePreventiveExecutions(next);
     },
 
     handleUpdateTask: (id, updates) => {
@@ -580,7 +591,13 @@ export const useGmaoStore = create<GmaoStoreState>((set, get) => {
 
     handleMarkTaskDone: (id, validationData) => {
       const updated = PreventiveService.markTaskAsDone(id, validationData);
-      set({ preventiveTasks: updated });
+      const executions = PreventiveService.getExecutions();
+      set({ preventiveTasks: updated, preventiveExecutions: executions });
+    },
+
+    handleDeletePreventiveExecution: (id) => {
+      const updated = PreventiveService.deleteExecution(id);
+      set({ preventiveExecutions: updated });
     },
 
     handleCreatePlanWithTasks: (planData, taskItems) => {
@@ -695,15 +712,19 @@ export const useGmaoStore = create<GmaoStoreState>((set, get) => {
 
       DataGateway.purgeLegacyKeysFor(STORAGE_KEYS.PREVENTIVE_TASKS);
       DataGateway.purgeLegacyKeysFor(STORAGE_KEYS.PREVENTIVE_PLANS);
+      DataGateway.purgeLegacyKeysFor(STORAGE_KEYS.PREVENTIVE_EXECUTIONS);
       set({
         preventiveTasks: [],
         preventivePlans: [],
+        preventiveExecutions: [],
       });
       DataGateway.savePreventiveTasks([]);
       DataGateway.savePreventivePlans([]);
+      DataGateway.savePreventiveExecutions([]);
 
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('preventive_tasks_updated', { detail: [] }));
+        window.dispatchEvent(new CustomEvent('preventive_executions_updated', { detail: [] }));
       }
 
       return { cancelled: false, clearedCount: impact.preventiveCount };
@@ -1280,6 +1301,7 @@ export const useGmaoStore = create<GmaoStoreState>((set, get) => {
         setPreventiveActions: get().setPreventiveActions,
         setPreventiveGuides: get().setPreventiveGuides,
         setPreventivePlans: get().setPreventivePlans,
+        setPreventiveExecutions: get().setPreventiveExecutions,
         setSortiesExterne: get().setSortiesExterne,
         setCorrectiveInterventions: get().setCorrectiveInterventions,
         setCorrectiveActionsByPanne: get().setCorrectiveActionsByPanne,
@@ -1314,6 +1336,7 @@ export const useGmaoStore = create<GmaoStoreState>((set, get) => {
         setPreventiveActions: get().setPreventiveActions,
         setPreventiveGuides: get().setPreventiveGuides,
         setPreventivePlans: get().setPreventivePlans,
+        setPreventiveExecutions: get().setPreventiveExecutions,
         setSortiesExterne: get().setSortiesExterne,
         setCorrectiveInterventions: get().setCorrectiveInterventions,
         setCorrectiveActionsByPanne: get().setCorrectiveActionsByPanne,
@@ -1348,6 +1371,7 @@ export const useGmaoStore = create<GmaoStoreState>((set, get) => {
         setPreventiveActions: get().setPreventiveActions,
         setPreventiveGuides: get().setPreventiveGuides,
         setPreventivePlans: get().setPreventivePlans,
+        setPreventiveExecutions: get().setPreventiveExecutions,
         setSortiesExterne: get().setSortiesExterne,
         setCorrectiveInterventions: get().setCorrectiveInterventions,
         setCorrectiveActionsByPanne: get().setCorrectiveActionsByPanne,
@@ -1382,6 +1406,7 @@ export const useGmaoStore = create<GmaoStoreState>((set, get) => {
         setPreventiveActions: get().setPreventiveActions,
         setPreventiveGuides: get().setPreventiveGuides,
         setPreventivePlans: get().setPreventivePlans,
+        setPreventiveExecutions: get().setPreventiveExecutions,
         setSortiesExterne: get().setSortiesExterne,
         setCorrectiveInterventions: get().setCorrectiveInterventions,
         setCorrectiveActionsByPanne: get().setCorrectiveActionsByPanne,
@@ -1433,6 +1458,7 @@ export const useGmaoStore = create<GmaoStoreState>((set, get) => {
       if (Array.isArray(remoteState.preventiveActions)) updates.preventiveActions = remoteState.preventiveActions;
       if (Array.isArray(remoteState.preventiveGuides)) updates.preventiveGuides = remoteState.preventiveGuides;
       if (Array.isArray(remoteState.preventivePlans)) updates.preventivePlans = remoteState.preventivePlans;
+      if (Array.isArray(remoteState.preventiveExecutions)) updates.preventiveExecutions = remoteState.preventiveExecutions;
 
       // Sortie Externe
       if (Array.isArray(remoteState.sortiesExterne)) updates.sortiesExterne = remoteState.sortiesExterne;
@@ -1532,10 +1558,13 @@ export const usePreventiveSlice = () =>
     setPreventiveGuides: state.setPreventiveGuides,
     preventivePlans: state.preventivePlans,
     setPreventivePlans: state.setPreventivePlans,
+    preventiveExecutions: state.preventiveExecutions,
+    setPreventiveExecutions: state.setPreventiveExecutions,
     handleUpdateTask: state.handleUpdateTask,
     handleDeleteTask: state.handleDeleteTask,
     handleUpdateTaskCounter: state.handleUpdateTaskCounter,
     handleMarkTaskDone: state.handleMarkTaskDone,
+    handleDeletePreventiveExecution: state.handleDeletePreventiveExecution,
     handleCreatePlanWithTasks: state.handleCreatePlanWithTasks,
     handleAddAction: state.handleAddAction,
     handleUpdateAction: state.handleUpdateAction,

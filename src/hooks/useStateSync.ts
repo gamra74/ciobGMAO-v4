@@ -144,6 +144,9 @@ export function useStateSync(setters = {}, validators = {}) {
         if (fresh.preventivePlans && typeof currentSetters.setPreventivePlans === 'function') {
           currentSetters.setPreventivePlans(fresh.preventivePlans);
         }
+        if (fresh.preventiveExecutions && typeof currentSetters.setPreventiveExecutions === 'function') {
+          currentSetters.setPreventiveExecutions(fresh.preventiveExecutions);
+        }
 
         // 7. Sorties Externe Slice
         if (fresh.sortiesExterne && typeof currentSetters.setSortiesExterne === 'function') {

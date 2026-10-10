@@ -37,6 +37,23 @@ export class CorrectiveIntervention {
   constructor(data: Record<string, any> = {}) {
     this.id = data.id || `BT-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
     Object.assign(this, data);
+    if (!this.action_fermee) {
+      this.action_fermee = data.action_fermee || 'NON';
+    }
+    if (this.date_debut && this.heure_debut && this.date_fin && this.heure_fin && !this.temps_intervention_mins) {
+      try {
+        const start = new Date(`${this.date_debut}T${this.heure_debut}`);
+        const end = new Date(`${this.date_fin}T${this.heure_fin}`);
+        const diffMs = end.getTime() - start.getTime();
+        if (diffMs > 0) {
+          const mins = Math.round(diffMs / 60000);
+          this.temps_intervention_mins = mins;
+          const hours = Math.floor(mins / 60);
+          const remainMins = mins % 60;
+          this.temps_intervention = `${String(hours).padStart(2, '0')}:${String(remainMins).padStart(2, '0')}`;
+        }
+      } catch {}
+    }
   }
 
   toJSON(): Record<string, any> {
@@ -47,6 +64,10 @@ export class CorrectiveIntervention {
       }
     }
     return out;
+  }
+
+  static fromJSON(data: Record<string, any>): CorrectiveIntervention {
+    return new CorrectiveIntervention(data);
   }
 }
 

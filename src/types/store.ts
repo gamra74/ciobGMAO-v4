@@ -135,14 +135,17 @@ export interface GmaoStoreState {
   preventiveActions: any[];
   preventiveGuides: any[];
   preventivePlans: any[];
+  preventiveExecutions: any[];
   setPreventiveTasks: (tasks: PreventiveTaskItem[] | ((prev: PreventiveTaskItem[]) => PreventiveTaskItem[])) => void;
   setPreventiveActions: (actions: any[] | ((prev: any[]) => any[])) => void;
   setPreventiveGuides: (guides: any[] | ((prev: any[]) => any[])) => void;
   setPreventivePlans: (plans: any[] | ((prev: any[]) => any[])) => void;
+  setPreventiveExecutions: (executions: any[] | ((prev: any[]) => any[])) => void;
   handleUpdateTask: (id: string | number, updates: any) => void;
   handleDeleteTask: (id: string | number) => void;
   handleUpdateTaskCounter: (id: string | number, newCounterValue: number | string) => void;
   handleMarkTaskDone: (id: string | number, validationData: any) => void;
+  handleDeletePreventiveExecution: (id: string) => void;
   handleCreatePlanWithTasks: (planData: any, taskItems: any[]) => any;
   handleAddAction: (actionData: any) => any;
   handleUpdateAction: (id: string | number, actionData: any) => any;

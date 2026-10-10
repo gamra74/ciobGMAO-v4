@@ -59,6 +59,7 @@ export function useGmaoPersistence({
           'preventiveActions',
           'preventiveGuides',
           'preventivePlans',
+          'preventiveExecutions',
           'sortiesExterne',
           'correctiveInterventions',
           'correctiveTravauxAFaire',
@@ -90,9 +91,16 @@ export function useGmaoPersistence({
         setters.setPreventiveTasks(e.detail);
       }
     };
+    const handleExecutionsUpdated = (e: any) => {
+      if (e?.detail && Array.isArray(e.detail) && typeof setters?.setPreventiveExecutions === 'function') {
+        setters.setPreventiveExecutions(e.detail);
+      }
+    };
     window.addEventListener('preventive_tasks_updated', handleTasksUpdated);
+    window.addEventListener('preventive_executions_updated', handleExecutionsUpdated);
     return () => {
       window.removeEventListener('preventive_tasks_updated', handleTasksUpdated);
+      window.removeEventListener('preventive_executions_updated', handleExecutionsUpdated);
     };
   }, [setters]);
 

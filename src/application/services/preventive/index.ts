@@ -13,4 +13,6 @@ export { ActionService } from './ActionService';
 export { GuideService } from './GuideService';
 export { PlanService } from './PlanService';
 export { TaskService } from './TaskService';
+export { ExecutionService } from './ExecutionService';
+
 

@@ -22,6 +22,7 @@ export const STORAGE_KEYS = {
   PREVENTIVE_ACTIONS: 'gmao_preventive_actions_v3',
   PREVENTIVE_GUIDES: 'gmao_preventive_guides_v3',
   PREVENTIVE_PLANS: 'gmao_preventive_plans_v3',
+  PREVENTIVE_EXECUTIONS: 'gmao_preventive_executions_v1',
 
   // 4. Corrective Maintenance
   CORRECTIVE_INTERVENTIONS: 'gmao_corrective_interventions_v4',
