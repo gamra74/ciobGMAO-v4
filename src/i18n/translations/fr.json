@@ -713,5 +713,29 @@
     "reload": "Recharger la page",
     "retry": "Réessayer",
     "details": "Détails techniques"
+  },
+  "sync_conflict": {
+    "title": "Conflit de Synchronisation",
+    "reason_server_newer": "Le fichier serveur (gmao_state.json) contient des données plus récentes ou différentes.",
+    "reason_generic": "Il existe des différences quantitatives et temporelles entre vos données locales et le serveur.",
+    "local_version": "Version Locale (Navigateur)",
+    "server_version": "Version Serveur (gmao_state.json)",
+    "total_records": "Total des enregistrements :",
+    "machine_records": "Machines enregistrées",
+    "stock_records": "Stock PDR",
+    "preventive_records": "Tâches Préventives",
+    "corrective_records": "Interventions Correctives",
+    "movements_records": "Mouvements de stock",
+    "cancel": "Annuler",
+    "push_local": "Forcer le stockage local sur le serveur",
+    "pull_server": "Restaurer les données du serveur",
+    "comparison_table_title": "Comparaison détaillée des entités (SSOT)",
+    "comparison_table_header_entity": "Entité",
+    "comparison_table_header_local": "Navigateur (Local)",
+    "comparison_table_header_server": "Serveur",
+    "comparison_table_header_diff": "Écart",
+    "match_label": "Identique",
+    "local_diff_label": "plus en local",
+    "server_diff_label": "plus sur serveur"
   }
 }

@@ -1,4 +1,5 @@
 import { AlertTriangle, UploadCloud, DownloadCloud, X, Server, HardDrive, Clock, ArrowRightLeft } from 'lucide-react';
+import { useI18n } from '../../../i18n/I18nContext';
 import type { ConflictDetectionResult } from '../../../services/serverSyncService';
 
 interface ServerSyncConflictModalProps {
@@ -18,14 +19,15 @@ export default function ServerSyncConflictModal({
   onCancel,
   isProcessing = false,
 }: ServerSyncConflictModalProps) {
+  const { t } = useI18n();
   if (!isOpen || !conflict) return null;
 
   const { localSummary, serverSummary, reason } = conflict;
 
   const formatTime = (iso: string | null) => {
-    if (!iso) return 'غير محدد';
+    if (!iso) return t('common.not_specified', 'غير محدد');
     try {
-      return new Date(iso).toLocaleString('fr-FR', {
+      return new Date(iso).toLocaleString(undefined, {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
@@ -39,11 +41,11 @@ export default function ServerSyncConflictModal({
   };
 
   const rows = [
-    { label: 'الآلات المسجلة (Machines)', local: localSummary.machinesCount, server: serverSummary.machinesCount },
-    { label: 'مخزون قطع الغيار (Stock PDR)', local: localSummary.stockCount, server: serverSummary.stockCount },
-    { label: 'المهام الوقائية (Préventif)', local: localSummary.preventiveCount, server: serverSummary.preventiveCount },
-    { label: 'التدخلات التصحيحية (Correctif)', local: localSummary.correctiveCount, server: serverSummary.correctiveCount },
-    { label: 'حركات المخزن (Mouvements)', local: localSummary.movementsCount, server: serverSummary.movementsCount },
+    { label: t('sync_conflict.machine_records', 'Machines'), local: localSummary.machinesCount, server: serverSummary.machinesCount },
+    { label: t('sync_conflict.stock_records', 'Stock PDR'), local: localSummary.stockCount, server: serverSummary.stockCount },
+    { label: t('sync_conflict.preventive_records', 'Préventif'), local: localSummary.preventiveCount, server: serverSummary.preventiveCount },
+    { label: t('sync_conflict.corrective_records', 'Correctif'), local: localSummary.correctiveCount, server: serverSummary.correctiveCount },
+    { label: t('sync_conflict.movements_records', 'Mouvements'), local: localSummary.movementsCount, server: serverSummary.movementsCount },
   ];
 
   return (
@@ -61,13 +63,13 @@ export default function ServerSyncConflictModal({
               <AlertTriangle className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h3 id="conflict-modal-title" className="text-base font-black tracking-tight flex items-center gap-2">
-                <span>تعارض في مزامنة البيانات (Conflit de Synchronisation)</span>
+              <h3 id="conflict-modal-title" className="text-base font-black tracking-tight">
+                {t('sync_conflict.title', 'Conflit de Synchronisation')}
               </h3>
               <p className="text-xs text-amber-100 font-medium mt-0.5">
                 {reason === 'SERVER_NEWER'
-                  ? 'ملف الخادم (gmao_state.json) يحتوي على بيانات أحدث أو مختلفة عن نسخة المتصفح الحالية.'
-                  : 'توجد اختلافات كمية وزمنية بين بيانات المتصفح الحالية وملف الخادم gmao_state.json.'}
+                  ? t('sync_conflict.reason_server_newer', 'Le fichier serveur est plus récent.')
+                  : t('sync_conflict.reason_generic', 'Il existe des différences entre les données.')}
               </p>
             </div>
           </div>
@@ -75,7 +77,7 @@ export default function ServerSyncConflictModal({
             onClick={onCancel}
             disabled={isProcessing}
             className="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-white transition cursor-pointer"
-            aria-label="Fermer"
+            aria-label={t('common.close', 'Fermer')}
           >
             <X className="w-4 h-4" />
           </button>
@@ -90,13 +92,13 @@ export default function ServerSyncConflictModal({
                 <HardDrive className="w-4 h-4" />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-xs font-extrabold text-emerald-950">النسخة المحلية (Navigateur Local)</div>
+                <div className="text-xs font-extrabold text-emerald-950">{t('sync_conflict.local_version', 'Local')}</div>
                 <div className="text-[11px] text-emerald-700 font-mono flex items-center gap-1 mt-1">
                   <Clock className="w-3 h-3 shrink-0" />
                   <span className="truncate">{formatTime(localSummary.updatedAt)}</span>
                 </div>
                 <div className="text-[11px] font-bold text-emerald-800 mt-1">
-                  إجمالي السجلات: <span className="font-mono">{localSummary.totalItems}</span>
+                  {t('sync_conflict.total_records', 'Total:')} <span className="font-mono">{localSummary.totalItems}</span>
                 </div>
               </div>
             </div>
@@ -106,13 +108,13 @@ export default function ServerSyncConflictModal({
                 <Server className="w-4 h-4" />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-xs font-extrabold text-blue-950">نسخة الخادم (gmao_state.json)</div>
+                <div className="text-xs font-extrabold text-blue-950">{t('sync_conflict.server_version', 'Serveur')}</div>
                 <div className="text-[11px] text-blue-700 font-mono flex items-center gap-1 mt-1">
                   <Clock className="w-3 h-3 shrink-0" />
                   <span className="truncate">{formatTime(serverSummary.updatedAt)}</span>
                 </div>
                 <div className="text-[11px] font-bold text-blue-800 mt-1">
-                  إجمالي السجلات: <span className="font-mono">{serverSummary.totalItems}</span>
+                  {t('sync_conflict.total_records', 'Total:')} <span className="font-mono">{serverSummary.totalItems}</span>
                 </div>
               </div>
             </div>
@@ -123,45 +125,46 @@ export default function ServerSyncConflictModal({
             <div className="bg-slate-100/90 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between text-xs font-bold text-slate-700">
               <span className="flex items-center gap-1.5">
                 <ArrowRightLeft className="w-3.5 h-3.5 text-slate-500" />
-                <span>مقارنة تفصيلية للكيانات المرجعية (SSOT)</span>
+                <span>{t('sync_conflict.comparison_table_title', 'Comparaison')}</span>
               </span>
-              <span className="text-[10px] font-mono uppercase text-slate-500">Local vs Server</span>
             </div>
-            <table className="w-full text-xs border-collapse">
-              <thead>
-                <tr className="bg-slate-50 text-slate-500 border-b border-slate-200/80 font-bold">
-                  <th className="py-2 px-4 text-left">الكيان (Entité)</th>
-                  <th className="py-2 px-4 text-center text-emerald-700">المتصفح (Local)</th>
-                  <th className="py-2 px-4 text-center text-blue-700">الخادم (Serveur)</th>
-                  <th className="py-2 px-4 text-right">الفرق (Écart)</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {rows.map((r) => {
-                  const diff = r.local - r.server;
-                  return (
-                    <tr key={r.label} className="hover:bg-slate-50/80">
-                      <td className="py-2 px-4 font-semibold text-slate-800">{r.label}</td>
-                      <td className="py-2 px-4 text-center font-mono font-bold text-emerald-700 bg-emerald-50/30">
-                        {r.local}
-                      </td>
-                      <td className="py-2 px-4 text-center font-mono font-bold text-blue-700 bg-blue-50/30">
-                        {r.server}
-                      </td>
-                      <td className="py-2 px-4 text-right font-mono font-bold">
-                        {diff === 0 ? (
-                          <span className="text-slate-400">متطابق (0)</span>
-                        ) : diff > 0 ? (
-                          <span className="text-emerald-600">+{diff} محلياً</span>
-                        ) : (
-                          <span className="text-blue-600">{diff} (أكثر على الخادم)</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 text-slate-500 border-b border-slate-200/80 font-bold">
+                    <th className="py-2 px-4 text-left">{t('sync_conflict.comparison_table_header_entity', 'Entité')}</th>
+                    <th className="py-2 px-4 text-center text-emerald-700">{t('sync_conflict.comparison_table_header_local', 'Local')}</th>
+                    <th className="py-2 px-4 text-center text-blue-700">{t('sync_conflict.comparison_table_header_server', 'Serveur')}</th>
+                    <th className="py-2 px-4 text-right">{t('sync_conflict.comparison_table_header_diff', 'Écart')}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {rows.map((r) => {
+                    const diff = r.local - r.server;
+                    return (
+                      <tr key={r.label} className="hover:bg-slate-50/80">
+                        <td className="py-2 px-4 font-semibold text-slate-800">{r.label}</td>
+                        <td className="py-2 px-4 text-center font-mono font-bold text-emerald-700 bg-emerald-50/30">
+                          {r.local}
+                        </td>
+                        <td className="py-2 px-4 text-center font-mono font-bold text-blue-700 bg-blue-50/30">
+                          {r.server}
+                        </td>
+                        <td className="py-2 px-4 text-right font-mono font-bold">
+                          {diff === 0 ? (
+                            <span className="text-slate-400">{t('sync_conflict.match_label', 'Match')}</span>
+                          ) : diff > 0 ? (
+                            <span className="text-emerald-600">+{diff} {t('sync_conflict.local_diff_label', 'local')}</span>
+                          ) : (
+                            <span className="text-blue-600">{diff} {t('sync_conflict.server_diff_label', 'serveur')}</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* Action Buttons */}
@@ -172,7 +175,7 @@ export default function ServerSyncConflictModal({
               disabled={isProcessing}
               className="px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition cursor-pointer"
             >
-              إلغاء الأمر (Annuler)
+              {t('sync_conflict.cancel', 'Annuler')}
             </button>
 
             <button
@@ -182,7 +185,7 @@ export default function ServerSyncConflictModal({
               className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               <DownloadCloud className="w-4 h-4 shrink-0" />
-              <span>استعادة بيانات الخادم (Écraser mes données)</span>
+              <span>{t('sync_conflict.pull_server', 'Restaurer serveur')}</span>
             </button>
 
             <button
@@ -192,7 +195,7 @@ export default function ServerSyncConflictModal({
               className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               <UploadCloud className="w-4 h-4 shrink-0" />
-              <span>فرض الحفظ المحلي على الخادم (Écraser le serveur)</span>
+              <span>{t('sync_conflict.push_local', 'Forcer local')}</span>
             </button>
           </div>
         </div>

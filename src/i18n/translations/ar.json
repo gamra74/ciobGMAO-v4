@@ -713,5 +713,29 @@
     "reload": "إعادة تحميل الصفحة",
     "retry": "إعادة المحاولة",
     "details": "التفاصيل التقنية"
+  },
+  "sync_conflict": {
+    "title": "تعارض في مزامنة البيانات",
+    "reason_server_newer": "ملف الخادم (gmao_state.json) يحتوي على بيانات أحدث أو مختلفة.",
+    "reason_generic": "توجد اختلافات كمية وزمنية بين بيانات المتصفح الحالية وملف الخادم.",
+    "local_version": "النسخة المحلية (المتصفح)",
+    "server_version": "نسخة الخادم (gmao_state.json)",
+    "total_records": "إجمالي السجلات :",
+    "machine_records": "الآلات المسجلة",
+    "stock_records": "مخزون قطع الغيار",
+    "preventive_records": "المهام الوقائية",
+    "corrective_records": "التدخلات التصحيحية",
+    "movements_records": "حركات المخزن",
+    "cancel": "إلغاء الأمر",
+    "push_local": "فرض الحفظ المحلي على الخادم",
+    "pull_server": "استعادة بيانات الخادم",
+    "comparison_table_title": "مقارنة تفصيلية للكيانات المرجعية",
+    "comparison_table_header_entity": "الكيان",
+    "comparison_table_header_local": "المتصفح (محلي)",
+    "comparison_table_header_server": "الخادم",
+    "comparison_table_header_diff": "الفرق",
+    "match_label": "متطابق",
+    "local_diff_label": "محلياً أكثر",
+    "server_diff_label": "أكثر على الخادم"
   }
 }
