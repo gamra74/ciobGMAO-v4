@@ -737,5 +737,29 @@
     "match_label": "Identique",
     "local_diff_label": "plus en local",
     "server_diff_label": "plus sur serveur"
+  },
+  "server_sync": {
+    "card_title": "Synchronisation Serveur (gmao_state.json)",
+    "card_title_short": "Synchronisation Serveur",
+    "status_online": "Serveur en ligne",
+    "status_offline": "Serveur hors-ligne",
+    "card_description": "Contrôle manuel avec détection des conflits temporels — Aucun appel silencieux en arrière-plan.",
+    "last_sync": "Dernière synchronisation :",
+    "never_synced": "Aucune synchronisation effectuée",
+    "push_button": "Sauvegarder sur le serveur",
+    "push_badge": "Push JSON",
+    "pull_button": "Restaurer depuis le serveur",
+    "pull_badge": "Pull JSON",
+    "check_tooltip": "Vérifier l'état du serveur",
+    "saving": "Sauvegarde en cours...",
+    "restoring": "Restauration en cours...",
+    "checking": "Vérification en cours...",
+    "save_success": "Données sauvegardées sur le serveur avec succès",
+    "save_error": "Échec de la sauvegarde sur le serveur",
+    "restore_success": "Données restaurées depuis le serveur et appliquées avec succès",
+    "restore_error": "Échec de la restauration depuis le serveur",
+    "explicit_notice": "Synchronisation manuelle explicite à 100% — Aucune requête silencieuse en arrière-plan",
+    "records_count": "{{count}} enregistrements",
+    "total_records": "enregistrements"
   }
 }

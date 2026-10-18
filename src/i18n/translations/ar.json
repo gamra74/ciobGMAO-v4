@@ -737,5 +737,29 @@
     "match_label": "متطابق",
     "local_diff_label": "محلياً أكثر",
     "server_diff_label": "أكثر على الخادم"
+  },
+  "server_sync": {
+    "card_title": "مزامنة الخادم (gmao_state.json)",
+    "card_title_short": "مزامنة الخادم",
+    "status_online": "الخادم متصل",
+    "status_offline": "الخادم غير متصل",
+    "card_description": "تحكم يدوي مع كشف التعارض الزمني — بدون أي استعلام صامت في الخلفية.",
+    "last_sync": "آخر مزامنة :",
+    "never_synced": "لم تتم المزامنة بعد",
+    "push_button": "حفظ على الخادم",
+    "push_badge": "إرسال البيانات",
+    "pull_button": "استعادة من الخادم",
+    "pull_badge": "جلب البيانات",
+    "check_tooltip": "فحص حالة الخادم",
+    "saving": "جاري الحفظ...",
+    "restoring": "جاري الاستعادة...",
+    "checking": "جاري الفحص...",
+    "save_success": "تم حفظ البيانات على الخادم بنجاح",
+    "save_error": "فشل الحفظ على الخادم",
+    "restore_success": "تمت استعادة البيانات من الخادم وتطبيقها بنجاح",
+    "restore_error": "فشل الاستعادة من الخادم",
+    "explicit_notice": "مزامنة يدوية صريحة 100% — لا توجد مزامنة صامتة في الخلفية",
+    "records_count": "{{count}} سجل",
+    "total_records": "سجل"
   }
 }

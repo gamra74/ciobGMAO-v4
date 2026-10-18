@@ -19,15 +19,17 @@ export default function ServerSyncConflictModal({
   onCancel,
   isProcessing = false,
 }: ServerSyncConflictModalProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   if (!isOpen || !conflict) return null;
 
   const { localSummary, serverSummary, reason } = conflict;
 
+  const localeString = language === 'ar' ? 'ar-MA' : language === 'en' ? 'en-US' : 'fr-FR';
+
   const formatTime = (iso: string | null) => {
-    if (!iso) return t('common.not_specified', 'غير محدد');
+    if (!iso) return t('common.not_specified', 'Non spécifié');
     try {
-      return new Date(iso).toLocaleString(undefined, {
+      return new Date(iso).toLocaleString(localeString, {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',

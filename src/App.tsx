@@ -25,7 +25,6 @@ import AppRouter from './presentation/router/AppRouter';
 import { useAppRouterProps } from './presentation/router/useAppRouterProps';
 
 import { useAppViewController } from './hooks/useAppViewController';
-import SyncButtons from './presentation/components/common/SyncButtons';
 import initialStockSeed from './data/stock/seedStockItems.json';
 
 export default function App() {
@@ -448,10 +447,6 @@ export default function App() {
           setCurrentTab={setCurrentTab}
           props={routerProps}
         />
-
-        <div className="px-4 pt-2 pb-4">
-          <SyncButtons state={gmaoState} showToast={showToast} />
-        </div>
 
         <AppModals
           {...modals}

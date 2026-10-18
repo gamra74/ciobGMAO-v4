@@ -1947,6 +1947,9 @@ export default function SettingsView({
         {/* PANEL 3: EXCEL & DIRECTORY LINK */}
         {activeTab === 'directory' && (
           <div className="space-y-6">
+            {/* Explicit Server Synchronization Card */}
+            <SyncButtons showToast={showToast} />
+
             <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-2">
               <FolderOpen className="w-4 h-4 text-indigo-600" />
               Source des donnees et dossier reseau partage
@@ -3295,6 +3298,9 @@ export default function SettingsView({
             {/* SUBTAB 3: BACKUPS & RESTORE */}
             {auditSubTab === 'backups' && (
               <div className="space-y-4">
+                {/* Server Synchronization Card */}
+                <SyncButtons showToast={showToast} />
+
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
                     Points de Restauration Locaux

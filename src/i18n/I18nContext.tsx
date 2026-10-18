@@ -70,21 +70,33 @@ export function I18nProvider({ children }) {
     }
   }, []);
 
-  const t = useCallback((path, params = {}) => {
+  const t = useCallback((path: string, fallbackOrParams?: string | Record<string, any>, params?: Record<string, any>) => {
+    let fallbackText: string | undefined;
+    let actualParams: Record<string, any> = {};
+
+    if (typeof fallbackOrParams === 'string') {
+      fallbackText = fallbackOrParams;
+      if (params && typeof params === 'object') {
+        actualParams = params;
+      }
+    } else if (fallbackOrParams && typeof fallbackOrParams === 'object') {
+      actualParams = fallbackOrParams;
+    }
+
     const keys = path.split('.');
-    let current = dictionaries[language];
+    let current: any = dictionaries[language as keyof typeof dictionaries];
 
     for (const key of keys) {
       if (current && typeof current === 'object' && key in current) {
         current = current[key];
       } else {
         // Fallback to French if key missing in target language
-        let fallback = dictionaries.fr;
+        let fallback: any = dictionaries.fr;
         for (const fKey of keys) {
           if (fallback && typeof fallback === 'object' && fKey in fallback) {
             fallback = fallback[fKey];
           } else {
-            return path;
+            return fallbackText !== undefined ? fallbackText : path;
           }
         }
         current = fallback;
@@ -94,13 +106,13 @@ export function I18nProvider({ children }) {
 
     if (typeof current === 'string') {
       let result = current;
-      for (const [paramKey, paramVal] of Object.entries(params)) {
+      for (const [paramKey, paramVal] of Object.entries(actualParams)) {
         result = result.replace(new RegExp(`{{${paramKey}}}`, 'g'), String(paramVal));
       }
       return result;
     }
 
-    return path;
+    return fallbackText !== undefined ? fallbackText : path;
   }, [language]);
 
   const value = useMemo(() => ({
