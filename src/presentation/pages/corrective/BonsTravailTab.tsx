@@ -23,6 +23,8 @@ import {
 import * as XLSX from 'xlsx';
 import CustomSelect from '../../components/common/CustomSelect';
 import GmaoIndustrialDataGrid from '../../components/common/GmaoIndustrialDataGrid';
+import PeriodFilterBar from '../../components/common/PeriodFilterBar';
+import { type PeriodFilterState, isDateInPeriod } from '../../../utils/datePeriodUtils';
 import { useI18n } from '../../../i18n/I18nContext';
 import { dataIntegrityService } from '../../../services/dataIntegrityService';
 
@@ -65,6 +67,7 @@ export default function BonsTravailTab({
   const [filterMachine, setFilterMachine] = useState('ALL');
   const [filterTypePanne, setFilterTypePanne] = useState('ALL');
   const [orphanFilter, setOrphanFilter] = useState('ALL'); // 'ALL' | 'ORPHAN_ONLY' | 'LINKED_ONLY'
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilterState>({ preset: 'ALL' });
   const [searchTerm, setSearchTerm] = useState('');
 
   // Sorting & Pagination State
@@ -182,6 +185,10 @@ export default function BonsTravailTab({
       if (orphanFilter === 'ORPHAN_ONLY' && !bt._isOrphan) return false;
       if (orphanFilter === 'LINKED_ONLY' && bt._isOrphan) return false;
 
+      // Period Filter (P1 Factory Memory)
+      const btDate = bt.date_demande || bt.date || bt.date_cloture || bt.created_at;
+      if (!isDateInPeriod(btDate, periodFilter)) return false;
+
       if (searchTerm) {
         const term = searchTerm.toLowerCase();
         const num = String(bt.num_bt || '').toLowerCase();
@@ -203,7 +210,12 @@ export default function BonsTravailTab({
       }
       return true;
     });
-  }, [btsWithOrphan, filterStatus, filterTech, filterMachine, filterTypePanne, orphanFilter, searchTerm]);
+  }, [btsWithOrphan, filterStatus, filterTech, filterMachine, filterTypePanne, orphanFilter, periodFilter, searchTerm]);
+
+  // Available dates for PeriodFilterBar
+  const availableBtDates = useMemo(() => {
+    return bts.map((b) => b.date_demande || b.date || b.date_cloture || b.created_at);
+  }, [bts]);
 
   // Sorting
   const sortedBts = useMemo(() => {
@@ -266,6 +278,7 @@ export default function BonsTravailTab({
     filterMachine !== 'ALL' ||
     filterTypePanne !== 'ALL' ||
     orphanFilter !== 'ALL' ||
+    periodFilter.preset !== 'ALL' ||
     Boolean(searchTerm);
 
   const clearAllFilters = () => {
@@ -274,6 +287,7 @@ export default function BonsTravailTab({
     setFilterMachine('ALL');
     setFilterTypePanne('ALL');
     setOrphanFilter('ALL');
+    setPeriodFilter({ preset: 'ALL' });
     setSearchTerm('');
     setCurrentPage(1);
   };
@@ -623,6 +637,18 @@ export default function BonsTravailTab({
           </div>
         </div>
       </div>
+
+      {/* 1.5. Period Filter Bar (P1 Factory Memory) */}
+      <PeriodFilterBar
+        value={periodFilter}
+        onChange={(next) => {
+          setPeriodFilter(next);
+          setCurrentPage(1);
+        }}
+        availableDates={availableBtDates}
+        filteredCount={sortedBts.length}
+        totalCount={bts.length}
+      />
 
       {/* 2. Filter & Search Card (Unified Mature Light UI Design System) */}
       <div className="relative z-30 bg-white border border-slate-200 rounded-2xl p-4 md:p-5 shadow-[0_12px_32px_-6px_rgba(0,0,0,0.12),0_4px_12px_-2px_rgba(0,0,0,0.06)] hover:shadow-[0_16px_40px_-8px_rgba(0,0,0,0.16),0_6px_16px_-3px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-300 ease-out space-y-4">

@@ -761,5 +761,26 @@
     "explicit_notice": "مزامنة يدوية صريحة 100% — لا توجد مزامنة صامتة في الخلفية",
     "records_count": "{{count}} سجل",
     "total_records": "سجل"
+  },
+  "executive_report": {
+    "title": "تقرير الإدارة الشهري التنفيذي",
+    "subtitle": "الملخص المالي والتشغيلي والاستراتيجي للشهر لمتخذي القرار في المصنع",
+    "period_label": "فترة التحليل :",
+    "export_excel": "تصدير إكسل الشهري",
+    "print_pdf": "طباعة / PDF رسمي",
+    "mom_comparison": "مقارنة شهر بشهر (الشهر الحالي مقابل الشهر السابق)",
+    "kpi_valuation": "تقييم مخزون قطع الغيار الإجمالي",
+    "kpi_consumption": "استهلاك قطع الغيار الشهري",
+    "kpi_preventive": "الانضباط في الصيانة الوقائية",
+    "kpi_corrective": "الأعطال وجاهزية الآلات",
+    "top_consumed_title": "أكثر 5 قطع استهلاكاً خلال الشهر",
+    "top_failing_title": "أكثر 3 آلات مسببة للتوقفات",
+    "urgent_purchases": "احتياجات الشراء العاجلة والتنبيهات",
+    "ruptures_count": "مقالات في حالة نفاد",
+    "alertes_count": "مقالات تحت حد الطلب",
+    "visa_maintenance": "تأشيرة مسؤول الصيانة",
+    "visa_direction": "تأشيرة إدارة المصنع",
+    "date_signature": "التاريخ والختم :",
+    "reference_doc": "مرجع الوثيقة : RAP-DIR-{{month}}"
   }
 }

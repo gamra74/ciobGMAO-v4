@@ -51,6 +51,8 @@ import {
 import MovementVoucherModal from '../../components/warehouse/MovementVoucherModal';
 import { usePermission } from '../../components/common/PermissionGate';
 import GmaoIndustrialDataGrid from '../../components/common/GmaoIndustrialDataGrid';
+import PeriodFilterBar from '../../components/common/PeriodFilterBar';
+import { type PeriodFilterState, isDateInPeriod } from '../../../utils/datePeriodUtils';
 
 /**
  * Smart OT / Commande resolver:
@@ -809,10 +811,15 @@ export default function MouvementsJournalTable({
   const [tableFilterType, setTableFilterType] = useState('ALL');
   const [tableFilterSource, setTableFilterSource] = useState('ALL');
   const [tableFilterAction, setTableFilterAction] = useState('ALL');
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilterState>({ preset: 'ALL' });
   const [tableDatePreset, setTableDatePreset] = useState('ALL');
   const [tableDateFrom, setTableDateFrom] = useState('');
   const [tableDateTo, setTableDateTo] = useState('');
   const [localTableSearchText, setLocalTableSearchText] = useState('');
+
+  const availableMovementDates = useMemo(() => {
+    return mouvements.map((m) => m.date);
+  }, [mouvements]);
 
   // Table Sorting States
   const [tableSortField, setTableSortField] = useState('date');
@@ -874,31 +881,9 @@ export default function MouvementsJournalTable({
         }
       }
 
-      // Date Range Filter
-      if (m.date) {
-        const mDate = new Date(m.date);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        if (tableDatePreset === 'TODAY') {
-          const mDateNoTime = new Date(mDate);
-          mDateNoTime.setHours(0, 0, 0, 0);
-          if (mDateNoTime.getTime() !== today.getTime()) return false;
-        } else if (tableDatePreset === 'THIS_WEEK') {
-          const startOfWeek = new Date(today);
-          startOfWeek.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1));
-          if (mDate < startOfWeek) return false;
-        } else if (tableDatePreset === 'THIS_MONTH') {
-          if (
-            mDate.getMonth() !== today.getMonth() ||
-            mDate.getFullYear() !== today.getFullYear()
-          ) {
-            return false;
-          }
-        } else if (tableDatePreset === 'CUSTOM') {
-          if (tableDateFrom && m.date < tableDateFrom) return false;
-          if (tableDateTo && m.date > tableDateTo) return false;
-        }
+      // Date Range Filter (P1 Unified Factory Period)
+      if (!isDateInPeriod(m.date, periodFilter)) {
+        return false;
       }
 
       // Local Text Search (Omni search across all columns)
@@ -955,9 +940,7 @@ export default function MouvementsJournalTable({
     tableFilterType,
     tableFilterSource,
     tableFilterAction,
-    tableDatePreset,
-    tableDateFrom,
-    tableDateTo,
+    periodFilter,
     localTableSearchText,
     stockItems,
     warehouseItems,
@@ -1276,7 +1259,7 @@ export default function MouvementsJournalTable({
             {(tableFilterType !== 'ALL' ||
               tableFilterSource !== 'ALL' ||
               tableFilterAction !== 'ALL' ||
-              tableDatePreset !== 'ALL' ||
+              periodFilter.preset !== 'ALL' ||
               localTableSearchText) && (
               <button
                 type="button"
@@ -1284,7 +1267,7 @@ export default function MouvementsJournalTable({
                   setTableFilterType('ALL');
                   setTableFilterSource('ALL');
                   setTableFilterAction('ALL');
-                  setTableDatePreset('ALL');
+                  setPeriodFilter({ preset: 'ALL' });
                   setLocalTableSearchText('');
                 }}
                 className="text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 px-2.5 py-1.5 rounded-xl transition flex items-center gap-1 cursor-pointer"
@@ -1531,50 +1514,18 @@ export default function MouvementsJournalTable({
           </div>
         </div>
 
-        {/* Date Filter Quick Presets */}
-        <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100 text-xs">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mr-1 flex items-center gap-1">
-            <CalendarRange className="w-3.5 h-3.5 text-slate-400" />
-            Date :
-          </span>
-          {[
-            { id: 'ALL', label: 'Toutes dates' },
-            { id: 'TODAY', label: "Aujourd'hui" },
-            { id: 'THIS_WEEK', label: 'Cette semaine' },
-            { id: 'THIS_MONTH', label: 'Ce mois-ci' },
-            { id: 'CUSTOM', label: 'Période personnalisée' },
-          ].map((preset) => (
-            <button
-              key={preset.id}
-              type="button"
-              onClick={() => setTableDatePreset(preset.id)}
-              className={`px-2.5 py-1 rounded-lg font-medium text-[11px] transition cursor-pointer ${
-                tableDatePreset === preset.id
-                  ? 'bg-slate-900 text-white font-bold shadow-2xs'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              {preset.label}
-            </button>
-          ))}
-
-          {tableDatePreset === 'CUSTOM' && (
-            <div className="flex items-center gap-1.5 ml-2 animate-in fade-in">
-              <input
-                type="date"
-                value={tableDateFrom}
-                onChange={(e) => setTableDateFrom(e.target.value)}
-                className="h-7 px-2 rounded-lg border border-slate-200 text-[11px] font-semibold text-slate-700 bg-white"
-              />
-              <span className="text-slate-400 text-xs">→</span>
-              <input
-                type="date"
-                value={tableDateTo}
-                onChange={(e) => setTableDateTo(e.target.value)}
-                className="h-7 px-2 rounded-lg border border-slate-200 text-[11px] font-semibold text-slate-700 bg-white"
-              />
-            </div>
-          )}
+        {/* Unified Period Filter Bar (P1 Factory Memory) */}
+        <div className="pt-2 border-t border-slate-100">
+          <PeriodFilterBar
+            value={periodFilter}
+            onChange={(next) => {
+              setPeriodFilter(next);
+              setCurrentPage(1);
+            }}
+            availableDates={availableMovementDates}
+            filteredCount={sortedMouvements.length}
+            totalCount={mouvements.length}
+          />
         </div>
       </div>
 

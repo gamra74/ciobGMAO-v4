@@ -20,7 +20,8 @@ export const PARENT_MODULES = [
     colorDark: 'text-blue-400',
     bgLight: 'bg-blue-50',
     children: [
-      { id: 'dashboard', label: 'Dashboard' }
+      { id: 'dashboard', label: 'Dashboard Opérations' },
+      { id: 'executive_report', label: 'Rapport Mensuel Direction' }
     ]
   },
   {

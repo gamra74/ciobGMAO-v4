@@ -761,5 +761,26 @@
     "explicit_notice": "100% explicit manual synchronization — No silent background requests",
     "records_count": "{{count}} records",
     "total_records": "records"
+  },
+  "executive_report": {
+    "title": "Monthly Executive Management Report",
+    "subtitle": "Strategic, financial and operational monthly summary for factory decision makers",
+    "period_label": "Analysis period :",
+    "export_excel": "Export Monthly Excel",
+    "print_pdf": "Print / Official PDF",
+    "mom_comparison": "Month-over-Month Comparison (Current vs Previous Month)",
+    "kpi_valuation": "Spare Parts Inventory Valuation",
+    "kpi_consumption": "Monthly Parts Consumption",
+    "kpi_preventive": "Preventive Maintenance Discipline",
+    "kpi_corrective": "Failures & Machine Availability",
+    "top_consumed_title": "Top 5 Consumed Parts in Month",
+    "top_failing_title": "Top 3 Most Penalizing Machines",
+    "urgent_purchases": "Urgent Purchase Needs & Alerts",
+    "ruptures_count": "Out of Stock Items",
+    "alertes_count": "Items Below Threshold",
+    "visa_maintenance": "Maintenance Manager Visa",
+    "visa_direction": "Plant Management Visa",
+    "date_signature": "Date & Stamp :",
+    "reference_doc": "Doc Ref : RAP-DIR-{{month}}"
   }
 }

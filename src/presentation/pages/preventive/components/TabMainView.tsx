@@ -33,6 +33,7 @@ import MatrixWeeksView from './MatrixWeeksView';
 import DetailedTaskListView from './DetailedTaskListView';
 import PreventiveAnalyticsView from './PreventiveAnalyticsView';
 import MonthlyDayMatrixView from './MonthlyDayMatrixView';
+import PreventiveExecutionsHistoryView from './PreventiveExecutionsHistoryView';
 import PreventiveService from '../../../../application/services/PreventiveService';
 import { multiTokenSearch } from '../../../../utils/searchUtils';
 import { dataIntegrityService } from '../../../../services/dataIntegrityService';
@@ -845,6 +846,20 @@ export default function TabMainView({
                 <List className="w-3.5 h-3.5 text-slate-600" />
                 <span className="hidden sm:inline">{t('preventive.view_modes.tasks_list', 'Liste Tâches')}</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => setViewMode('executions')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  viewMode === 'executions'
+                    ? 'bg-white text-emerald-900 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Historique des Exécutions Préventives"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="hidden sm:inline">Historique ({executions?.length || 0})</span>
+              </button>
             </div>
 
             {/* Export Excel / CSV */}
@@ -1309,6 +1324,15 @@ export default function TabMainView({
           zones={zones}
           actions={actions}
           onSwitchView={(mode) => setViewMode(mode)}
+        />
+      )}
+
+      {/* VIEW 6: EXECUTIONS HISTORY (P1 Event-Sourced Factory Memory) */}
+      {viewMode === 'executions' && (
+        <PreventiveExecutionsHistoryView
+          executions={executions}
+          onDeleteExecution={onDeleteExecution}
+          onNavigateToMachine={onNavigateToMachine}
         />
       )}
 

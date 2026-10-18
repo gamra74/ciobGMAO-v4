@@ -761,5 +761,26 @@
     "explicit_notice": "Synchronisation manuelle explicite à 100% — Aucune requête silencieuse en arrière-plan",
     "records_count": "{{count}} enregistrements",
     "total_records": "enregistrements"
+  },
+  "executive_report": {
+    "title": "Rapport Mensuel Exécutif Direction",
+    "subtitle": "Synthèse stratégique, financière et opérationnelle du mois pour les décideurs de l'usine",
+    "period_label": "Période d'analyse :",
+    "export_excel": "Exporter Excel Mensuel",
+    "print_pdf": "Imprimer / PDF Officiel",
+    "mom_comparison": "Comparaison MoM (Mois vs Mois Précédent)",
+    "kpi_valuation": "Valorisation du Stock PDR",
+    "kpi_consumption": "Consommation PDR du Mois",
+    "kpi_preventive": "Discipline Maintenance Préventive",
+    "kpi_corrective": "Pannes & Disponibilité Machines",
+    "top_consumed_title": "Top 5 Pièces Consommées sur le Mois",
+    "top_failing_title": "Top 3 Machines les Plus Pénalisantes",
+    "urgent_purchases": "Besoins d'Achats Urgents & Alertes",
+    "ruptures_count": "Articles en Rupture",
+    "alertes_count": "Articles sous Seuil",
+    "visa_maintenance": "Visa Responsable Maintenance",
+    "visa_direction": "Visa Direction de l'Usine",
+    "date_signature": "Date & Cachet :",
+    "reference_doc": "Réf. Document : RAP-DIR-{{month}}"
   }
 }
