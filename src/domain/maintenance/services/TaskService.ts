@@ -37,7 +37,9 @@ export class TaskService {
 
   async updateTask(id, data) {
     Logger.info('Updating task/movement', { id });
-    const task = new TaskEntity({ id, ...data });
+    const existing = await this.repository.findById(id);
+    const merged = existing ? { ...(typeof existing.toJSON === 'function' ? existing.toJSON() : existing), ...data, id } : { id, ...data };
+    const task = new TaskEntity(merged);
     const result = await this.repository.update(id, task);
     this.cache.delete(`task:${id}`);
     this.cache.invalidateByTag('tasks');

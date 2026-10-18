@@ -82,10 +82,10 @@ describe('6.A — Property-Based Testing & Critical Edge Cases for Stock Calcula
             const expectedSorties = movements
               .filter((m) => m.type === 'Sortie')
               .reduce((acc, m) => acc + m.quantite, 0);
-            const expectedStock = Math.max(0, initial + expectedEntrees - expectedSorties);
+            const expectedStock = initial + expectedEntrees - expectedSorties;
 
             const actualStock = StockCalculationService.calculateStockActuel(article, movements);
-            return actualStock === expectedStock && actualStock >= 0;
+            return actualStock === expectedStock;
           }
         ),
         { numRuns: 500 }
@@ -128,14 +128,14 @@ describe('6.A — Property-Based Testing & Critical Edge Cases for Stock Calcula
       expect(StockCalculationService.calculateStockActuel(null, [])).toBe(0);
     });
 
-    it('Negative quantities & excess exits: prevents negative final stock and clamps safely to 0', () => {
+    it('Negative quantities & excess exits: preserves negative physical stock for deficit tracking', () => {
       // Exits exceeding initial + entries
-      expect(calculateCurrentStock(10, 5, 50)).toBe(0);
+      expect(calculateCurrentStock(10, 5, 50)).toBe(-35);
 
       const article = { ref: 'PDR-NEG', stockInitial: 10, seuil: 5 };
       const movements = [{ id: 'm1', ref: 'PDR-NEG', type: 'Sortie', quantite: 25 }];
       const stockActuel = StockCalculationService.calculateStockActuel(article, movements);
-      expect(stockActuel).toBe(0);
+      expect(stockActuel).toBe(-15);
       expect(StockCalculationService.getAlertStatus(article, stockActuel)).toBe('RUPTURE');
 
       // Negative requested quantity on availability check

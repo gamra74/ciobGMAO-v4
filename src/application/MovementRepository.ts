@@ -59,13 +59,30 @@ export class MovementRepository {
   }
 
   edit(oldM: MovementEntity, newM: MovementEntity): void {
-    stockIndexStore.index.updateDelta({
-      ref: oldM.ref,
-      oldType: oldM.type,
-      oldQty: Number(oldM.quantite) || 0,
-      newType: newM.type,
-      newQty: Number(newM.quantite) || 0,
-    });
+    const oldQty = Number(oldM.quantite) || 0;
+    const newQty = Number(newM.quantite) || 0;
+
+    if (oldM.ref === newM.ref) {
+      stockIndexStore.index.updateDelta({
+        ref: oldM.ref,
+        oldType: oldM.type,
+        oldQty,
+        newType: newM.type,
+        newQty,
+      });
+    } else {
+      // Ref changed: rollback old ref and apply to new ref
+      stockIndexStore.index.rollbackDelta({
+        ref: oldM.ref,
+        type: oldM.type,
+        quantity: oldQty,
+      });
+      stockIndexStore.index.applyDelta({
+        ref: newM.ref,
+        type: newM.type,
+        quantity: newQty,
+      });
+    }
 
     stockIndexStore.notifyRef(oldM.ref);
     if (oldM.ref !== newM.ref) {
@@ -76,10 +93,11 @@ export class MovementRepository {
     channel?.postMessage({
       kind: 'UPDATE',
       ref: oldM.ref,
+      newRef: newM.ref,
       oldType: oldM.type,
-      oldQty: Number(oldM.quantite) || 0,
+      oldQty,
       newType: newM.type,
-      newQty: Number(newM.quantite) || 0,
+      newQty,
     });
   }
 
@@ -128,8 +146,25 @@ export class MovementRepository {
       stockIndexStore.notifyRef(msg.ref);
       stockIndexStore.notifyAll();
     } else if (msg.kind === 'UPDATE') {
-      stockIndexStore.index.updateDelta(msg);
+      const newRef = msg.newRef || msg.ref;
+      if (msg.ref === newRef) {
+        stockIndexStore.index.updateDelta(msg);
+      } else {
+        stockIndexStore.index.rollbackDelta({
+          ref: msg.ref,
+          type: msg.oldType,
+          quantity: msg.oldQty,
+        });
+        stockIndexStore.index.applyDelta({
+          ref: newRef,
+          type: msg.newType,
+          quantity: msg.newQty,
+        });
+      }
       stockIndexStore.notifyRef(msg.ref);
+      if (msg.ref !== newRef) {
+        stockIndexStore.notifyRef(newRef);
+      }
       stockIndexStore.notifyAll();
     } else if (msg.kind === 'REBUILD') {
       try {

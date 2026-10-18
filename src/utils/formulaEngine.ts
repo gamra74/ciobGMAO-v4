@@ -156,7 +156,7 @@ export function calculateStockStatus(stockInitial, entrees, sorties, seuil, isAc
     }
 
     return {
-      stockActuel: displayStock,
+      stockActuel: stockActuel,
       stockActuelRaw: stockActuel,
       alerte,
       isValid: true,
