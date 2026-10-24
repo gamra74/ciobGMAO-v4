@@ -630,6 +630,10 @@ export function useAppRouterProps({
       onUpdateMachineElement: updateMachineElement,
       onDeleteMachineElement: deleteMachineElement,
       onDuplicateBOMToTwins: duplicateBOMToTwins,
+      onQuickSortie: (preset) => {
+        filters.setQuickSortiePreset(preset);
+        navigateTo('sortie');
+      },
       onNavigate: navigateTo,
       showToast,
     },

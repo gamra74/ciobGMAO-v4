@@ -17,8 +17,10 @@ import {
   Cpu,
   ShieldAlert,
   X,
+  Sparkles,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { buildLedgerEntriesFromBlueprint } from '../../../core/domain/Blueprint';
 
 /**
  * NexusView — Registre Central des Éléments & BOM Machines
@@ -29,6 +31,7 @@ export default function NexusView({
   zones = [],
   families = [],
   _templates = [],
+  blueprints = [],
   stockItems = [],
   warehouseItems = [],
   partTypes = [],
@@ -38,6 +41,7 @@ export default function NexusView({
   onUpdateMachineElement,
   onDeleteMachineElement,
   onDuplicateBOMToTwins,
+  onQuickSortie,
   onNavigate = () => {},
   showToast,
 }) {
@@ -83,6 +87,31 @@ export default function NexusView({
     if (!activeMachine) return null;
     return families.find((f) => f.id_family === activeMachine.id_family);
   }, [activeMachine, families]);
+
+  // Blueprint associé à la machine active
+  const activeBlueprint = useMemo(() => {
+    if (!activeMachine) return null;
+    if (activeMachine.id_blueprint) {
+      return blueprints.find((b) => b.id === activeMachine.id_blueprint || b.id_blueprint === activeMachine.id_blueprint) || null;
+    }
+    return blueprints.find((b) => b.specs?.id_templates === activeMachine.id_templates || b.specs?.id_family === activeMachine.id_family) || null;
+  }, [activeMachine, blueprints]);
+
+  const handleInitializeFromBlueprint = () => {
+    if (!activeBlueprint) {
+      showToast?.('Aucun Blueprint associé ou trouvé pour cette machine.', 'info');
+      return;
+    }
+    const entries = buildLedgerEntriesFromBlueprint(activeMachine, activeBlueprint, machineElementsLedger);
+    if (entries.length === 0) {
+      showToast?.('Tous les éléments du Blueprint sont déjà montés sur cette machine.', 'info');
+      return;
+    }
+    entries.forEach((entry) => {
+      onAddMachineElement?.(entry);
+    });
+    showToast?.(`${entries.length} élément(s) initialisé(s) depuis le Blueprint avec succès.`, 'success');
+  };
 
   // Liste filtrée des machines pour le sélecteur
   const filteredMachinesList = useMemo(() => {
@@ -329,6 +358,18 @@ export default function NexusView({
 
         {/* Boutons d'action globaux */}
         <div className="flex items-center gap-2 flex-wrap">
+          {activeBlueprint && (
+            <button
+              type="button"
+              onClick={handleInitializeFromBlueprint}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition active:scale-95 cursor-pointer"
+              title={`Initialiser depuis le Blueprint (${activeBlueprint.id || 'Template'})`}
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>Initialiser depuis Blueprint</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={handleExportBOMExcel}
@@ -675,18 +716,35 @@ export default function NexusView({
                       {/* Actions */}
                       <td className="py-3 px-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          {/* Remplacer via Mouvement Rapide */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              onNavigate?.('stock');
-                              showToast?.(`Aller au Stock PDR pour préparer la sortie de ${item.ref_element}.`, 'info');
-                            }}
-                            title="Remplacer cette pièce via Mouvement Rapide"
-                            className="p-1.5 rounded-lg text-emerald-700 hover:bg-emerald-50 border border-transparent hover:border-emerald-200 transition cursor-pointer"
-                          >
-                            <Zap className="w-3.5 h-3.5" />
-                          </button>
+                          {/* Remplacer via Mouvement Rapide / Zap */}
+                          {item._source === 'ENTREPOT' ? (
+                            <span
+                              title="Les composants entrepôt se gèrent depuis l'Entrepôt / Composants"
+                              className="p-1.5 rounded-lg text-slate-300 cursor-not-allowed inline-flex items-center"
+                            >
+                              <Zap className="w-3.5 h-3.5" />
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onQuickSortie?.({
+                                  source: 'STOCK_PDR',
+                                  id_machine_registered: activeMachine.id_machine_registered,
+                                  ref: item.ref_element,
+                                  designation: item.designation,
+                                  quantite: item.qte_montee || 1,
+                                  type: 'SORTIE',
+                                  emplacement: item.emplacement_machine,
+                                });
+                                showToast?.(`Préparation de la sortie rapide pour ${item.ref_element} (${activeMachine.id_machine_registered}).`, 'info');
+                              }}
+                              title="Remplacer cette pièce via Mouvement Rapide (Zap)"
+                              className="p-1.5 rounded-lg text-emerald-700 hover:bg-emerald-50 border border-transparent hover:border-emerald-200 transition cursor-pointer"
+                            >
+                              <Zap className="w-3.5 h-3.5" />
+                            </button>
+                          )}
 
                           {/* Édition */}
                           <button
